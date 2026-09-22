@@ -1561,13 +1561,16 @@
       }
     }
 
-    // Cookies must ride along for every API call, and any write also carries the
-    // CSRF token handed out by /api/auth/session.
+    // Public anonymous APIs also work with the deployed pre-session Worker.
+    // Never retry a failed authenticated write anonymously: preserve identity
+    // and CSRF checks. Auth/progress always require credentialed requests.
     async function apiFetch(url, options = {}) {
       const headers = Object.assign({ Accept: "application/json" }, options.headers || {});
       if (options.body) headers["Content-Type"] = "application/json";
       if (authState.csrfToken && options.method && options.method !== "GET") headers["X-CSRF-Token"] = authState.csrfToken;
-      const response = await fetch(url, Object.assign({}, options, { headers, credentials: "include" }));
+      const sessionRequest = url.startsWith(`${AUTH_API_PATH}/`) || url === PROGRESS_API_PATH;
+      const credentials = sessionRequest || authState.user ? "include" : "omit";
+      const response = await fetch(url, Object.assign({}, options, { headers, credentials }));
       const payload = await response.json().catch(() => ({}));
       return { response, payload };
     }
@@ -1739,7 +1742,7 @@
       const title = document.createElement("strong");
       // Display names come from other visitors, so they stay plain text.
       const author = message.author && message.author.displayName;
-      title.textContent = message.pending ? "離線待同步" : author ? `${author}（已登入）` : "所有裝置共用留言";
+      title.textContent = message.pending ? "尚未同步至雲端" : author ? `${author}（已登入）` : "所有裝置共用留言";
       const time = document.createElement("small");
       time.textContent = ` · ${new Date(message.createdAt).toLocaleString("zh-TW")}`;
       const content = document.createElement("div");
@@ -1814,7 +1817,7 @@
         try {
           await withNoteStore("readwrite", store => store.put(message));
           prependNoteMessage(message);
-          renderNotePreview(request); $("notesResponse").textContent = "目前離線，留言已暫存在這台裝置；恢復連線後會自動上傳，讓所有裝置看到。"; $("notesResponse").classList.remove("hidden"); $("notesRequest").value = "";
+          renderNotePreview(request); $("notesResponse").textContent = "暫時無法同步，留言已保存在這台裝置，尚未公開；連線恢復後會自動重試。"; $("notesResponse").classList.remove("hidden"); $("notesRequest").value = "";
         } catch (localError) {
           $("notesResponse").textContent = `留言儲存失敗：${localError.message}`; $("notesResponse").classList.remove("hidden");
         }
