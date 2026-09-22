@@ -8,6 +8,8 @@
 
 來源為 eduai 的 `45c3230`，保留全部 main 歷史及已提交檔案。舊工作目錄未提交內容不在本次範圍。新的 clone 工作目錄是 eduai2，後續只推 origin（eduai2）；source remote 僅供追溯，不推送。
 
+遷移版本 `1168ddc`：Pages run https://github.com/1ch666/eduai2/actions/runs/35749157327 及 Docker run https://github.com/1ch666/eduai2/actions/runs/35749158939 均成功。新版 Docker 下載包已保存於本機 outputs/eduai2-docker-35749158939。前端檢查與 10 項模板／觸控測試通過；本輪未重測實機遊玩，不變更遊戲二進位。
+
 已同步網站 canonical、Open Graph、結構化資料、sitemap、robots、遊戲返回學堂連結、Unity 模板、Docker 來源標記及接手指引。Unity 二進位檔未改動；這次只更新網頁包裝與部署網址，不需重建場景。STATUS.md 舊紀錄中的舊倉庫 run URL 是歷史證據，不是目前部署入口。
 
 ## 後端與資料
