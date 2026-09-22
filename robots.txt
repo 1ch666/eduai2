@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-Sitemap: https://1ch666.github.io/eduai/sitemap.xml
+Sitemap: https://1ch666.github.io/eduai2/sitemap.xml

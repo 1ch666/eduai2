@@ -1,5 +1,9 @@
 # 進度檢查點 — 2026-09-22
 
+## 最新：遷移到 eduai2
+
+現行倉庫與網站改為 `1ch666/eduai2`、https://1ch666.github.io/eduai2/play/ 。詳見根目錄 MIGRATION.md；下方舊倉庫網址僅供歷史追溯。遊戲二進位與操作不變，HTML 返回連結及 Docker 来源已更新；需使用新倉庫的 Docker 產物。
+
 ## 最新：後端第一版（帳號、session、資料庫、法庭 AI 端點）
 
 網站後端新增帳號註冊／登入、HttpOnly session cookie、CSRF 驗證、學習進度雲端同步，以及 `/api/ai/ask` 的 `mode: "court"` 法庭角色提示詞。資料放在既有的 Cloudflare Durable Objects SQLite，新增 `ACCOUNT_STORE`（migration v2），沒有新增付費服務。完整說明、設定步驟與限制見倉庫根目錄 `BACKEND.md`。

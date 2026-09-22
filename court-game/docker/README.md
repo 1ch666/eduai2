@@ -9,7 +9,7 @@ docker load -i eduai-court-preview.tar.gz
 docker compose -f compose.image.yaml up -d --force-recreate
 ```
 
-開啟 http://localhost:8080/play/ 。這是本機入口，不是手機可連的公開網址；手機請使用 https://1ch666.github.io/eduai/play/ 。不要直接雙擊 HTML。
+開啟 http://localhost:8080/play/ 。這是本機入口，不是手機可連的公開網址；手機請使用 https://1ch666.github.io/eduai2/play/ 。不要直接雙擊 HTML。
 
 停止容器：`docker compose -f compose.image.yaml down`。更新時下載新包、重新 load，再執行上面的 up --force-recreate，避免舊容器繼續執行舊映像。8080 被占用時先停止舊容器；不要刪除不認識的容器。
 

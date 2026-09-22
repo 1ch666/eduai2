@@ -1,6 +1,6 @@
 FROM nginx:stable-alpine
 ARG SOURCE_REVISION=local
-LABEL org.opencontainers.image.source="https://github.com/1ch666/eduai" \
+LABEL org.opencontainers.image.source="https://github.com/1ch666/eduai2" \
       org.opencontainers.image.revision="${SOURCE_REVISION}" \
       org.opencontainers.image.title="EduAI Court WebGL"
 # Build context is the repository root. Default: deployed WebGL output in play/.

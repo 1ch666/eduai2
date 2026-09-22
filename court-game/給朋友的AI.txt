@@ -2,13 +2,13 @@
 
 先完整讀取 court-game/AGENTS.md、START-HERE.md、STATUS.md、HANDOFF.md，再檢查 git status 與實際檔案。不要相信文件中的成功宣稱而跳過驗證。
 
-專案只使用免費服務和免費資產，GitHub 倉庫是 https://github.com/1ch666/eduai.git。不要推到舊倉庫、開付費服務、索取我的密碼，或將 token、session cookie、API key、Unity 授權檔放進程式或 Git。
+專案只使用免費服務和免費資產，GitHub 倉庫是 https://github.com/1ch666/eduai2.git。不要推到舊倉庫、開付費服務、索取我的密碼，或將 token、session cookie、API key、Unity 授權檔放進程式或 Git。
 
 目標是 Unity 6000.3.24f1 的第一人稱 3D 法庭：電腦保持 WASD、滑鼠、跳躍、碰撞、準星、3m E 互動、開庭按鈕高亮、1–4；手機另有左下搖桿、滑動視角、直接點角色／物件與答案，不用準星。五個 NPC、證物 A 與可重玩流程共用。手機只在觸控模式啟用，不要更改電腦操作。保持檔案分工，沒有武器，不把它說成真實司法程序。接手前閱讀 HANDOFF 手機章節，發布時不能漏掉 touch-controls.js。
 
 先確認 Unity Editor、Web Build Support 及免費授權可用。尚無 Courtroom.unity 才執行 Create Courtroom Prototype；不要覆寫已有場景。執行 CourtSmokeTests、實際 Play、WebGL build，再以 HTTP 在瀏覽器測試載入、中文、指標鎖定、移動、碰撞、E、1234、答錯、完成、重玩。無法跑的測試要明說，不可只看程式就說成功。
 
-遊戲公開網址固定 https://1ch666.github.io/eduai/play/ 。若目前仍是空白入口，不要說已有可玩遊戲。成功建置與測試後才替換 play/。原網站及 AI API 不可擅自改動，其他人尚未提交的檔案不可還原或一起提交。
+遊戲公開網址固定 https://1ch666.github.io/eduai2/play/ 。若目前仍是空白入口，不要說已有可玩遊戲。成功建置與測試後才替換 play/。原網站及 AI API 不可擅自改動，其他人尚未提交的檔案不可還原或一起提交。
 
 部署成功後一定重新打包 Docker，確認 Docker 與線上遊戲的來源 commit 一致。驗證 / 與 /play/、healthz、全部壓縮檔位元組一致、Gzip 可解壓、解壓後 WASM magic、缺檔404、非root與唯讀檔案系統。現在用 .unityweb + Decompression Fallback，不要求壓縮檔有 application/wasm 或 Content-Encoding。不要把早期空白頁映像當新遊戲。使用公開倉庫的手動 Court Docker handoff workflow 時，只使用免費標準runner，不要改成付費runner。記錄映像名稱、commit、SHA256、下載方式、有效期限與重建方法。
 

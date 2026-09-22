@@ -3,7 +3,7 @@ import { readFile, access } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-const canonical = 'https://1ch666.github.io/eduai/';
+const canonical = 'https://1ch666.github.io/eduai2/';
 assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`));
 assert.ok(html.includes('name="description"'));
 assert.ok(html.includes('property="og:url"'));

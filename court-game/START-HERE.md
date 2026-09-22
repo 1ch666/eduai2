@@ -2,15 +2,15 @@
 
 這個資料夾是 Unity 3D 法庭遊戲，不是原本學堂網站的後端。你不必先懂全部程式；先確認能開啟，再一次改一項。
 
-**目前哪些真的通過測試，以 STATUS.md 為準。** 看到程式碼、網址或 Dockerfile，不代表遊戲已成功編譯。線上網址固定是 https://1ch666.github.io/eduai/play/ 。
+**目前哪些真的通過測試，以 STATUS.md 為準。** 看到程式碼、網址或 Dockerfile，不代表遊戲已成功編譯。線上網址固定是 https://1ch666.github.io/eduai2/play/ 。
 
 ## 1. 先拿到專案
 
 安裝 Git，開終端機，在你想放專案的位置執行：
 
 ```sh
-git clone https://github.com/1ch666/eduai.git
-cd eduai
+git clone https://github.com/1ch666/eduai2.git
+cd eduai2
 git status
 ```
 
@@ -89,7 +89,7 @@ docker build -f court-game/Dockerfile --build-arg WEB_ROOT=court-game/Builds/Web
 docker run --rm --read-only --tmpfs /tmp:size=32m,mode=1777 --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:8080:8080 eduai-court:local
 ```
 
-发布順序：Unity build 成功 → 本機 HTTP 實測 → 將成品更新到 `play/` → 只提交相關變更並推 `1ch666/eduai` → 確認線上遊戲 → 重新執行 Actions 的 `Court Docker handoff` → 下載新映像和 SHA256SUMS → 更新 STATUS.md 的來源 commit、測試結果與下載位置。**舊的空白頁 Docker 映像不會自動变成新遊戲。**
+发布順序：Unity build 成功 → 本機 HTTP 實測 → 將成品更新到 `play/` → 只提交相關變更並推 `1ch666/eduai2` → 確認線上遊戲 → 重新執行 Actions 的 `Court Docker handoff` → 下載新映像和 SHA256SUMS → 更新 STATUS.md 的來源 commit、測試結果與下載位置。**舊的空白頁 Docker 映像不會自動变成新遊戲。**
 
 GitHub Pages 只放靜態網站，不會運行 Docker、session 或 AI 後端。不要為了部署而開通付費主機。
 
