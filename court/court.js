@@ -9,7 +9,7 @@ const labels={judge:'法官',claimant:'原告',respondent:'被告',claimantCouns
 function status(text){$('status').textContent=text;}
 function node(tag,text){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;}
 function button(text,fn){const b=node('button',text);b.type='button';b.addEventListener('click',()=>run(fn));return b;}
-async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},body:body?JSON.stringify(body):undefined});const p=await r.json();if(!r.ok)throw Error(p.error||'服務暫時無法使用');return p;}
+async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},body:body?JSON.stringify(body):undefined});const p=await r.json();if(r.status===501)throw Error('此容器尚未設定後端，登入、雲端場次與 AI 無法使用；固定遊戲仍可遊玩。');if(!r.ok)throw Error(p.error||'服務暫時無法使用');return p;}
 async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
 async function session(){const p=await api('/api/auth/session');account=p.user;csrf=p.csrfToken||'';$('account-toggle').textContent=account?account.displayName:'登入';$('logout').hidden=!account;$('create').textContent=account?'建立雲端場次':'登入後建立場次';if(account)await sessions();}
 async function sessions(){const p=await api('/api/court/sessions');$('sessions').replaceChildren(...p.sessions.map(s=>button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);open(p.view);})));}
@@ -47,6 +47,10 @@ $('seat').onclick=()=>scene('seat');$('overview').onclick=()=>scene('overview');
 $('ask-guide').onclick=()=>run(async()=>{const id=view.id,version=view.version;$('guidance').textContent='正在取得引導…';const p=await api(`/api/court/sessions/${id}/dialogue`,{});if(view.id===id&&view.version===version)$('guidance').textContent=`${p.mode==='scripted'?'固定引導（AI 暫不可用）':'AI 參考引導'}：${p.text}`;});
 $('read-guide').onclick=()=>{if(!('speechSynthesis'in window)){status('此瀏覽器不支援朗讀。');return;}stopVoice(true);speechSynthesis.cancel();const u=new SpeechSynthesisUtterance($('guidance').textContent);u.lang='zh-TW';speechSynthesis.speak(u);};
 function stopVoice(cancel=false){cancelVoice=cancel;if(recognition){cancel?recognition.abort():recognition.stop();} }
+// Cancel before navigation or a submitted action, including multi-touch input.
+$('speech-form').addEventListener('submit',()=>stopVoice(true),{capture:true});
+$('logout').addEventListener('click',()=>{stopVoice(true);window.speechSynthesis?.cancel();},{capture:true});
+window.addEventListener('pagehide',()=>{stopVoice(true);pause();window.speechSynthesis?.cancel();});
 const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(!Speech){$('microphone').disabled=true;$('voice-status').textContent='此瀏覽器不支援語音辨識，請直接輸入文字。';}
 else{
