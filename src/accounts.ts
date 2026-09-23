@@ -51,7 +51,7 @@ export type AuthError =
   | "RATE_LIMIT";
 
 export type AuthResult =
-  | { ok: true; user: PublicUser; token: string; csrfToken: string; expiresAt: string }
+  | { ok: true; user: PublicUser; token: string; csrfToken: string; expiresAt: string; recoveryCode?: string }
   | { ok: false; error: AuthError };
 
 type UserRow = {
@@ -128,6 +128,9 @@ export class AccountStore extends DurableObject<AppEnv> {
           window_start INTEGER NOT NULL,
           attempt_count INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS recovery_codes (
+          user_id TEXT PRIMARY KEY, code_hash TEXT NOT NULL
+        );
       `);
     });
   }
@@ -182,10 +185,16 @@ export class AccountStore extends DurableObject<AppEnv> {
     const now = Date.now();
     const token = randomToken();
     const csrfToken = randomToken(24);
-    const expiresAt = now + this.sessionTtlMs;
+      const expiresAt = now + this.sessionTtlMs;
+      const tokenHash = await sha256Hex(token);
+      // Recovery may run while crypto yields. Do not revive old credentials.
+      const current = this.ctx.storage.sql.exec<UserRow>("SELECT * FROM users WHERE id = ?", user.id).toArray()[0];
+      if (!current || current.password_hash !== user.password_hash || current.password_salt !== user.password_salt) {
+        return { ok: false, error: "BAD_CREDENTIALS" };
+      }
     this.ctx.storage.sql.exec(
       "INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?)",
-      await sha256Hex(token),
+        tokenHash,
       user.id,
       csrfToken,
       now,
@@ -229,6 +238,10 @@ export class AccountStore extends DurableObject<AppEnv> {
     const salt = randomToken(16);
     const iterations = this.iterations;
     const hash = await derivePasswordHash(password, salt, iterations);
+    // Password derivation yields: another registration may take the name.
+    if (this.ctx.storage.sql.exec("SELECT id FROM users WHERE username = ?", username).toArray().length) {
+      return { ok: false, error: "USERNAME_TAKEN" };
+    }
     const row: UserRow = {
       id: crypto.randomUUID(),
       username,
@@ -248,7 +261,34 @@ export class AccountStore extends DurableObject<AppEnv> {
       row.password_iterations,
       row.created_at
     );
-    return await this.issueSession(row);
+    const recoveryCode = randomToken();
+    this.ctx.storage.sql.exec("INSERT INTO recovery_codes VALUES (?, ?)", row.id, await sha256Hex(recoveryCode));
+    const result = await this.issueSession(row);
+    return result.ok ? { ...result, recoveryCode } : result;
+  }
+
+  /** One-use recovery; only the digest is persisted. A reset revokes every session. */
+  async recover(input: { username: string; password: string; recoveryCode: string; networkKey: string }): Promise<AuthResult> {
+    const username = String(input.username).trim().toLowerCase();
+    if (!this.allowAttempt(`recover-network:${input.networkKey}`, 5) ||
+        !this.allowAttempt(`recover-user:${username}`, 5)) return { ok: false, error: "RATE_LIMIT" };
+    if (!USERNAME_PATTERN.test(username) || !/^[0-9a-f]{64}$/.test(input.recoveryCode)) return { ok: false, error: "BAD_CREDENTIALS" };
+    if (input.password.length < 8 || input.password.length > 128 || input.password.toLowerCase().includes(username)) return { ok: false, error: "INVALID_PASSWORD" };
+    const digest = await sha256Hex(input.recoveryCode);
+    const salt = randomToken(16), iterations = this.iterations;
+    const passwordHash = await derivePasswordHash(input.password, salt, iterations);
+    const recoveryCode = randomToken(), nextDigest = await sha256Hex(recoveryCode);
+    // Re-read after async crypto. Consumption and password reset are atomic.
+    const row = this.ctx.storage.sql.exec<UserRow>("SELECT * FROM users WHERE username = ?", username).toArray()[0];
+    const recovery = row && this.ctx.storage.sql.exec<{ code_hash: string }>("SELECT code_hash FROM recovery_codes WHERE user_id = ?", row.id).toArray()[0];
+    if (!row || !recovery || !timingSafeEqual(digest, recovery.code_hash)) return { ok: false, error: "BAD_CREDENTIALS" };
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec("UPDATE users SET password_hash = ?, password_salt = ?, password_iterations = ? WHERE id = ?", passwordHash, salt, iterations, row.id);
+      this.ctx.storage.sql.exec("UPDATE recovery_codes SET code_hash = ? WHERE user_id = ?", nextDigest, row.id);
+        this.ctx.storage.sql.exec("DELETE FROM sessions WHERE user_id = ?", row.id);
+      });
+    const result = await this.issueSession({ ...row, password_hash: passwordHash, password_salt: salt, password_iterations: iterations });
+    return result.ok ? { ...result, recoveryCode } : result;
   }
 
   async login(input: { username: string; password: string; networkKey: string }): Promise<AuthResult> {

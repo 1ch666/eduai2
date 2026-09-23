@@ -19,6 +19,7 @@ function sessionCookie(response) {
 
 async function call(path, { method = 'GET', body, cookie, csrf, headers = {} } = {}) {
   const response = await fetch(`${base}${path}`, {
+    signal: AbortSignal.timeout(15000),
     method,
     headers: {
       Accept: 'application/json',

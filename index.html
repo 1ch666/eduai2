@@ -838,6 +838,7 @@
           <div class="legal-note hidden" id="authMessage" aria-live="polite"></div>
           <div class="note-actions"><button class="primary-btn" type="submit" id="authSubmit">登入</button></div>
         </form>
+        <p id="authRecovery" class="legal-note hidden" style="overflow-wrap:anywhere;user-select:text"></p>
         <p class="ai-disclaimer">請不要使用其他網站的密碼。雲端存的是你自己回報的練習紀錄，不是正式成績。</p>
       </div>
     </div>
@@ -1631,11 +1632,11 @@
         authState.csrfToken = payload.csrfToken || "";
         $("authPassword").value = "";
         renderAccount();
-        closeModals();
+        $("authRecovery").textContent = payload.recoveryCode ? `請另外保存帳號復原碼（僅顯示一次，勿分享）：${payload.recoveryCode}` : "";
+        $("authRecovery").classList.toggle("hidden", !payload.recoveryCode);
+        if (!payload.recoveryCode) closeModals();
         showToast(authState.mode === "register" ? "帳號建立完成，進度會自動同步" : "已登入，進度會自動同步");
         await loadProgress();
-        await saveProgress("civics");
-        await saveProgress("daily");
         syncSharedMessages();
       } catch {
         setAuthMessage("目前無法連線到伺服器，請稍後再試。");
@@ -1647,10 +1648,14 @@
 
     async function logout() {
       try {
-        await apiFetch(`${AUTH_API_PATH}/logout`, { method: "POST", body: JSON.stringify({}) });
+        const { response } = await apiFetch(`${AUTH_API_PATH}/logout`, { method: "POST", body: JSON.stringify({}) });
+        if (!response.ok) throw new Error("logout failed");
       } catch {
-        // Ignore: the local session is dropped either way.
+        showToast("尚未完成登出，請恢復連線後再試。");
+        return;
       }
+      $("authRecovery").textContent = "";
+      $("authRecovery").classList.add("hidden");
       authState.user = null;
       authState.csrfToken = "";
       renderAccount();

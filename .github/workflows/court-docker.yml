@@ -30,6 +30,10 @@ jobs:
           cmp play/index.html /tmp/court.html
           curl --fail http://127.0.0.1:8080/play/ -o /tmp/court-play.html
           cmp play/index.html /tmp/court-play.html
+          for file in index.html court.css court.js; do
+            curl --fail "http://127.0.0.1:8080/court/$file" -o /tmp/court-preview
+            cmp "court/$file" /tmp/court-preview
+          done
           node court-game/tools/check-build.mjs play
           # .unityweb is decompressed by Unity's fallback; it must not depend on
           # Content-Encoding or application/wasm on the compressed response.
@@ -48,11 +52,12 @@ jobs:
           mkdir -p handoff
           cp court-game/docker/README.md handoff/README.md
           cp court-game/docker/compose.image.yaml handoff/compose.image.yaml
+          cp PLATFORM-STATUS.md handoff/PLATFORM-STATUS.md
           printf '%s\n' "$GITHUB_SHA" > handoff/SOURCE_COMMIT.txt
           (cd play && find . -type f -print0 | sort -z | xargs -0 sha256sum) > handoff/WEBGL-SHA256SUMS
           docker save eduai-court:preview | gzip > handoff/eduai-court-preview.tar.gz
           cd handoff
-          sha256sum eduai-court-preview.tar.gz README.md compose.image.yaml SOURCE_COMMIT.txt WEBGL-SHA256SUMS > SHA256SUMS
+          sha256sum eduai-court-preview.tar.gz README.md compose.image.yaml SOURCE_COMMIT.txt WEBGL-SHA256SUMS PLATFORM-STATUS.md > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: eduai-court-docker

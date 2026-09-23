@@ -25,7 +25,7 @@ function authFailure(result: Extract<AuthResult, { ok: false }>, respond: Respon
 
 function authSuccess(request: Request, result: Extract<AuthResult, { ok: true }>, respond: Responder, status: number): Response {
   return respond(
-    { user: result.user, csrfToken: result.csrfToken, expiresAt: result.expiresAt },
+    { user: result.user, csrfToken: result.csrfToken, expiresAt: result.expiresAt, recoveryCode: result.recoveryCode },
     status,
     [sessionCookie(request, result.token, result.expiresAt)]
   );
@@ -61,7 +61,7 @@ export async function handleAuth(
     return respond({ user: null }, 200, [clearedSessionCookie(request)]);
   }
 
-  if (action !== "register" && action !== "login") return respond({ error: "找不到 API" }, 404);
+  if (!["register", "login", "recover"].includes(action)) return respond({ error: "找不到 API" }, 404);
 
   const body = await readJsonObject(request, MAX_AUTH_BODY_BYTES, respond, "登入資料過長");
   if (body.error) return body.error;
@@ -71,6 +71,12 @@ export async function handleAuth(
   }
   const networkKey = await networkKeyFor(request, "civic-law-auth");
   const store = accountStore(env);
+
+  if (action === "recover") {
+    if (typeof candidate.recoveryCode !== "string") return respond({ error: "請提供復原碼" }, 400);
+    const result = await store.recover({ username: candidate.username, password: candidate.password, recoveryCode: candidate.recoveryCode, networkKey });
+    return result.ok ? authSuccess(request, result, respond, 200) : authFailure(result, respond);
+  }
 
   if (action === "register") {
     const displayName = typeof candidate.displayName === "string" ? candidate.displayName : "";
