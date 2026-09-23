@@ -15,6 +15,7 @@ namespace EduAI.Court
         { viewCamera = camera; ui = hud; choices = choiceSystem; }
         public void TouchInteract(string payload)
         {
+            if (CourtPresentation.IsHosted) return; // Hosted actions use the accessible parent evidence panel.
             if (!FirstPersonController.TouchEnabled || !FirstPersonController.InputActive ||
                 !viewCamera || (choices && choices.IsOpen) ||
                 !FirstPersonController.TryTouchVector(payload, out var position) ||
@@ -29,6 +30,7 @@ namespace EduAI.Court
         }
         private void Update()
         {
+            if (CourtPresentation.IsHosted) { ClearTarget(); return; }
             if (FirstPersonController.TouchEnabled) { ClearTarget(); return; }
             // 最近命中的 collider 若不是 IInteractable，互動就停止：避免隔牆使用物件。
             // 選項開啟或滑鼠解鎖時暫停射線互動，但不隱藏中央準星。

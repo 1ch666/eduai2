@@ -18,14 +18,29 @@ namespace EduAI.Court
         private bool wasDragging;
         private Vector3 previousDragPosition;
         private bool entered;
+        private bool seated;
         private Vector2 touchMove, touchLook;
         public bool TouchMode { get; private set; }
         public static bool TouchEnabled => Active && Active.TouchMode;
         public static FirstPersonController Active { get; private set; }
-        public static bool InputActive => Active && Active.entered && Active.IsCaptured;
+        public static bool InputActive => Active && Active.entered && !Active.seated && Active.IsCaptured;
         public bool IsCaptured => TouchMode ? entered : dragLook ? dragLookActive : Cursor.lockState == CursorLockMode.Locked;
 
         public void Configure(Camera camera) { viewCamera = camera; }
+        // Presentation only. The parent page owns authenticated server actions.
+        public void SetSeat(Vector3 position, Vector3 lookAt, bool fixedView)
+        {
+            seated = fixedView;
+            ResetTouchInput(); verticalSpeed = 0;
+            controller.enabled = false;
+            transform.position = position;
+            var direction = lookAt - (position + Vector3.up * 1.65f);
+            transform.rotation = Quaternion.Euler(0, Quaternion.LookRotation(direction).eulerAngles.y, 0);
+            pitch = Mathf.Clamp(-Mathf.Atan2(direction.y, new Vector2(direction.x, direction.z).magnitude) * Mathf.Rad2Deg, -85, 85);
+            viewCamera.transform.localRotation = Quaternion.Euler(pitch, 0, 0);
+            controller.enabled = true;
+            Capture(false);
+        }
         private void Awake()
         {
             Active = this;
@@ -98,7 +113,7 @@ namespace EduAI.Court
         private void OnDisable() { Capture(false); if (Active == this) Active = null; }
         private void Update()
         {
-            if (!entered) return;
+            if (!entered || seated) return;
             if (Input.GetKeyDown(KeyCode.Escape)) { Capture(false); return; }
             // Browsers require a fresh user gesture to recapture the pointer.
             if (!IsCaptured)

@@ -13,9 +13,9 @@
     "deploy": "npm run build:assets && wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "latest",
+    "@cloudflare/workers-types": "5.20260923.1",
     "fflate": "latest",
     "typescript": "latest",
-    "wrangler": "latest"
+    "wrangler": "4.136.3"
   }
 }

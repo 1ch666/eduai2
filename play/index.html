@@ -76,6 +76,18 @@
     let ready = false;
     let entered = false;
     let unityInstance;
+    const hostedCourt = new URLSearchParams(location.search).get('court') === '1' && window.parent !== window;
+    if (hostedCourt) {
+      document.querySelector('#cover h1').textContent = '角色法庭';
+      document.querySelector('#cover p').textContent = '案件、證據與發言由外側面板操作。';
+      window.addEventListener('message', event => {
+        if (event.origin !== location.origin || event.source !== window.parent || !entered || event.data?.type !== 'court-view') return;
+        const { mode, role, procedure } = event.data;
+        if (!['seat','overview','walk'].includes(mode) || !['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer','juvenile','assistant'].includes(role) || !['civil','criminal','juvenile'].includes(procedure)) return;
+        unityInstance.SendMessage('CourtPresentation','SetView',JSON.stringify({ mode, role, procedure }));
+        document.getElementById('touch-ui').hidden = mode !== 'walk' || !touch.enabled;
+      });
+    }
     const touch = window.CourtTouch({ canvas, getInstance: () => unityInstance, isEntered: () => entered });
     if (touch.enabled) {
       document.body.classList.add('touch-mode');
@@ -116,7 +128,8 @@
       if (touch.enabled) touch.start();
       unityInstance.SendMessage('Player', 'BeginGame');
       // 使用本次點擊手勢；不支援時仍走原本的拖曳視角 fallback。
-      if (!touch.enabled) canvas.requestPointerLock();
+      if (!touch.enabled && !hostedCourt) canvas.requestPointerLock();
+      if (hostedCourt) window.parent.postMessage({type:'court-ready'},location.origin);
     });
     // 進頁即初始化一次；開始按鈕只進入已就緒的遊戲，不重新下載／建立 instance。
     function preloadGame() {

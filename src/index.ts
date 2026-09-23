@@ -5,23 +5,26 @@ import { handleAuth, handleProgress } from "./auth";
 import { handleAiRequest } from "./ai";
 import { handleMessages } from "./messages";
 import type { AppEnv } from "./env";
+import { handleCourt } from './court';
+export { CourtRoom, Learner } from './court';
 
 export { MessageRoom } from "./messages";
 export { AccountStore } from "./accounts";
 
 const SECURITY_HEADERS: Record<string, string> = {
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
   "Cross-Origin-Opener-Policy": "same-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  "Permissions-Policy": "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()",
   "Referrer-Policy": "no-referrer",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY"
+  "X-Frame-Options": "SAMEORIGIN"
 };
 
 function isApiPath(pathname: string): boolean {
   return (
+    pathname === '/api/capabilities' || pathname.startsWith('/api/court/') ||
     pathname === "/api/messages" ||
     pathname === "/api/progress" ||
     pathname.startsWith("/api/auth/") ||
@@ -41,6 +44,12 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
     if (!trustedOrigin) return respond({ error: "拒絕未授權網站" }, 403);
     return new Response(null, { status: 204, headers: responseHeaders(trustedOrigin) });
   }
+
+  if (url.pathname === '/api/capabilities') {
+    if (request.method !== 'GET') return respond({error:'此端點只接受 GET'},405);
+    return respond({version:'platform-1-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&Boolean(env.OLLAMA_API_KEY),textAi:Boolean(env.OLLAMA_API_KEY),photo:false,push:false,planner:false,rankings:false});
+  }
+  if (url.pathname.startsWith('/api/court/')) return handleCourt(request,env,respond,trustedOrigin);
 
   if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, respond, trustedOrigin);
   if (url.pathname === "/api/progress") return await handleProgress(request, env, respond, trustedOrigin);

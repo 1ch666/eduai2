@@ -48,18 +48,16 @@ export async function readTextWithLimit(
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
-  let tooLarge = false;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     totalBytes += value.byteLength;
     if (totalBytes > maxBytes) {
-      tooLarge = true;
-      continue;
+      await reader.cancel();
+      return { tooLarge: true };
     }
     chunks.push(value);
   }
-  if (tooLarge) return { tooLarge: true };
   const bytes = new Uint8Array(totalBytes);
   let offset = 0;
   for (const chunk of chunks) {

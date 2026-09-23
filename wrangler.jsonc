@@ -22,6 +22,14 @@
       {
         "name": "ACCOUNT_STORE",
         "class_name": "AccountStore"
+      },
+      {
+        "name": "COURT_ROOM",
+        "class_name": "CourtRoom"
+      },
+      {
+        "name": "LEARNER",
+        "class_name": "Learner"
       }
     ]
   },
@@ -33,6 +41,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["AccountStore"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["CourtRoom", "Learner"]
     }
   ],
   "observability": {

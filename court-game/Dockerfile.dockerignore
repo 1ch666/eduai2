@@ -1,6 +1,8 @@
 **
 !play/
 !play/**
+!court/
+!court/**
 !court-game/
 !court-game/docker/
 !court-game/docker/nginx.conf

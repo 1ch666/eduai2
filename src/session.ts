@@ -29,7 +29,7 @@ export function readSessionToken(request: Request): string | null {
     const separator = part.indexOf("=");
     if (separator < 0) continue;
     const name = part.slice(0, separator).trim();
-    if (name !== SECURE_COOKIE_NAME && name !== PLAIN_COOKIE_NAME) continue;
+    if (name !== cookieName(request)) continue;
     const value = part.slice(separator + 1).trim();
     if (/^[0-9a-f]{64}$/.test(value)) return value;
   }
@@ -37,22 +37,20 @@ export function readSessionToken(request: Request): string | null {
 }
 
 /**
- * The site is also served from GitHub Pages, so the cookie has to survive a
- * cross-site request: SameSite=None plus Partitioned (CHIPS) keeps it scoped to
- * the visited page. Browsers that block partitioned cookies need the worker.dev
- * URL; BACKEND.md records that limit.
+ * The full platform is same-origin on the Worker. Pages is a public entry.
+ * Lax avoids reliance on third-party cookies; Origin + CSRF still guard writes.
  */
 export function sessionCookie(request: Request, token: string, expiresAt: string): string {
   const maxAge = Math.max(0, Math.floor((Date.parse(expiresAt) - Date.now()) / 1000));
   const attributes = [`${cookieName(request)}=${token}`, "Path=/", "HttpOnly", `Max-Age=${maxAge}`];
-  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=None", "Partitioned");
+  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=Lax");
   else attributes.push("SameSite=Lax");
   return attributes.join("; ");
 }
 
 export function clearedSessionCookie(request: Request): string {
   const attributes = [`${cookieName(request)}=`, "Path=/", "HttpOnly", "Max-Age=0"];
-  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=None", "Partitioned");
+  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=Lax");
   else attributes.push("SameSite=Lax");
   return attributes.join("; ");
 }

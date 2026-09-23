@@ -55,6 +55,15 @@ namespace EduAI.Court.Editor
             Require(mobileChoices.IsOpen, "Near NPC tap opens choices without crosshair");
             mobileChoices.ChooseFromTouch(3);
             Require(!mobileChoices.IsOpen, "Touch answer closes choices");
+            var hosted = UnityEngine.Object.FindFirstObjectByType<CourtPresentation>();
+            Require(hosted && !CourtPresentation.IsHosted, "Classic mode remains default");
+            hosted.SetView("{\"mode\":\"seat\",\"role\":\"observer\",\"procedure\":\"juvenile\"}");
+            Require(!CourtPresentation.IsHosted, "Juvenile spectator camera refused");
+            hosted.SetView("{\"mode\":\"seat\",\"role\":\"judge\",\"procedure\":\"civil\"}");
+            Require(CourtPresentation.IsHosted && !FirstPersonController.InputActive, "Judge seat pauses movement");
+            Require(Mathf.Abs(player.transform.position.z - 8.8f) < .01f, "Judge seat position");
+            hosted.SetView("{\"mode\":\"walk\",\"role\":\"judge\",\"procedure\":\"civil\"}");
+            Require(FirstPersonController.InputActive, "Hosted walking restores movement");
             player.enabled = false;
             player.GetComponent<PlayerInteractor>().enabled = false;
             Teleport(controller, new Vector3(0, 2, 0));

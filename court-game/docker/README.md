@@ -1,5 +1,7 @@
 # Docker 遊戲下載包
 
+若 SOURCE_COMMIT 來自 feature/learning-platform，此包是新法庭開發預覽，不是正式網站版本。額外提供 `/court/` 靜態介面，但容器未帶 Cloudflare Durable Objects；登入、場次及 AI 端點仍回 501。請閱讀同包 PLATFORM-STATUS.md，不要把預覽當作完整平台。
+
 此包是 Linux amd64 的 Unity WebGL 靜態遊戲，包含手機搖桿。不是 Unity 編輯器，也沒有登入、session 或 AI 後端；`/api/` 回 501 是預留狀態。需要已安裝可執行 Linux 容器的 Docker。請依自身情況確認 Docker 免費使用資格，不需開通雲端付費主機。
 
 解壓 GitHub artifact，進入含有本檔的資料夾後：
