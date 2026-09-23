@@ -75,4 +75,6 @@ Docker 維持靜態遊戲，另包含 `/court/` 預覽檔；`/api/` 明確回501
 
 2026-09-23 預覽 Docker run **35847457427** 成功，來源 **590c5bb**。第一次 run 35847315749 因 build-context 白名單漏 court/ 失敗，已修正。成功驗證 build/run、遊戲与 court/ 逐檔比對、API501、非 root／唯讀與 revision label；不是正式網站部署。之後只修改根目錄主網站與測試／文件，不改此映像遊戲或 court/ 位元組。
 
+映像已下載並核對 SHA256：`9a246aefc2414d6d0a05a9da80226cca6f579d3abcaf84d1786ff229cd644330`（eduai-court-preview.tar.gz）。本機保存於工作區 `outputs/eduai2-platform-docker-35847457427/`。GitHub artifact 1天後過期；本機副本可繼續交接。完整來源 commit 為 `590c5bb84e99013ad130fd608a4e3b2605888143`。
+
 新人物由 Unity 基本幾何原創組合，無下載角色模型。字型沿用 Noto SIL OFL 1.1（來源和授權見 court-game/tools/fonts）。奶蛙仍非前置依賴。
