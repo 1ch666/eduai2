@@ -10,6 +10,8 @@
 - 一次性復原碼只儲存摘要；復原後輪替並撤銷所有舊 session。登入與復原並發時，發 session 前再次核對密碼版本。
 - `/api/court/cases`、`/sessions`、`/sessions/:id`、`/actions`、`/dialogue`。場次擁有者、CSRF、階段、版本、重送識別及操作上限均由伺服器檢查。
 - 六個原創範本；法官、當事人、代理／辯護／輔佐人與旁觀角色依程序限制。法官另有准駁練習。少年旁觀禁止是產品限制，不能描述成法律絕無例外。
+- 成人刑事範本新增「告訴代理人」視角（原告方律師），對應刑事訴訟法第236條之1、第271條之1；已加入法律來源清單並標示非律師代理人於審判中不得檢閱卷證。指定辯護仍限刑事被告方，少年保護範本仍不設原告方律師、不開放旁觀。
+- 年齡上下限改由 `AGE_LIMITS` 單一來源提供：`validateConfig` 依它拒絕，`/api/court/cases` 也回傳同一組限制，`/court/` 設定畫面在送出前就顯示適用程序、年齡與法律協助限制、對應法條連結，並在年齡不符範本時提供切換到對應範本的按鈕。伺服器仍是唯一權威，前端只呈現同一組限制。
 - `/court/` 設定、存檔恢復、證物、陳述、程序／證據／自我論證回饋；語音按住辨識、確認文字送出、取消、文字 fallback、選擇性朗讀。
 - 主網站帳號面板提供練習紀錄 JSON 匯出／預覽／確認匯入，限制100KB與每類500題；只合併明確允許的欄位，永遠是自行回報、不計排名。登入不自動搬移遊客進度，換帳號不混合雲端紀錄，雲端尚未讀取成功時不覆寫。
 - 預寫對話可離開 AI 完成。AI 引導有逾時／格式檢查、每使用者限流及每版本快取；`COURT_AI_ENABLED=true` 且有 key 才可能呼叫。未查證免費額度前不得開啟。**目前 AI 仍是程序引導，不是完整多角色發言引擎。**
@@ -19,7 +21,8 @@
 ## 實際測試證據
 
 - TypeScript 檢查、原 API 整合檢查通過。
-- `node --test scripts/test-court.mjs scripts/test-api-fetch.mjs` 通過；六案的全部支援角色、年齡、法律協助、非法階段與法官准駁。
+- `node --test scripts/test-court.mjs scripts/test-api-fetch.mjs` 通過；六案的全部支援角色（含刑事告訴代理人）、年齡、法律協助、非法階段與法官准駁，另檢查 `AGE_LIMITS` 與 `validateConfig` 的界限一致。
+- 2026-09-23 追加：`npx wrangler types`、`npx tsc --noEmit`、`node --test scripts/test-court.mjs scripts/test-api-fetch.mjs scripts/test-progress-import.mjs scripts/test-progress-isolation.mjs`、`node scripts/check-frontend.mjs`，以及對本機 `wrangler dev`（127.0.0.1:8790，persist-to .wrangler/court-test）的 `node scripts/check-api.mjs`、`node scripts/check-court-api.mjs` 全部通過。`/court/` 設定畫面另以本機 jsdom 腳本檢查角色選單、年齡警告、範本切換與法律協助提示；該腳本不在倉庫內，未新增相依套件。未做實機瀏覽器與手機回歸。
 - `node scripts/check-court-api.mjs http://127.0.0.1:8790` 通過；僅允許 localhost，驗證跨帳號越權、CSRF、重送、跳階段、恢復、預寫降級、復原碼輪替與舊 session 撤銷。
 - 模板與觸控 11 項測試通過；新增同源父頁白名單橋接測試。
 - Unity 6000.3.24f1：Scene／Smoke／Play／WebGL 建置 exit 0。Play 加入少年旁觀拒絕、法官座位停止移動及回到走動模式。

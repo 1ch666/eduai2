@@ -7,6 +7,8 @@ export const LEGAL_SOURCES = [
   { id: 'consent', title: '民法第77條：法定代理人同意及例外', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=77', checked: '2026-09-23', applies: 'civil', effective: '現行條文；尚待逐條沿革確認' },
   { id: 'litigation-capacity', title: '民事訴訟法第45條：訴訟能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0010001&flno=45', checked: '2026-09-23', applies: 'civil', effective: '現行條文；尚待逐條沿革確認' },
   { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-23', applies: 'criminal', effective: '以來源現行條文為準；僅模擬本範本條件' },
+  { id: 'claimant-agent', title: '刑事訴訟法第236條之1：告訴得委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-23', applies: 'criminal', effective: '現行條文；尚待逐條沿革確認' },
+  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1', checked: '2026-09-23', applies: 'criminal', effective: '現行條文；非律師代理人於審判中不得檢閱卷證' },
   { id: 'juvenile', title: '少年事件處理法第2條：少年定義', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2', checked: '2026-09-23', applies: 'juvenile', effective: '現行條文；不處理跨法規版本案件' },
   { id: 'assistant', title: '少年事件處理法第31條：輔佐人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-23', applies: 'juvenile', effective: '現行條文；指定必要性由範本設定' },
   { id: 'privacy', title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-23', applies: 'juvenile', effective: '現行條文；遊戲額外全面禁旁觀' }
@@ -26,17 +28,26 @@ export const CASES: CaseTemplate[] = [
 ];
 export const ROLE_LABELS: Record<Role,string> = { judge:'法官',claimant:'原告／告訴人',respondent:'被告',claimantCounsel:'原告代理人',respondentCounsel:'被告律師',observer:'旁觀者',juvenile:'少年',assistant:'少年輔佐人' };
 export function rolesFor(p: Procedure): Role[] {
-  return p === 'civil' ? ['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer'] : p === 'criminal' ? ['judge','claimant','respondent','respondentCounsel','observer'] : ['judge','juvenile','assistant'];
+  return p === 'civil' ? ['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer'] : p === 'criminal' ? ['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer'] : ['judge','juvenile','assistant'];
 }
+// One source of truth for the modelled ages: validateConfig rejects, and the
+// setup page shows the same limits before the player submits a configuration.
+export const TEMPLATE_AGE_MIN = 7, TEMPLATE_AGE_MAX = 90;
+export const AGE_LIMITS: Record<Procedure,{actMin:number;actMax:number;message:string;note:string}> = {
+  civil: { actMin: TEMPLATE_AGE_MIN, actMax: TEMPLATE_AGE_MAX, message: '', note: '民事範本開放 7 至 90 歲。未成年當事人沒有訴訟能力，由法定代理人代為或協助進行，不是讓未成年人自己訴訟。' },
+  criminal: { actMin: 18, actMax: TEMPLATE_AGE_MAX, message: '成人刑事範本僅支援行為時雙方皆成年；未成年案件請選少年範本', note: '成人刑事範本要求雙方行為時皆滿 18 歲；未滿 18 歲請改選少年保護範本，本版未建模跨齡移送。' },
+  juvenile: { actMin: 12, actMax: 17, message: '此少年保護範本僅支援行為及審理時12至未滿18歲；跨齡移送情況尚未開放', note: '少年保護範本開放行為時及審理時 12 歲以上未滿 18 歲。本遊戲一律不開放旁觀，這是產品限制，不表示真實程序絕無例外。' }
+};
 export function validateConfig(c: CourtConfig): string | null {
   const t = CASES.find(t => t.id === c.caseId);
   if (!t) return '案件不存在';
   if (!rolesFor(t.procedure).includes(c.role)) return '此程序不開放該角色；少年案件禁止旁觀（遊戲限制）';
+  const limits = AGE_LIMITS[t.procedure];
   for (const [act, hearing] of [[c.claimantAge,c.claimantHearingAge],[c.respondentAge,c.respondentHearingAge]]) {
-    if (!Number.isInteger(act) || !Number.isInteger(hearing) || act < 7 || hearing > 90 || hearing < act) return '範本年齡限7–90歲，審理年齡不可小於行為年齡';
+    if (!Number.isInteger(act) || !Number.isInteger(hearing) || act < TEMPLATE_AGE_MIN || hearing > TEMPLATE_AGE_MAX || hearing < act) return '範本年齡限7–90歲，審理年齡不可小於行為年齡';
   }
-  if (t.procedure === 'criminal' && (c.respondentAge < 18 || c.claimantAge < 18)) return '成人刑事範本僅支援行為時雙方皆成年；未成年案件請選少年範本';
-  if (t.procedure === 'juvenile' && (c.respondentAge < 12 || c.respondentAge >= 18 || c.respondentHearingAge >= 18)) return '此少年保護範本僅支援行為及審理時12至未滿18歲；跨齡移送情況尚未開放';
+  if (t.procedure === 'criminal' && (c.respondentAge < limits.actMin || c.claimantAge < limits.actMin)) return limits.message;
+  if (t.procedure === 'juvenile' && (c.respondentAge < limits.actMin || c.respondentAge > limits.actMax || c.respondentHearingAge > limits.actMax)) return limits.message;
   const aids: Aid[] = ['none','private','legalAid','appointed'];
   if (!aids.includes(c.claimantAid) || !aids.includes(c.respondentAid)) return '法律協助設定錯誤';
   if (c.claimantAid === 'appointed' || (t.procedure === 'civil' && c.respondentAid === 'appointed')) return '本範本不提供民事／告訴人的指定辯護';
@@ -53,7 +64,9 @@ export const STAGES = ['確認程序權利','陳述與爭點','調查證據','�
 // chooses a procedure, advances a stage, or writes into the immutable template.
 export function scriptedTurn(s:CourtState) {
   const t = CASES.find(t=>t.id===s.config.caseId)!;
-  const opponent = t.procedure==='juvenile'?'少年調查官':t.procedure==='criminal'?'檢察官':s.config.role==='claimant'||s.config.role==='claimantCounsel'?'被告':'原告';
+  const claimantSide = s.config.role==='claimant'||s.config.role==='claimantCounsel';
+  // 刑事由檢察官實行公訴；站在告訴人這一側時，對造發言的是被告或辯護人。
+  const opponent = t.procedure==='juvenile'?'少年調查官':t.procedure==='criminal'?(claimantSide?'被告':'檢察官'):claimantSide?'被告':'原告';
   const speaker = s.stage===1?opponent:s.stage===2?'證據說明':s.stage===3?(t.procedure==='juvenile'?'少年輔佐人':'程序引導員'):s.config.role==='judge'?'書記官':'法官';
   const text = s.stage===0?'本案是虛構程序練習。請確認角色與法律協助，並尊重各方陳述的機會。':s.stage===1?t.summary:s.stage===2?t.evidence.map(e=>`${e.title}：${e.text}`).join('\n'):s.stage===3?'請指出已知事實、證据的限制及尚待釐清之處；不要用臆測補足空白。':s.stage===4?t.question:t.explanation;
   return {speaker,text,mode:'scripted' as const,version:s.version};
@@ -112,6 +125,8 @@ export function courtView(s:CourtState) {
     question:t.question,answers:t.answers,actions:allowedActions(s),stageLabel:STAGES[s.stage],turn:scriptedTurn(s),
     proceduralRequests:s.config.role==='judge'?PROCEDURAL_REQUESTS.map(({id,text})=>({id,text,done:s.rulings?.includes(id)||false})):[],
     sources:LEGAL_SOURCES.filter(r=>r.applies===t.procedure),
-    notices:[...(t.procedure==='civil' && (s.config.claimantHearingAge<18 || s.config.respondentHearingAge<18)?['未成年當事人的程序由法定代理人協助；不是讓未成年人獨自進行訴訟。']:[]), '虛構範本，非真實判決或法律意見；本版只開放已建模的年齡與程序組合。'],
+    notices:[...(t.procedure==='civil' && (s.config.claimantHearingAge<18 || s.config.respondentHearingAge<18)?['未成年當事人的程序由法定代理人協助；不是讓未成年人獨自進行訴訟。']:[]),
+      ...(t.procedure==='criminal' && (s.config.role==='claimantCounsel'||s.config.role==='claimant')?['刑事公訴由檢察官實行；告訴人得委任代理人到場陳述意見，非律師的代理人在審判中不得檢閱、抄錄或攝影卷證。']:[]),
+      '虛構範本，非真實判決或法律意見；本版只開放已建模的年齡與程序組合。'],
     assessment:s.completed?{procedure:'完成程序練習',evidence:s.config.role==='observer'?'旁觀不評分':`已查看 ${s.reviewed.length}/${t.evidence.length} 份證據`,argument:'陳述供自我檢視，不以關鍵字冒充法律論證分數',ranked:false}:null };
 }

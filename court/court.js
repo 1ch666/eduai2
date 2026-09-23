@@ -2,7 +2,7 @@ const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
 const base=onPages?WORKER:'';
-let account=null,csrf='',cases=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
+let account=null,csrf='',cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 const procedureNames={civil:'民事程序',criminal:'成人刑事程序',juvenile:'少年保護程序'};
 const labels={judge:'法官',claimant:'原告',respondent:'被告',claimantCounsel:'原告代理人',respondentCounsel:'被告律師',observer:'旁觀者',juvenile:'少年',assistant:'少年輔佐人'};
@@ -15,10 +15,33 @@ async function session(){const p=await api('/api/auth/session');account=p.user;c
 async function sessions(){const p=await api('/api/court/sessions');$('sessions').replaceChildren(...p.sessions.map(s=>button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);open(p.view);})));}
 function choices(select,items){select.replaceChildren(...items.map(([value,label])=>{const o=node('option',label);o.value=value;return o;}));}
 function setup(){const t=cases.find(c=>c.id===$('case').value);if(!t)return;$('procedure').value=procedureNames[t.procedure];$('case-summary').textContent=t.summary;
-choices($('role'),t.roles.map(r=>[r,r==='claimant'&&t.procedure==='criminal'?'告訴／被害人':r==='respondentCounsel'&&t.procedure==='criminal'?'辯護人':labels[r]]));
+choices($('role'),t.roles.map(r=>[r,t.procedure==='criminal'&&r==='claimant'?'告訴／被害人':t.procedure==='criminal'&&r==='respondentCounsel'?'辯護人':t.procedure==='criminal'&&r==='claimantCounsel'?'告訴代理人':labels[r]]));
 const f=$('setup-form').elements;f.respondentAge.value=f.respondentHearingAge.value=t.procedure==='juvenile'?15:20;f.respondentAid.value=t.mandatory?'appointed':'none';f.claimantAid.value='none';f.claimantAid.disabled=t.procedure==='juvenile';
 $('respondent-label').textContent=t.procedure==='juvenile'?'少年（虛構角色）':'被告（虛構角色）';$('claimant-label').textContent=t.procedure==='juvenile'?'受影響的一方（虛構角色）':t.procedure==='criminal'?'告訴／被害人（虛構角色）':'原告（虛構角色）';
-$('setup-notice').textContent=[t.mandatory?'本範本已設定法院認有必要，須有指定或選任的法律協助。':'本範本未設定指定法律協助必要性。',t.aidApproved?'本範本設定法律扶助已獲核准。':'本範本未設定法律扶助核准。'].join(' ');}
+$('setup-notice').textContent=[t.mandatory?'本範本已設定法院認有必要，須有指定或選任的法律協助。':'本範本未設定指定法律協助必要性。',t.aidApproved?'本範本設定法律扶助已獲核准。':'本範本未設定法律扶助核准。'].join(' ');lawPanel();}
+// Mirrors the server limits so the player sees them while filling the form; the
+// server still decides. Thresholds come from the case limits sent by the API.
+function lawPanel(){const t=cases.find(c=>c.id===$('case').value);if(!t)return;const f=$('setup-form').elements,limits=t.limits;
+const ca=Number(f.claimantAge.value),ch=Number(f.claimantHearingAge.value),ra=Number(f.respondentAge.value),rh=Number(f.respondentHearingAge.value),role=f.role.value,claimantAid=f.claimantAid.value,respondentAid=f.respondentAid.value;
+const notes=[];const add=(text,warn,swapTo)=>notes.push({text,warn,swapTo});
+// 舊版伺服器沒有回傳年齡限制時只說明，不自行推測門檻；送出後仍由伺服器檢查。
+add(limits?limits.note:'這個伺服器版本沒有提供年齡限制資訊，這裡不預先判斷；設定是否可用以送出後的伺服器檢查為準。',!limits);
+if(ch<ca||rh<ra)add('審理時年齡不可小於行為時年齡。',true);
+if(limits&&t.procedure==='criminal'&&(ca<limits.actMin||ra<limits.actMin))add(`填了未滿 ${limits.actMin} 歲：未成年人的行為由少年保護程序處理，成人刑事範本不開放。`,true,cases.find(c=>c.procedure==='juvenile')?.id);
+if(limits&&t.procedure==='juvenile'&&(ra<limits.actMin||ra>limits.actMax||rh>limits.actMax))add(`少年保護範本只開放行為及審理時 ${limits.actMin} 至 ${limits.actMax} 歲。`,true,ra>limits.actMax?cases.find(c=>c.procedure==='criminal')?.id:undefined);
+if(t.procedure==='civil'&&(ch<18||rh<18))add('未成年當事人沒有訴訟能力，由法定代理人代為或協助進行（民法第13條、民事訴訟法第45條）。',false);
+if(t.procedure==='criminal')add('刑事公訴由檢察官實行。告訴人得委任代理人（刑事訴訟法第236條之1、第271條之1）；非律師的代理人在審判中不得檢閱、抄錄或攝影卷證。',false);
+if(t.procedure==='juvenile')add('少年保護範本不開放旁觀視角。這是本遊戲的產品限制，不表示真實程序絕無例外。',false);
+if(t.mandatory&&respondentAid==='none')add('本範本已設定法院認有必要，選「無律師／輔佐人」無法開庭。',true);
+if(!t.mandatory&&respondentAid==='appointed')add('本範本未設定指定必要性，請改選自行選任或無律師。',true);
+if(!t.aidApproved&&(claimantAid==='legalAid'||respondentAid==='legalAid'))add('本範本未設定法律扶助已核准，無法選法律扶助。',true);
+if(t.procedure==='juvenile'&&claimantAid!=='none')add('少年保護範本不設原告方律師。',true);
+if(claimantAid==='appointed')add('指定辯護是刑事被告的制度，不適用於告訴人／原告方。',true);
+if(role==='claimantCounsel'&&claimantAid==='none')add('選原告方律師視角前，原告方要先設定法律協助。',true);
+if(['respondentCounsel','assistant'].includes(role)&&respondentAid==='none')add('選律師／輔佐人視角前，被告／少年方要先設定法律協助。',true);
+const box=$('setup-law');box.replaceChildren(node('h3',`本設定適用的程序：${procedureNames[t.procedure]}`));
+for(const n of notes){if(!n.text)continue;const p=node('p',n.text);if(n.warn)p.className='warn';box.append(p);if(n.swapTo)box.append(button('改用對應的範本：'+cases.find(c=>c.id===n.swapTo).title,()=>{$('case').value=n.swapTo;setup();}));}
+box.append(...legalSources.filter(s=>s.applies===t.procedure).map(s=>{const p=node('p');const a=node('a',s.title);a.href=s.url;a.target='_blank';a.rel='noopener';p.append(a,` · 查核 ${s.checked} · ${s.effective}`);return p;}));}
 function scene(mode=sceneMode){sceneMode=mode;const iframe=$('scene');if(!iframe.hidden)iframe.contentWindow?.postMessage({type:'court-view',mode,role:view.config.role,procedure:view.procedure},location.origin);}
 window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==$('scene').contentWindow)return;if(e.data?.type==='court-ready')scene();if(e.data?.type==='court-interact')$('actions').scrollIntoView({block:'center',behavior:'smooth'});});
 function open(next){view=next;$('setup').hidden=true;$('hearing').hidden=false;render();scene();status('場次已保存。');}
@@ -36,7 +59,7 @@ async function act(type,data={}){if(!view)return;const requestId=crypto.randomUU
 function pause(){clearTimeout(playTimer);playTimer=null;$('autoplay').textContent='播放';}
 async function autoStep(){if(!view||view.completed||document.hidden){pause();return;}await run(()=>act('step'));if(!view.completed&&$('autoplay').textContent==='暫停')playTimer=setTimeout(autoStep,4500);}
 $('autoplay').onclick=()=>{if($('autoplay').textContent==='暫停'){pause();return;}$('autoplay').textContent='暫停';void autoStep();};$('step').onclick=()=>run(()=>act('step'));
-$('case').onchange=setup;$('account-toggle').onclick=()=>{$('account').hidden=!$('account').hidden;};
+$('case').onchange=setup;$('setup-form').addEventListener('input',e=>{if(e.target.name!=='caseId')lawPanel();});$('account-toggle').onclick=()=>{$('account').hidden=!$('account').hidden;};
 $('auth-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(onPages){location.href=WORKER+'/court/';return;}const f=new FormData(e.target);const p=await api('/api/auth/'+f.get('mode'),Object.fromEntries(f));e.target.elements.password.value='';e.target.elements.recoveryCode.value='';$('recovery').hidden=!p.recoveryCode;$('recovery').textContent=p.recoveryCode?`請保存新的復原碼（僅顯示一次）：\n${p.recoveryCode}`:'';await session();status('登入成功。');});};
 $('logout').onclick=()=>run(async()=>{await api('/api/auth/logout',{});account=null;csrf='';pause();$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;$('sessions').replaceChildren();$('recovery').textContent='';$('recovery').hidden=true;await session();});
 $('setup-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(!account){$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return;}const b=Object.fromEntries(new FormData(e.target));b.claimantAid ||= 'none';for(const k of ['claimantAge','claimantHearingAge','respondentAge','respondentHearingAge'])b[k]=Number(b[k]);const p=await api('/api/court/sessions',b);open(p.view);});};
@@ -58,4 +81,4 @@ else{
  $('microphone').addEventListener('pointerup',()=>stopVoice());$('microphone').addEventListener('pointercancel',()=>stopVoice(true));
 }
 $('cancel-voice').onclick=()=>stopVoice(true);document.addEventListener('visibilitychange',()=>{if(document.hidden){pause();stopVoice(true);window.speechSynthesis?.cancel();}});
-await run(async()=>{if(onPages){status('雲端功能請使用同源平台，以確保手機登入正常。');const a=node('a','前往完整平台');a.href=WORKER+'/court/';$('status').append(' ',a);return;}const p=await api('/api/court/cases');cases=p.cases;choices($('case'),cases.map(t=>[t.id,t.title]));setup();$('sources').replaceChildren(...p.sources.map(s=>{const p=node('p');const a=node('a',s.title);a.href=s.url;a.target='_blank';a.rel='noopener';p.append(a,` · 查核 ${s.checked} · ${s.effective}`);return p;}));await session();});
+await run(async()=>{if(onPages){status('雲端功能請使用同源平台，以確保手機登入正常。');const a=node('a','前往完整平台');a.href=WORKER+'/court/';$('status').append(' ',a);return;}const p=await api('/api/court/cases');cases=p.cases;legalSources=p.sources||[];choices($('case'),cases.map(t=>[t.id,t.title]));setup();$('sources').replaceChildren(...p.sources.map(s=>{const p=node('p');const a=node('a',s.title);a.href=s.url;a.target='_blank';a.rel='noopener';p.append(a,` · 查核 ${s.checked} · ${s.effective}`);return p;}));await session();});

@@ -2,7 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
-import { CASES, LEGAL_SOURCES, RULE_VERSION, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
+import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 
 export class CourtRoom extends DurableObject<AppEnv> {
   private read(): CourtState | undefined {
@@ -72,7 +72,7 @@ export class Learner extends DurableObject<AppEnv>{
 
 export async function handleCourt(request:Request,env:AppEnv,respond:Responder,trustedOrigin?:string):Promise<Response>{
   const path=new URL(request.url).pathname;
-  if(path==='/api/court/cases' && request.method==='GET')return respond({version:RULE_VERSION,sources:LEGAL_SOURCES,cases:CASES.map(({correct,...t})=>({...t,roles:rolesFor(t.procedure)}))});
+  if(path==='/api/court/cases' && request.method==='GET')return respond({version:RULE_VERSION,sources:LEGAL_SOURCES,ageLimits:AGE_LIMITS,cases:CASES.map(({correct,...t})=>({...t,roles:rolesFor(t.procedure),limits:AGE_LIMITS[t.procedure]}))});
   const session=await resolveSession(request,env);
   if(!session)return respond({error:'請登入以建立或恢復雲端場次；遊客可玩既有固定練習。'},401);
   const learner=env.LEARNER.getByName(session.user.id);
