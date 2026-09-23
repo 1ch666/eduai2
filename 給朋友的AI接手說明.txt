@@ -26,9 +26,10 @@ GitHub：https://github.com/1ch666/eduai2
 
 【先讀這幾份文件】
 1. PLATFORM-STATUS.md：本次開發狀態、測試範圍、未完成清單及 Docker 校驗值（最接近現況）。
-2. AGENTS.md 及 court-game/AGENTS.md：倉庫和 Unity 的工作規則。
-3. README.md、BACKEND.md：舊有網站及後端說明。有些歷史段落早於本次登入復原碼及 v3 法庭儲存；若和 PLATFORM-STATUS.md 不一致，以程式碼與 PLATFORM-STATUS.md 為準。
-4. court-game/STATUS.md、court-game/HANDOFF.md：Unity/WebGL 與 Docker 操作方式。這些文件部分內容是歷史紀錄，勿將舊網址或「尚未驗證」段落誤認為目前狀態。
+2. 朋友AI續作_完整需求規格.md：三階段完整功能、角色流程、安全、API 與驗收條件（產品目標）。
+3. AGENTS.md 及 court-game/AGENTS.md：倉庫和 Unity 的工作規則。
+4. README.md、BACKEND.md：舊有網站及後端說明。有些歷史段落早於本次登入復原碼及 v3 法庭儲存；若和 PLATFORM-STATUS.md 不一致，以程式碼與 PLATFORM-STATUS.md 為準。
+5. court-game/STATUS.md、court-game/HANDOFF.md：Unity/WebGL 與 Docker 操作方式。這些文件部分內容是歷史紀錄，勿將舊網址或「尚未驗證」段落誤認為目前狀態。
 
 【本機啟動網站與 Worker】
 需要 Node.js/npm。於專案根目錄執行：
