@@ -839,6 +839,7 @@
           <div class="note-actions"><button class="primary-btn" type="submit" id="authSubmit">登入</button></div>
         </form>
         <p id="authRecovery" class="legal-note hidden" style="overflow-wrap:anywhere;user-select:text"></p>
+        <details><summary>練習紀錄匯出／匯入</summary><p>只包含個人練習，不含帳密與留言；匯入不計排名。</p><button id="exportProgress" type="button">匯出目前紀錄</button><label>選擇紀錄檔<input id="importProgress" type="file" accept="application/json,.json"></label><p id="importPreview"></p><button id="confirmImport" type="button" hidden>確認合併至目前帳號／裝置</button></details>
         <p class="ai-disclaimer">請不要使用其他網站的密碼。雲端存的是你自己回報的練習紀錄，不是正式成績。</p>
       </div>
     </div>
@@ -1543,6 +1544,7 @@
     // The session itself lives in an HttpOnly cookie; only the CSRF token is
     // held in memory, and it is never written to localStorage.
     const authState = { user: null, csrfToken: "", mode: "login", busy: false, loaded: false };
+    let progressOwner = null, progressReady = false, guestProgress = null, pendingProgressImport = null;
     const aiState = {
       busy: false,
       statusLoaded: false,
@@ -1581,7 +1583,8 @@
       $("accountChip").textContent = signedIn ? `${authState.user.displayName}的學習紀錄` : "";
       $("accountChip").classList.toggle("hidden", !signedIn);
       $("logoutButton").classList.toggle("hidden", !signedIn);
-      $("accountButton").classList.toggle("hidden", signedIn);
+      $("accountButton").classList.remove("hidden");
+      $("accountButton").textContent = signedIn ? "帳號／紀錄" : "登入 / 註冊";
     }
 
     function setAuthMessage(message) {
@@ -1658,6 +1661,10 @@
       $("authRecovery").classList.add("hidden");
       authState.user = null;
       authState.csrfToken = "";
+      for (const timer of Object.values(progressTimers)) clearTimeout(timer);
+      progressOwner = null; progressReady = false;
+      civicState.solved.clear(); civicState.score = 0; dailyState.solved.clear(); dailyState.streak = 0;
+      if (guestProgress) applyProgress(guestProgress);
       renderAccount();
       showToast("已登出，這台裝置仍保留本次練習紀錄");
     }
@@ -1668,6 +1675,19 @@
       if (scope === "civics") return { solved: [...civicState.solved].slice(-500), score: civicState.score };
       if (scope === "daily") return { solved: [...dailyState.solved].slice(-500), streak: dailyState.streak };
       return null;
+    }
+
+    function parseProgressExport(value) {
+      if (!value || value.format !== "eduai-personal-progress" || value.version !== 1 || !Array.isArray(value.records) || value.records.length > 2) throw new Error("不是支援的 EduAI 練習紀錄檔。");
+      const scopes = new Set();
+      return value.records.map(record => {
+        if (!record || !["civics", "daily"].includes(record.scope) || scopes.has(record.scope)) throw new Error("紀錄分類錯誤。");
+        scopes.add(record.scope);
+        const payload = record.payload, key = record.scope === "civics" ? "score" : "streak";
+        if (!payload || !Array.isArray(payload.solved) || payload.solved.length > 500 || !Number.isInteger(payload[key]) || payload[key] < 0 || payload[key] > 1000000) throw new Error("紀錄格式或數量錯誤。");
+        if (!payload.solved.every(id => (typeof id === "string" && id.length <= 120) || (Number.isInteger(id) && id >= 0 && id <= 1000000))) throw new Error("題目識別格式錯誤。");
+        return {scope:record.scope, payload:{solved:[...new Set(payload.solved)], [key]:payload[key]}, selfReported:true};
+      });
     }
 
     function applyProgress(records) {
@@ -1688,17 +1708,25 @@
 
     async function loadProgress() {
       if (!authState.user) return;
+      const owner = authState.user.id;
+      if (progressOwner !== owner) {
+        if (progressOwner === null) guestProgress = ["civics", "daily"].map(scope => ({scope, payload:progressPayload(scope)}));
+        for (const timer of Object.values(progressTimers)) clearTimeout(timer);
+        civicState.solved.clear(); civicState.score = 0; dailyState.solved.clear(); dailyState.streak = 0;
+        progressOwner = owner; progressReady = false;
+      }
       try {
         const { response, payload } = await apiFetch(PROGRESS_API_PATH);
-        if (!response.ok) return;
+        if (!response.ok || authState.user?.id !== owner) return;
         applyProgress(Array.isArray(payload.records) ? payload.records : []);
+        progressReady = true;
       } catch {
         // Offline: keep practising with the local state.
       }
     }
 
     async function saveProgress(scope) {
-      if (!authState.user) return;
+      if (!authState.user || !progressReady || progressOwner !== authState.user.id) return;
       const payload = progressPayload(scope);
       if (!payload) return;
       try {
@@ -2137,6 +2165,31 @@
     });
     $("brandHome").addEventListener("click", goHome);
     $("authForm").addEventListener("submit", submitAuth);
+    $("exportProgress").addEventListener("click", () => {
+      const data = {format:"eduai-personal-progress",version:1,ranked:false,records:["civics","daily"].map(scope=>({scope,payload:progressPayload(scope)}))};
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+      const link = document.createElement("a"); link.href = url; link.download = "eduai-personal-progress.json"; link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+    $("importProgress").addEventListener("change", async event => {
+      pendingProgressImport = null; $("confirmImport").hidden = true;
+      const file = event.target.files[0]; if (!file) return;
+      try {
+        if (file.size > 100000) throw new Error("紀錄檔需小於100KB。");
+        const records = parseProgressExport(JSON.parse(await file.text()));
+        pendingProgressImport = {records,owner:authState.user?.id||null};
+        $("importPreview").textContent = `將合併 ${records.reduce((n,r)=>n+r.payload.solved.length,0)} 筆已解題紀錄，不計排名。尚未匯入。`;
+        $("confirmImport").hidden = false;
+      } catch (error) { $("importPreview").textContent = error.message; }
+    });
+    $("confirmImport").addEventListener("click", () => {
+      if (!pendingProgressImport) return;
+      if (pendingProgressImport.owner !== (authState.user?.id||null) || (authState.user && !progressReady)) { $("importPreview").textContent = "帳號已變更或雲端紀錄尚未載入，請重新選擇檔案。"; return; }
+      applyProgress(pendingProgressImport.records); pendingProgressImport = null;
+      $("confirmImport").hidden = true; $("importProgress").value = "";
+      $("importPreview").textContent = "已合併個人紀錄，不計排名；雲端同步需保持連線。";
+      queueProgressSave("civics"); queueProgressSave("daily");
+    });
 
     renderCases();
     civicState.topic = "all";
