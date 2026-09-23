@@ -1,0 +1,76 @@
+EduAI2 專案接手指南（給第一次接手的朋友與 AI）
+更新日期：2026-09-23
+GitHub：https://github.com/1ch666/eduai2
+網站：https://1ch666.github.io/eduai2/
+
+請先讀這份，再開始改程式。
+
+【這個專案要做什麼】
+讓學生透過生活情境學公民與法律。目標分三階段：
+1. 安全登入、跨裝置存檔、六種案件、多角色法庭、程序與證據練習。
+2. 弱點補強、照片題目解說、每週讀書計畫、提醒與音樂。
+3. 個人／群組學習排行榜。
+
+免費優先。不要購買服務、升級方案、開啟付費 CI runner 或消耗付費 AI 額度。AI 額度不確定或用完時，就用網站提供的預寫教學內容；不要自行換成會收費的模型。
+
+【目前做到哪裡】
+這是已合併到 main 的開發檢查點，不是完整產品：
+- 首批後端登入、安全復原碼、Durable Objects SQLite、六個原創教學案件及法庭場次 API 已寫好。
+- 新增 /court/ 網頁，能設定案件和角色、建立／恢復場次、查看證據、保存陳述、做程序練習。
+- Unity WebGL 已接上基本角色座位／全景鏡頭橋接；一般 /play/ 遊戲仍保留桌機 WASD、滑鼠、E、1–4 和手機搖桿。
+- 練習紀錄可由使用者自行匯出／匯入；匯入資料不算排名。
+- AI 法庭對話目前只是程序引導，不是讓 AI 扮演所有角色的完整法庭。COURT_AI_ENABLED 預設未開；不要因為伺服器有金鑰就開啟。
+- 正式 Worker 尚未部署這批後端。GitHub Pages 目前只發布網站檔案；同源登入／法庭 API 尚待部署與整合。
+- 課表、照片辨識、通知、音樂、弱點模型與排行榜尚未實作。
+- 法律來源有官方連結，但逐條生效日與沿革尚未全部查完。案件是教學簡化情境，不是法律意見。
+
+【先讀這幾份文件】
+1. PLATFORM-STATUS.md：本次開發狀態、測試範圍、未完成清單及 Docker 校驗值（最接近現況）。
+2. AGENTS.md 及 court-game/AGENTS.md：倉庫和 Unity 的工作規則。
+3. README.md、BACKEND.md：舊有網站及後端說明。有些歷史段落早於本次登入復原碼及 v3 法庭儲存；若和 PLATFORM-STATUS.md 不一致，以程式碼與 PLATFORM-STATUS.md 為準。
+4. court-game/STATUS.md、court-game/HANDOFF.md：Unity/WebGL 與 Docker 操作方式。這些文件部分內容是歷史紀錄，勿將舊網址或「尚未驗證」段落誤認為目前狀態。
+
+【本機啟動網站與 Worker】
+需要 Node.js/npm。於專案根目錄執行：
+
+  npm ci
+  npm run build:assets
+  npx wrangler types
+  npx wrangler dev --ip 127.0.0.1 --port 8790 --inspector-port 0 --persist-to .wrangler/court-test --local
+
+再用瀏覽器開 http://127.0.0.1:8790/ 或 /court/。本機 Durable Objects 測試資料存在 .wrangler/court-test，不是正式資料。
+不要把真實密碼、Cookie、session、復原碼或 API key 放進程式碼、截圖、Git 或 AI 對話。註冊本機測試帳號時，請用一次性的假資料。
+
+Unity 專案在 court-game/。Unity Editor 版本是 6000.3.24f1；使用免費 Unity Personal。Windows 建置腳本見 court-game/tools/build.ps1。沒有 Editor 時可以先改網站或 Worker，但不要宣稱 Unity 已編譯／WebGL 已更新。
+
+【主要程式位置】
+- src/index.ts：Worker 路由與安全標頭。
+- src/accounts.ts、src/auth.ts、src/session.ts：帳號、session、復原碼與 CSRF。
+- src/court-rules.ts：案件範本、角色／年齡限制、伺服器控制的庭審步驟。
+- src/court.ts：CourtRoom、Learner Durable Objects 及 /api/court/*。
+- court/index.html、court/court.js、court/court.css：法庭介面。
+- court-game/Assets/Scripts/CourtPresentation.cs：Unity 視角橋接；不應放登入憑證或案件裁判。
+- play/：已部署相容版 WebGL 檔案。重新建置 Unity 後才可替換。
+- wrangler.jsonc：Cloudflare Worker、SQLite Durable Objects 綁定及增量 migration；已有 v1/v2/v3，禁止重編或刪除舊資料。
+
+【安全與資料規則】
+- 每筆私人資料都要由伺服器檢查帳號擁有權，寫入要有 CSRF、Origin 檢查、長度限制與限流。
+- AI 只能提供當前步驟的參考文字；不能新增案件事實、改證物、選法律資格或改變庭審狀態。
+- 匯入練習紀錄是自述資料，不可計排行榜。不要自動讀取舊網站或其他來源的瀏覽器資料。
+- 相機／錄音內容不可寫入公開留言、排行榜或日誌。
+- 少年案件的旁觀禁止是本產品限制，不可寫成法律上毫無例外。
+- 適用年齡與律師資格是受限的教學範本，不可當作真實案件法律判斷。
+- AI key 只放 Cloudflare Worker secret，絕不放 Unity、WebGL 或 Docker image。
+
+【部署與 Docker】
+- 本倉庫 main 連接 GitHub Pages；推 main 會自動部署網站。正式 Worker 仍需另外用 Cloudflare/Wrangler 部署。
+- 部署 Worker 前，先確認 Cloudflare 登入的是正確帳號、部署目標與免費額度；不能為了讓 AI 運作而購買或升級。先備份目前版本、再檢查 v2/v3 為增量 migration。不要對正式 Durable Objects 執行刪除或重建。
+- 目前 Docker 是靜態遊戲＋/court/ 網頁預覽。Docker 的 /api/ 回 501，沒有 Worker／帳號／AI，所以 Docker 預覽不能提供雲端登入。
+- 遊戲改動合併後，從 GitHub Actions 執行「Court Docker handoff」免費標準 runner，確認成功，並把來源 commit 和 SHA256 記回文件。不要拿舊 Docker image 說是新版本。
+- 最新已驗證預覽 Docker：Action run 35847457427，來源 590c5bb；本機 artifact 在 outputs/eduai2-platform-docker-35847457427/，SHA256 記在 PLATFORM-STATUS.md。它早於之後的網站匯入 UI 修改，但遊戲及 /court/ 檔案相同。
+
+【可以直接交給 AI 的工作指令】
+
+請先閱讀根目錄「給朋友的AI接手說明.txt」、PLATFORM-STATUS.md、AGENTS.md、court-game/AGENTS.md，並檢查 git status 和目前分支。這個專案只使用免費方案，絕不可購買服務或啟用付費 runner。先挑 PLATFORM-STATUS.md 中尚未完成的一個小功能實作；保持既有資料、session/CSRF、手機搖桿和桌機操作相容。法律內容須連到官方來源、查對條文與生效日期；不確定就保留關閉並標示，不要讓 AI 猜法規。修改後執行與改動相關的檢查，更新 PLATFORM-STATUS.md，說清楚已完成、未完成及驗證結果。只推送 1ch666/eduai2。不要部署正式 Worker 或修改正式資料庫，除非使用者明確安排部署窗口並確認免費額度。任何新 AI 功能都先用預寫 fallback，額度未知時不要發出模型請求。
+
+本檔為專案交接資料；任何部署前仍需檢查最新 main、git diff 及 Cloudflare 部署目標。
