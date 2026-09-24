@@ -205,9 +205,13 @@
     }
     .mode-card:hover { transform: translateY(-6px); box-shadow: 0 24px 52px rgba(16, 25, 28, .22); }
     .mode-card::after { content: attr(data-mark); position: absolute; right: -8px; bottom: -34px; font: 170px/1 Georgia, serif; color: rgba(255,255,255,.08); }
+    a.mode-card { display: block; text-decoration: none; }
     .mode-card:nth-child(1) { background: linear-gradient(150deg, var(--ink-blue), var(--deep-teal)); }
     .mode-card:nth-child(2) { background: linear-gradient(150deg, var(--forest), var(--slate)); }
     .mode-card:nth-child(3) { background: linear-gradient(150deg, var(--olive), #8b7b48); }
+    .mode-card:nth-child(4) { background: linear-gradient(150deg, #3a5a8c, #5b7fa6); }
+    .mode-card:nth-child(5) { background: linear-gradient(150deg, #2e6b5e, #4a8c7e); }
+    .mode-card:nth-child(6) { background: linear-gradient(150deg, #6a3a8c, #9b6ab8); }
     .mode-no { display: inline-block; padding-bottom: 7px; border-bottom: 2px solid currentColor; color: #dce7df; font: 700 15px/1 Georgia, serif; letter-spacing: .12em; }
     .mode-card h2 { position: relative; z-index: 1; margin: 38px 0 10px; font-size: 27px; letter-spacing: .03em; }
     .mode-card p { position: relative; z-index: 1; margin: 0; color: rgba(255,255,255,.76); line-height: 1.75; font-size: 14px; }
@@ -629,6 +633,24 @@
           <p>生活情境與公開法規，隨機挑戰。</p>
           <span class="mode-enter">今日一問 →</span>
         </button>
+        <a class="mode-card" href="./practice/" data-mark="04">
+          <span class="mode-no">04 / PRACTICE</span>
+          <h2 class="serif">弱點練習</h2>
+          <p>伺服器判分、依弱點補強，法律×公民×經濟。</p>
+          <span class="mode-enter">開始答題 →</span>
+        </a>
+        <a class="mode-card" href="./planner/" data-mark="05">
+          <span class="mode-no">05 / PLAN</span>
+          <h2 class="serif">週排程</h2>
+          <p>規劃讀書時段、專注計時、ICS 匯出。</p>
+          <span class="mode-enter">開啟排程 →</span>
+        </a>
+        <a class="mode-card" href="./rankings/" data-mark="06">
+          <span class="mode-no">06 / RANK</span>
+          <h2 class="serif">排行榜</h2>
+          <p>首次答對得分、累積段位，與其他學習者比較。</p>
+          <span class="mode-enter">查看排名 →</span>
+        </a>
       </div>
       <div class="quick-tools" aria-label="學習工具">
         <button type="button" data-shortcut="notes"><span>筆記精華</span><span>整理重點 ↗</span></button>
