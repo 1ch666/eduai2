@@ -30,6 +30,18 @@
       {
         "name": "LEARNER",
         "class_name": "Learner"
+      },
+      {
+        "name": "PRACTICE",
+        "class_name": "Practice"
+      },
+      {
+        "name": "PLANNER",
+        "class_name": "Planner"
+      },
+      {
+        "name": "PUSH_STORE",
+        "class_name": "PushStore"
       }
     ]
   },
@@ -45,6 +57,18 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["CourtRoom", "Learner"]
+    },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": ["Practice"]
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["Planner"]
+    },
+    {
+      "tag": "v6",
+      "new_sqlite_classes": ["PushStore"]
     }
   ],
   "observability": {
