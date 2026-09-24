@@ -44,7 +44,7 @@ export async function handleAuth(
     if (request.method !== "GET") return respond({ error: "此端點只接受 GET" }, 405);
     const session = await resolveSession(request, env);
     if (!session) return respond({ user: null });
-    return respond({ user: session.user, csrfToken: session.csrfToken, expiresAt: session.expiresAt });
+    return respond({ user: session.user, csrfToken: session.csrfToken, expiresAt: session.expiresAt, hasRecoveryCode: session.hasRecoveryCode });
   }
 
   if (request.method !== "POST") return respond({ error: "此端點只接受 POST" }, 405);
@@ -61,7 +61,7 @@ export async function handleAuth(
     return respond({ user: null }, 200, [clearedSessionCookie(request)]);
   }
 
-  if (!["register", "login", "recover"].includes(action)) return respond({ error: "找不到 API" }, 404);
+  if (!["register", "login", "recover", "first-recovery"].includes(action)) return respond({ error: "找不到 API" }, 404);
 
   const body = await readJsonObject(request, MAX_AUTH_BODY_BYTES, respond, "登入資料過長");
   if (body.error) return body.error;
@@ -76,6 +76,20 @@ export async function handleAuth(
     if (typeof candidate.recoveryCode !== "string") return respond({ error: "請提供復原碼" }, 400);
     const result = await store.recover({ username: candidate.username, password: candidate.password, recoveryCode: candidate.recoveryCode, networkKey });
     return result.ok ? authSuccess(request, result, respond, 200) : authFailure(result, respond);
+  }
+
+  if (action === "first-recovery") {
+    const session = await resolveSession(request, env);
+    if (!session) return respond({ error: "請先登入才能取得復原碼" }, 401);
+    if (!csrfTokenMatches(request, session)) return respond({ error: "請重新整理頁面後再試" }, 403);
+    if (typeof candidate.password !== "string") return respond({ error: "請提供目前密碼以確認身分" }, 400);
+    const result = await store.firstRecovery({ userId: session.user.id, password: candidate.password, networkKey });
+    if (!result.ok) {
+      if (result.error === "ALREADY_EXISTS") return respond({ error: "此帳號已有復原碼。若需更新，請使用「以復原碼重設密碼」流程；若已遺失則無法重設密碼。" }, 409);
+      if (result.error === "RATE_LIMIT") return authFailure({ ok: false, error: "RATE_LIMIT" }, respond);
+      return authFailure({ ok: false, error: "BAD_CREDENTIALS" }, respond);
+    }
+    return respond({ recoveryCode: result.recoveryCode });
   }
 
   if (action === "register") {

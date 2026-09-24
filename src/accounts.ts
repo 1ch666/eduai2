@@ -40,6 +40,7 @@ export type SessionInfo = {
   user: PublicUser;
   csrfToken: string;
   expiresAt: string;
+  hasRecoveryCode: boolean;
 };
 
 export type AuthError =
@@ -334,7 +335,10 @@ export class AccountStore extends DurableObject<AppEnv> {
       expiresAt = Math.min(now + this.sessionTtlMs, row.created_at + ABSOLUTE_SESSION_DAYS * DAY_MS);
       this.ctx.storage.sql.exec("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE token_hash = ?", now, expiresAt, tokenHash);
     }
-    return { user: this.toPublicUser(user), csrfToken: row.csrf_token, expiresAt: new Date(expiresAt).toISOString() };
+    const hasRecoveryCode = this.ctx.storage.sql
+      .exec<{ code_hash: string }>("SELECT code_hash FROM recovery_codes WHERE user_id = ?", user.id)
+      .toArray().length > 0;
+    return { user: this.toPublicUser(user), csrfToken: row.csrf_token, expiresAt: new Date(expiresAt).toISOString(), hasRecoveryCode };
   }
 
   async logout(tokenHash: string): Promise<void> {
@@ -355,6 +359,32 @@ export class AccountStore extends DurableObject<AppEnv> {
         selfReported: row.self_reported === 1,
         updatedAt: row.updated_at
       }));
+  }
+
+  /**
+   * Issue the first recovery code for an account that has never had one.
+   * Requires the account's current password to confirm identity.
+   * One-time code: only the hash is stored; return value shown once to user.
+   */
+  async firstRecovery(input: { userId: string; password: string; networkKey: string }): Promise<
+    { ok: true; recoveryCode: string } | { ok: false; error: "BAD_CREDENTIALS" | "ALREADY_EXISTS" | "RATE_LIMIT" }
+  > {
+    const row = this.ctx.storage.sql.exec<UserRow>("SELECT * FROM users WHERE id = ?", input.userId).toArray()[0];
+    if (!row) return { ok: false, error: "BAD_CREDENTIALS" };
+    if (!this.allowAttempt(`first-recovery-user:${row.username}`, 3)) return { ok: false, error: "RATE_LIMIT" };
+    if (!this.allowAttempt(`first-recovery-network:${input.networkKey}`, 5)) return { ok: false, error: "RATE_LIMIT" };
+    if (this.ctx.storage.sql.exec<{ code_hash: string }>("SELECT code_hash FROM recovery_codes WHERE user_id = ?", input.userId).toArray().length > 0) {
+      return { ok: false, error: "ALREADY_EXISTS" };
+    }
+    const hash = await derivePasswordHash(input.password, row.password_salt, row.password_iterations);
+    if (!timingSafeEqual(hash, row.password_hash)) return { ok: false, error: "BAD_CREDENTIALS" };
+    // Re-read after async crypto to guard concurrent requests.
+    if (this.ctx.storage.sql.exec<{ code_hash: string }>("SELECT code_hash FROM recovery_codes WHERE user_id = ?", input.userId).toArray().length > 0) {
+      return { ok: false, error: "ALREADY_EXISTS" };
+    }
+    const recoveryCode = randomToken();
+    this.ctx.storage.sql.exec("INSERT INTO recovery_codes VALUES (?, ?)", input.userId, await sha256Hex(recoveryCode));
+    return { ok: true, recoveryCode };
   }
 
   /** Stores client-reported progress verbatim. Never treat it as a graded score. */

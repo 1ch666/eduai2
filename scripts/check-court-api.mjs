@@ -45,4 +45,10 @@ assert.equal((await call('/api/auth/session',undefined,a)).data.user,null);
 assert.equal((await call('/api/auth/recover',{username,password:'another-safe-password',recoveryCode:a.data.recoveryCode})).status,401);
 assert.equal((await call('/api/auth/login',{username,password})).status,401);
 assert.equal((await call(route,undefined,recovered)).data.view.version,1);
-console.log('Court integration passed: ownership, CSRF, replay, stages, restore, fallback, recovery rotation and session revocation.');
+// Registration gives a recovery code; first-recovery should return 409 (already exists).
+const frAlreadyHas=await call('/api/auth/first-recovery',{password:'replacement-safe-password'},{cookie:recovered.cookie,csrf:recovered.csrf});
+assert.equal(frAlreadyHas.status,409,JSON.stringify(frAlreadyHas.data));
+// Session must now report hasRecoveryCode true.
+const sessionAfter=await call('/api/auth/session',undefined,recovered);
+assert.equal(sessionAfter.data.hasRecoveryCode,true);
+console.log('Court integration passed: ownership, CSRF, replay, stages, restore, fallback, recovery rotation, session revocation, and first-recovery guard.');
