@@ -1,0 +1,14 @@
+{
+  "name": "公民法律研究室",
+  "short_name": "EduAI2",
+  "description": "用生活情境學公民、法律與經濟的互動學習平台。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "lang": "zh-Hant",
+  "categories": ["education"]
+}
