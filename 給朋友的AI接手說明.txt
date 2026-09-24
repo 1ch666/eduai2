@@ -1,77 +1,180 @@
-EduAI2 專案接手指南（給第一次接手的朋友與 AI）
-更新日期：2026-09-23
-GitHub：https://github.com/1ch666/eduai2
-網站：https://1ch666.github.io/eduai2/
+EduAI2：給朋友與接手 AI 的現況、問題與續作指南
+盤點日期：2026-09-24
+程式基準：遠端 main b967986（含朋友新增的 practice、planner、rankings、photo）。
+之前依 d06d2bb 的本機盤點已過時，本文件已重新依遠端新增程式修正。
+Repository：https://github.com/1ch666/eduai2
+GitHub Pages：https://1ch666.github.io/eduai2/
+Unity 遊戲：https://1ch666.github.io/eduai2/play/
+Worker：https://civic-law-lab-212.yichengc869.workers.dev
+Worker URL 來自 index.html、court/court.js 及既有文件；本次沒有部署或驗證正式帳號／資料庫。
 
-請先讀這份，再開始改程式。
+這次只有靜態程式掃描及文件更新。下列「有實作」表示 main 有程式，不能等同已在正式環境驗收。疑似問題會說明程式依據，交給朋友修正；本次沒有改任何功能、資料庫、Secret、權限或部署設定，也沒有執行 migration。
 
-【這個專案要做什麼】
-讓學生透過生活情境學公民與法律。目標分三階段：
-1. 安全登入、跨裝置存檔、六種案件、多角色法庭、程序與證據練習。
-2. 弱點補強、照片題目解說、每週讀書計畫、提醒與音樂。
-3. 個人／群組學習排行榜。
+【重要：後端與權限邊界】
 
-免費優先。不要購買服務、升級方案、開啟付費 CI runner 或消耗付費 AI 額度。AI 額度不確定或用完時，就用網站提供的預寫教學內容；不要自行換成會收費的模型。
+本專案部分正式後端資源由其他協作者管理。下一個 AI 不得擅自：
+- 重做登入系統、替換登入資料庫、修改正式資料庫權限。
+- 修改 Cloudflare 成員、GitHub collaborator、branch protection 或其他權限。
+- 更換 Worker owner、Worker account、資料庫或 Cloudflare binding。
+- 刪除 Durable Object、清空正式資料、Reset migration、重排／刪除已用 migration。
+- 修改 Secret、API Key、正式 Session／Cookie 設定或任意執行正式 migration。
+- 開啟付費功能、更改付款方案、使用付費 runner、購買 AI 額度。
+- 自行部署正式 Worker／Pages，或為解決連線問題繞過安全限制。
 
-【目前做到哪裡】
-這是已合併到 main 的開發檢查點，不是完整產品：
-- 首批後端登入、安全復原碼、Durable Objects SQLite、六個原創教學案件及法庭場次 API 已寫好。
-- 新增 /court/ 網頁，能設定案件和角色、建立／恢復場次、查看證據、保存陳述、做程序練習。
-- Unity WebGL 已接上基本角色座位／全景鏡頭橋接；一般 /play/ 遊戲仍保留桌機 WASD、滑鼠、E、1–4 和手機搖桿。
-- 練習紀錄可由使用者自行匯出／匯入；匯入資料不算排名。
-- AI 法庭對話目前只是程序引導，不是讓 AI 扮演所有角色的完整法庭。COURT_AI_ENABLED 預設未開；不要因為伺服器有金鑰就開啟。
-- 正式 Worker 尚未部署這批後端。GitHub Pages 目前只發布網站檔案；同源登入／法庭 API 尚待部署與整合。
-- 課表、照片辨識、通知、音樂、弱點模型與排行榜尚未實作。
-- 法律來源有官方連結，但逐條生效日與沿革尚未全部查完。案件是教學簡化情境，不是法律意見。
+碰到這些問題，先分析並蒐集不含秘密的錯誤證據，列入「需要後端管理者處理」。不要自行重建服務。既有 BACKEND.md 的部署指令及需求文件中的開發方向不代表正式操作授權。帳密、session、復原碼、API Key 不可進 Git、Unity、前端儲存、截圖或 AI 對話。
 
-【先讀這幾份文件】
-1. PLATFORM-STATUS.md：本次開發狀態、測試範圍、未完成清單及 Docker 校驗值（最接近現況）。
-2. 朋友AI續作_完整需求規格.md：三階段完整功能、角色流程、安全、API 與驗收條件（產品目標）。
-3. AGENTS.md 及 court-game/AGENTS.md：倉庫和 Unity 的工作規則。
-4. README.md、BACKEND.md：舊有網站及後端說明。有些歷史段落早於本次登入復原碼及 v3 法庭儲存；若和 PLATFORM-STATUS.md 不一致，以程式碼與 PLATFORM-STATUS.md 為準。
-5. court-game/STATUS.md、court-game/HANDOFF.md：Unity/WebGL 與 Docker 操作方式。這些文件部分內容是歷史紀錄，勿將舊網址或「尚未驗證」段落誤認為目前狀態。
+【先讀文件與判讀方式】
 
-【本機啟動網站與 Worker】
-需要 Node.js/npm。於專案根目錄執行：
+已核對 PLATFORM-STATUS.md、BACKEND.md、MIGRATION.md、court-game/STATUS.md、朋友AI續作_完整需求規格.md、舊版接手說明及主要程式。
+- 朋友AI續作_完整需求規格.md 是產品目標，不能當完成清單。
+- PLATFORM-STATUS.md 有本機測試及第二階段紀錄，但仍有過時內容：Practice 已非 13 題、rankings/photo 已有程式，capability 也不是一律 false；推播付費敘述未附當前方案證據。不要照單全收。
+- BACKEND.md 的 SameSite=None／Partitioned 敘述與目前 src/session.ts 的 SameSite=Lax 不一致；以現行程式及正式環境實測為準。
+- court-game/STATUS.md 保留歷史空白入口、未編譯等紀錄；目前 3D 場景及 WebGL 成品已存在，不要重新當作未開始。
+- 後續工作先讀適用 AGENTS.md、檢查分支及 git status；不要碰別人的未提交修改。
 
-  npm ci
-  npm run build:assets
-  npx wrangler types
-  npx wrangler dev --ip 127.0.0.1 --port 8790 --inspector-port 0 --persist-to .wrangler/court-test --local
+【一、架構與檔案地圖】
 
-再用瀏覽器開 http://127.0.0.1:8790/ 或 /court/。本機 Durable Objects 測試資料存在 .wrangler/court-test，不是正式資料。
-不要把真實密碼、Cookie、session、復原碼或 API key 放進程式碼、截圖、Git 或 AI 對話。註冊本機測試帳號時，請用一次性的假資料。
+1. 靜態前端：GitHub Pages 的 base path 是 /eduai2/。
+   index.html、styles.css：首頁、公民小學堂、生活法律問答、筆記預覽、AI 小助理、留言、帳號／紀錄匯入匯出及新工具導覽。
+   civics-data.js：舊主站公民課綱內容，32 個單元／32 道靜態題。
+   court/index.html、court.js、court.css：案件／角色／年齡／法律協助設定、場次、證物、陳述、語音、角色對話與 Unity iframe。
+   practice/index.html、practice.js：新版登入練習、判分、弱點補強入口。
+   planner/index.html、planner.js、planner.css：週課表、表單、專注計時、ICS、推播訂閱及音樂入口。
+   rankings/index.html、rankings.js：積分榜、個人名次與段位。
+   photo/index.html、photo.js：本機照片處理、手動輸入題目文字、文字 AI 講解及本機筆記。
+   music-data.js、music-player.js：曲目宣告與播放器；音訊檔沒有提交。
+   sw.js、manifest.json：PWA 宣告及收到 push 時顯示通知的 Service Worker。
 
-Unity 專案在 court-game/。Unity Editor 版本是 6000.3.24f1；使用免費 Unity Personal。Windows 建置腳本見 court-game/tools/build.ps1。沒有 Editor 時可以先改網站或 Worker，但不要宣稱 Unity 已編譯／WebGL 已更新。
+2. Cloudflare Worker：src/index.ts 路由、capabilities、安全標頭及靜態 assets。
+   src/auth.ts、accounts.ts、session.ts：註冊／登入／登出、復原碼、首次取碼、Session、CSRF 與進度。
+   src/messages.ts、ai.ts：共用留言、限流與 Ollama 文字 AI；既有 AI 透過 Worker 呼叫 https://ollama.com/api/chat，金鑰只在伺服器。
+   src/court.ts、court-rules.ts：六個教學案件、角色限制、程序狀態、保存及角色 AI 台詞。
+   src/practice.ts、practice-data.ts：伺服器派題、questionToken、判分、首次作答、弱點與指南。
+   src/planner.ts：排程 CRUD、衝突檢查、專注 heartbeat。
+   src/push.ts：PushStore 訂閱儲存與 VAPID 公鑰端點，尚無發送鏈路。
+   src/rankings.ts：全域累積積分榜，與原需求的週時間榜／正確率榜不同。
+   src/photo.ts：已登入者送文字至 Ollama 取得講解，不收照片 bytes。
+   src/http.ts、env.ts：共同 HTTP、安全／大小限制、環境型別。
 
-【主要程式位置】
-- src/index.ts：Worker 路由與安全標頭。
-- src/accounts.ts、src/auth.ts、src/session.ts：帳號、session、復原碼與 CSRF。
-- src/court-rules.ts：案件範本、角色／年齡限制、伺服器控制的庭審步驟。
-- src/court.ts：CourtRoom、Learner Durable Objects 及 /api/court/*。
-- court/index.html、court/court.js、court/court.css：法庭介面。
-- court-game/Assets/Scripts/CourtPresentation.cs：Unity 視角橋接；不應放登入憑證或案件裁判。
-- play/：已部署相容版 WebGL 檔案。重新建置 Unity 後才可替換。
-- wrangler.jsonc：Cloudflare Worker、SQLite Durable Objects 綁定及增量 migration；已有 v1/v2/v3，禁止重編或刪除舊資料。
+3. Durable Objects SQLite（不是 D1）：
+   wrangler.jsonc 宣告 MESSAGE_ROOM/MessageRoom（v1）、ACCOUNT_STORE/AccountStore（v2）、COURT_ROOM/CourtRoom 與 LEARNER/Learner（v3）、PRACTICE/Practice（v4）、PLANNER/Planner（v5）、PUSH_STORE/PushStore（v6）、RANKINGS/Rankings（v7）。
+   AccountStore 儲存帳號／session／原進度；Practice、Planner 按使用者，CourtRoom 按場次；PushStore、Rankings 有 global 物件。保留所有既有資料及綁定名稱。repo 宣告 v7 不代表正式帳號已套用，需後端管理者核實。
 
-【安全與資料規則】
-- 每筆私人資料都要由伺服器檢查帳號擁有權，寫入要有 CSRF、Origin 檢查、長度限制與限流。
-- AI 只能提供當前步驟的參考文字；不能新增案件事實、改證物、選法律資格或改變庭審狀態。
-- 匯入練習紀錄是自述資料，不可計排行榜。不要自動讀取舊網站或其他來源的瀏覽器資料。
-- 相機／錄音內容不可寫入公開留言、排行榜或日誌。
-- 少年案件的旁觀禁止是本產品限制，不可寫成法律上毫無例外。
-- 適用年齡與律師資格是受限的教學範本，不可當作真實案件法律判斷。
-- AI key 只放 Cloudflare Worker secret，絕不放 Unity、WebGL 或 Docker image。
+4. Unity：court-game/，Editor 6000.3.24f1。
+   Assets/Scenes/Courtroom.unity：真正 3D 法庭。
+   Assets/Scripts/CourtSession.cs：獨立 /play/ 的「消失的平板」固定調查、作答、結束與重玩。
+   Assets/Scripts/CourtPresentation.cs：網頁主控模式的座位／全景／走動鏡頭及幾何人物。
+   Assets/Scripts/Player/FirstPersonController.cs、Interaction/、UI/、Assets/Plugins/TouchControls.jslib：鍵鼠及手機操作。
+   Assets/Scripts/NPC/WorkerDialogueProvider.cs：對話 provider 原始碼，註解仍標記沒有接入 Courtroom.unity；目前網頁 court 的角色 AI 不等於它已接入 NPC。
+   Assets/WebGLTemplates/Court/：網頁模板；play/index.html、touch-controls.js、Build/* 是追蹤中的 WebGL 成品。
 
-【部署與 Docker】
-- 本倉庫 main 連接 GitHub Pages；推 main 會自動部署網站。正式 Worker 仍需另外用 Cloudflare/Wrangler 部署。
-- 部署 Worker 前，先確認 Cloudflare 登入的是正確帳號、部署目標與免費額度；不能為了讓 AI 運作而購買或升級。先備份目前版本、再檢查 v2/v3 為增量 migration。不要對正式 Durable Objects 執行刪除或重建。
-- 目前 Docker 是靜態遊戲＋/court/ 網頁預覽。Docker 的 /api/ 回 501，沒有 Worker／帳號／AI，所以 Docker 預覽不能提供雲端登入。
-- 遊戲改動合併後，從 GitHub Actions 執行「Court Docker handoff」免費標準 runner，確認成功，並把來源 commit 和 SHA256 記回文件。不要拿舊 Docker image 說是新版本。
-- 最新已驗證預覽 Docker：Action run 35847457427，來源 590c5bb；本機 artifact 在 outputs/eduai2-platform-docker-35847457427/，SHA256 記在 PLATFORM-STATUS.md。它早於之後的網站匯入 UI 修改，但遊戲及 /court/ 檔案相同。
+5. 法律與包裝：
+   law-data/manifest.json + 40 個 shard：法務部中央法律／命令快照；scripts/sync-law-data.mjs 為更新腳本。本次沒更新法規。
+   scripts/copy-assets.mjs 將主頁、court/photo/play/planner/practice/rankings、SW、manifest、音樂 JS 與 law-data 複製至 .gitignore 的 public/，供 Worker ASSETS 使用；public/ 不是 Git 追蹤來源。
+   court-game/Dockerfile、compose.yaml、docker/nginx.conf、.github/workflows/court-docker.yml：靜態遊戲／court 預覽容器；API 明確回 501，不含完整平台後端。不能稱新學習頁已打包。
 
-【可以直接交給 AI 的工作指令】
+【二、完成、部分完成、未完成與測試狀態】
 
-請先閱讀根目錄「給朋友的AI接手說明.txt」、PLATFORM-STATUS.md、AGENTS.md、court-game/AGENTS.md，並檢查 git status 和目前分支。這個專案只使用免費方案，絕不可購買服務或啟用付費 runner。先挑 PLATFORM-STATUS.md 中尚未完成的一個小功能實作；保持既有資料、session/CSRF、手機搖桿和桌機操作相容。法律內容須連到官方來源、查對條文與生效日期；不確定就保留關閉並標示，不要讓 AI 猜法規。修改後執行與改動相關的檢查，更新 PLATFORM-STATUS.md，說清楚已完成、未完成及驗證結果。只推送 1ch666/eduai2。不要部署正式 Worker 或修改正式資料庫，除非使用者明確安排部署窗口並確認免費額度。任何新 AI 功能都先用預寫 fallback，額度未知時不要發出模型請求。
+有實作：首頁既有學習功能、帳號 API／復原碼、留言／進度、六案程序法庭、角色限定 AI 台詞及預寫 fallback、Unity 場景／WebGL／操作、練習派題判分、弱點計算、課表 CRUD／ICS／heartbeat、訂閱儲存／SW、播放器 UI、積分排行榜、照片預覽與文字 AI 講解。
 
-本檔為專案交接資料；任何部署前仍需檢查最新 main、git diff 及 Cloudflare 部署目標。
+部分完成：
+- 登入／雲端資料：本機測試紀錄存在；Pages 與 Worker 的正式 Cookie／部署版本仍需管理者確認。
+- 法庭 AI：src/court.ts 已使用當前 speaker、角色描述、固定事實與預寫台詞生成角色發言，不能再稱只有通用引導員。仍受固定程序限制，非完整 AI 審判；人物動作、發言／證物特寫、全角色回歸待完成。
+- Practice：29 題、29 個概念，每概念只有 1 題。舊主站 32 題是不同資料源，不可混成新版弱點題庫。弱點規則最近20次首次作答、至少5題有程式，但現有題量使每概念不能達到5次不同題首次作答；目前不適合宣稱成熟弱點分析。
+- 排程：有週曆、CRUD、ICS、弱點到表單預填；未完成 AI 排程草稿、完整每週重複／時區／衝突及可靠提醒驗收。
+- 排行：有累積難度積分與固定門檻段位，未完成原規格的自願加入、每週時間／正確率雙榜、至少20題門檻、百分位五階、小樣本規則與群組。
+- 照片：預覽、Canvas 重編碼／壓縮／去 EXIF、手動輸入文字、講解及本機筆記；目前並不是真正的 OCR / Vision 圖片辨識，沒有自動辨識題幹／圖表。
+- 推播：subscription 儲存、Service Worker、VAPID public key 端點存在；缺真正 server-side delivery、排程發送、去重、逾期丟棄及失效訂閱清理。目前不能保證真的收到排程提醒。
+- 音樂：有5首宣告與播放器 UI，沒有追蹤中的音訊檔；未能宣稱可播放，錄音／朗讀自動暫停整合亦待驗收。
+
+尚未完成：免費 Vision/OCR 整合、完整 AI 排程、可靠背景提醒、原規格競賽防刷榜與群組、完整精緻多角色3D法庭、所有正式部署及資料安全驗收。
+
+需要實機測試：首頁、court、Unity play、practice、planner、rankings、photo 都未有完整 iPhone／Android 真機驗收證據。Unity 舊紀錄有桌面觸控模擬，不等於手機。語音取消、拒絕麥克風／相機／通知、切背景恢復、橫直向及不同瀏覽器均需補測。以前本機通過的測試不能替新提交背書；這次沒跑程式測試或登入正式環境。
+
+【三、程式掃描問題與下一步（依優先級，交給朋友實作）】
+
+P0：現有使用／資料可信度
+
+P0-1 登入與正式後端銜接。
+證據：index.html 在 github.io 對 Worker 跨站呼叫 auth/progress；src/session.ts 使用 SameSite=Lax；court/court.js 在 Pages 導向 Worker 同源入口。其他新工具也依賴登入。可能出現登入後讀不到 session、需登入功能無法使用。這次沒有重現正式登入，不把某一原因當作已確診。
+建議：後端管理者檢查正式 Worker 版本、ASSETS、binding、Session/Cookie、CORS/Origin 與同源入口；前端依確認結果提供清楚入口／錯誤說明，不重做登入。
+位置：index.html、src/session.ts、src/http.ts、src/index.ts、新工具的 api helper。需要後端權限：正式處理需要。資料風險：高（帳號／存檔）。
+
+P0-2 Practice 取題洩露解析與限流判斷。
+證據：src/practice.ts 的 clientQuestion 只去掉 correct，其他欄位仍含 explanation；取題時已把解題解析送給前端，不能作嚴格公平的競賽題。兩個限流判斷 `if (!practice.allow(...))` 未 await，與其他 DO RPC 呼叫方式不一致，可能只在判斷 Promise 的真值，需修正並驗證實際限流。
+建議：檢查取題回傳白名單、RPC await、限流整合測試；修正前不要當作防刷榜已完成。
+位置：src/practice.ts 的 clientQuestion、questions／answer handler。需要後端管理者處理；資料風險：中至高（統計／排行／額度）。
+
+P0-3 排名自動公開與首次作答競態。
+證據：src/practice.ts 首次作答直接呼叫 rankings.record；src/rankings.ts 公開 top 的暱稱和答題統計，未見自願加入檢查。isFirstAttempt 與 record 是兩次 RPC，需測不同 token 同題並發是否都被算首次；排名更新失敗被 catch 吞掉，缺一致性修復。
+建議：管理者先確認 opt-in／退出與統計政策、首次作答原子性／冪等及排名同步補償。不能以現有 token 防重放直接推論並發防刷也完成。
+位置：src/practice.ts、src/rankings.ts、rankings/。需要後端權限：是。資料風險：高（公開個人學習行為／公平性）。
+
+P0-4 音樂初始化與無限缺檔輪播。
+證據：music-player.js 使用 Number(state.volume) ?? 0.5；全新使用者 state.volume 缺少時 Number(undefined) 是 NaN，?? 不會套用預設，audio.volume 設定可能拋錯。music-data.js 全部用 /music/*.mp3，Pages 會指向網域根路徑而非 /eduai2/music/；git 無音訊檔。error handler 每1.2秒切下一首且無終止條件，全缺檔可能連續 error。
+建議：有效數值預設、base-aware URL、缺檔停止／單次提示；補真正授權音源及打包複製規則。樂曲公共領域不代表任一錄音都免費，須核實具體錄音。
+位置：music-player.js、music-data.js、scripts/copy-assets.mjs。需要後端權限：前端修正不需要。正式儲存／部署另需管理者安排。資料風險：低，另有授權風險。
+
+P1：已實作功能缺口
+
+P1-1 題庫及弱點補強不足。
+29題各屬不同概念，低於每概念至少5題首次作答門檻；重做同題又不列首次統計。需增加各概念多題、難度與題型變化、來源版本、真正不同的補強題。不要只增加新概念各1題。
+位置：src/practice-data.ts、src/practice.ts、practice/practice.js；靜態題整理不需正式後端權限，判分／統計變更需後端管理者。資料風險：中。
+
+P1-2 照片功能的名稱／能力及重送、大小限制。
+photo/photo.js 的 API body 只有 text 和 requestId；src/photo.ts 明確 ocrAvailable:false，使用文字模型。需選擇增加 OCR/Vision 或改為「照片參照＋手動文字講解」。Canvas 壓縮在品質降至門檻時即使超過2MB也會 resolve，需在輸出後再檢查；requestId 只驗證格式，沒見結果快取／去重，重送可能重複耗用 AI。
+位置：photo/index.html、photo/photo.js、src/photo.ts。前端說明與大小處理可做；模型、費用、私隱、API去重需要後端管理者。資料風險：高（題目照片／文字）。本機筆記亦應檢查共用裝置、換帳號隔離。
+
+P1-3 Push capability 過度代表可用。
+src/index.ts push:true 只代表訂閱端存在；沒有實際 delivery。planner 的訂閱 UI 不該承諾到點能收到。需由管理者完成 VAPID 私鑰／免費排程方式、通知去重、修改取消、逾期丟棄及失效訂閱；目前先提供誠實狀態與 ICS fallback。
+位置：src/index.ts、src/push.ts、sw.js、planner/planner.js。前端文案可做；Secrets、發送、排程及正式驗收需後端。資料風險：中至高。src/push.ts／PLATFORM-STATUS.md「cron 必須付費」缺當前官方方案查核，不能據此購買或升級；讓管理者查核免費選項。
+
+P1-4 排程修改、週重複與專注時間。
+src/planner.ts updateSlot 將 startIso/endIso 合入資料後卻以 u.start_iso/u.end_iso 更新 SQL，欄位命名不同可能使修改時間不生效。conflicts/listSlots 依原始時間比較，未見每週 recurrence 的未來實例展開；需核對跨週顯示／衝突。startFocus 可建多筆，endFocus 未先驗證已結束狀態或補算末段離線間隔；planner.js heartbeat 沒用伺服器 elapsed 修正顯示。這些都不能拿來做可信任競賽時間。
+建議：管理者核對欄位映射、原子衝突檢查、重複與時區、同帳號單一有效計時、背景／失聯停計、end冪等。
+位置：src/planner.ts、planner/planner.js。後端部分需要管理者；UI 時區顯示可本機處理。資料風險：高（課表／時間）。
+
+P1-5 排行與原規格不一致。
+src/rankings.ts 是累積 difficulty 積分及固定0/50/150/300/500門檻，沒有每週重置、有效時間榜、首次正確率榜、20題門檻、百分位或不足20人規則。rankOf 只比較 score，top 再比較 correct，同分時名次定義亦需統一。
+位置：src/rankings.ts、src/practice.ts、rankings/。建議先明示「累積練習積分榜」，其餘依完整需求逐步做；正式統計及隱私需後端管理者。資料風險：高。
+
+P2：介面、內容與裝置體驗
+
+P2-1 首頁及SEO還泛稱「不需登入」。index.html description、og:description、selection-label 需改為公開練習可免登入，雲端場次／新工具需登入。位置 index.html；前端可做；資料風險低。
+P2-2 七個頁面真機驗收：首頁、court、play、practice、planner、rankings、photo。保留桌機WASD／滑鼠／E／1–4、Pointer Lock fallback，手機搖桿／點擊。先記錄裝置和步驟再修 UI；前端／Unity本機工作可做，正式帳號驗收由管理者安排；資料風險低至中。
+P2-3 Unity 精緻化：已有3D，仍需人物動作、發言／證物特寫、多角色表現及全部案件流程回歸。位置 court/court.js、court-game/Assets/Scripts/CourtPresentation.cs、CourtSession.cs、NPC/；視覺可做，AI／雲端流程需後端管理者。資料風險低至中。奶蛙非必要前置，素材須有可核查授權。
+P2-4 法律來源品質：src/court-rules.ts 已新增條文日期／沿革文字，但仍有少年條文明記日期待查；checked欄位與註解不是官方核驗證據。逐條核對官方來源、生效日、歷史版本、程序條件；分清教學產品限制與真實規範。law-data 仍是2026-09-01產生、來源更新日2026-08-21的快照。查證不需後端權限，正式規則／發布需管理者與法律專業覆核；內容風險高。平台是教育用途，不是個案法律意見。
+
+P3：進階功能
+
+P3-1 AI 排程草稿、可用時間／期限／弱點優先排序及使用者確認後儲存。位置 planner/、src/planner.ts，尚未找到完整排程引擎；前端草稿可做，正式寫入／模型需後端管理者；私人行程資料風險高。
+P3-2 私人群組、可撤銷邀請、退出立即隔離、完整週榜／段位與防刷。位置未來 groups API、src/rankings.ts、src/practice.ts、src/planner.ts；目前群組未實作。需後端管理者；資料與權限風險高。
+P3-3 完整多角色 AI 審判體驗：在既有程序狀態機和固定事實限制內擴充，不讓 AI 修改案件／證物／資格或直接下真實裁判。位置 src/court.ts、court-rules.ts、court/、Unity；需後端管理者，法律內容需覆核；資料及內容風險高。
+
+【四、下一個 AI 可直接處理】
+
+以後續使用者授權的任務為範圍，且不接觸正式後端資料，可處理一般前端 UI、CSS、responsive、文案／SEO、靜態頁面、錯誤提示、capability fallback、GitHub Pages base path、音樂前端、Unity 畫面整合、本機測試與文件。程式掃描可唯讀檢查後端；修正後端問題、部署、遷移與設定需先交由管理者決定。
+不要把「可直接處理」當作一次重做全站的授權；一次選一個有可驗證結果的小批次。保留朋友的修改，完成時說明檔案／測試／剩餘問題。
+
+【五、需要後端管理者處理】
+
+- 登入正式後端、Session/Cookie/CORS、Worker同源平台與實際部署版本。
+- Cloudflare Worker正式部署、ASSETS與8個DO binding、v1–v7實際migration狀態、備份與回滾。
+- Practice RPC限流、首次作答原子性、答案資訊白名單、排行自願加入／冪等／一致性。
+- Planner正式資料修改、計時／重複排程、排程與Push server delivery。
+- VAPID_PRIVATE_KEY等Secrets、公鑰與訂閱匹配、失效端點清理。
+- OLLAMA_API_KEY、模型／免費額度、COURT_AI_ENABLED開關、OCR/Vision資料處理與隱私。
+- 任何正式schema／migration／資料修復、群組權限和公開統計政策。
+- GitHub Pages設定、collaborator、branch protection等由repository管理者處理；不要為推送修改權限。
+
+【六、部署、Docker與交接證據】
+
+- Pages：https://1ch666.github.io/eduai2/；Repo：https://github.com/1ch666/eduai2；Worker URL如頁首。此輪只讀repo，不聲稱驗證線上登入／AI。
+- .github/workflows/目前有手動 Court Docker handoff；沒有追蹤中的Pages workflow不表示沒有branch-based Pages。實際Pages source／已發布commit需讀GitHub部署紀錄確認；git push成功不等於Worker已部署。
+- PLATFORM-STATUS.md仍寫完整平台尚未正式遷移／部署，不能僅依新API程式或capability=true宣稱線上可用。capabilities中的key存在也不保證provider可用或額度充足。
+- public/是產出目录；不可把本機殘留檔當新版本證據。音樂音訊尚未隨repo提供，僅JS被複製。
+- 目前Docker是靜態play/court預覽，API501；最新文件記錄的映像來源590c5bb／run35847457427早於新增學習功能及新的court修改。不可稱它包含最新整个平台。
+- 後續如獲部署授權且更新遊戲，應以相同來源commit重建WebGL／Docker，記錄來源、校驗值、實際下載量及驗證結果；本次不觸發建置或部署。
+- 免費優先、額度不足明確降級。所有正式操作均由有權管理者安排；不要依過時文件自動升級方案。
+
+接手指令：先讀本文件及完整需求規格，查看最新main與git status，再掃相關程式定位問題。選P0最早且在授權內的一項；若涉及上述後端邊界，提交分析與檔案位置給管理者。實作與驗證完成後更新狀態，区分本機測試／真機／正式部署。只推1ch666/eduai2，禁止force push及覆蓋朋友進度。
