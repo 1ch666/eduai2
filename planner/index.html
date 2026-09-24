@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="每週讀書排程、專注計時、提醒。"><title>週排程｜公民法律研究室</title><link rel="stylesheet" href="../styles.css"><link rel="stylesheet" href="planner.css"><script type="module" src="planner.js"></script></head>
+<body><header><a href="../">公民法律研究室</a><span>週排程</span><button id="account-toggle">登入</button></header>
+<main>
+<p id="status" role="status"></p>
+<section id="login-notice" hidden><p>請至<a href="../court/">帳號頁面</a>登入後使用排程功能。</p></section>
+
+<section id="planner-area" hidden>
+  <!-- 週導覽 -->
+  <div class="bar week-nav">
+    <button id="prev-week">&#8249;</button>
+    <span id="week-label"></span>
+    <button id="next-week">&#8250;</button>
+    <button id="today-btn">本週</button>
+    <button id="export-ics">匯出 ICS</button>
+    <button id="push-toggle">通知設定</button>
+  </div>
+
+  <!-- 週曆格 -->
+  <div id="week-grid" class="week-grid" role="grid" aria-label="本週排程"></div>
+
+  <!-- 新增表單 -->
+  <details id="add-slot-details">
+    <summary>新增排程</summary>
+    <form id="slot-form">
+      <input type="hidden" id="edit-slot-id">
+      <div class="grid">
+        <label>標題<input name="title" maxlength="80" required placeholder="例：複習民法"></label>
+        <label>科目<select name="subject"><option value="law">法律</option><option value="civics">公民</option><option value="economics">經濟</option><option value="other">其他</option></select></label>
+        <label>開始<input type="datetime-local" name="startLocal" required></label>
+        <label>結束<input type="datetime-local" name="endLocal" required></label>
+        <label>重複<select name="recurrence"><option value="none">不重複</option><option value="weekly">每週</option></select></label>
+        <label>考試截止日<input type="date" name="examDate" placeholder="選填"></label>
+      </div>
+      <label>備註<input name="note" maxlength="200" placeholder="選填"></label>
+      <div class="bar"><button id="slot-submit">儲存</button><button type="button" id="slot-cancel" hidden>取消</button></div>
+    </form>
+  </details>
+
+  <!-- 專注計時 -->
+  <section id="focus-panel">
+    <h2>專注計時</h2>
+    <p id="focus-elapsed">00:00</p>
+    <div class="bar">
+      <select id="focus-slot-select"><option value="">不綁定排程</option></select>
+      <button id="focus-start">開始</button>
+      <button id="focus-end" hidden>結束</button>
+    </div>
+    <small>離線超過 5 分鐘的空白不計入計時。</small>
+  </section>
+
+  <!-- 通知設定面板 -->
+  <section id="push-panel" hidden>
+    <h2>通知設定</h2>
+    <p id="push-status-text"></p>
+    <button id="push-subscribe">允許通知</button>
+    <button id="push-unsubscribe" hidden>關閉通知</button>
+    <details><summary>iPhone 說明</summary><p>iOS 需先「加入主畫面」後才能使用通知。在 Safari 選「分享 → 加入主畫面」，再重新開啟後授權。</p></details>
+    <p><small>不能保證鎖屏準時送達（行為依瀏覽器而異）。拒絕通知時可使用下方 ICS 匯出加入系統行事曆。</small></p>
+    <button id="close-push">關閉</button>
+  </section>
+</section>
+<footer>排程為個人工具，AI 草稿需使用者確認後才儲存。</footer>
+</main></body></html>
