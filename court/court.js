@@ -2,7 +2,7 @@ const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
 const base=onPages?WORKER:'';
-let account=null,csrf='',cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
+let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 const procedureNames={civil:'民事程序',criminal:'成人刑事程序',juvenile:'少年保護程序'};
 const labels={judge:'法官',claimant:'原告',respondent:'被告',claimantCounsel:'原告代理人',respondentCounsel:'被告律師',observer:'旁觀者',juvenile:'少年',assistant:'少年輔佐人'};
@@ -11,7 +11,7 @@ function node(tag,text){const n=document.createElement(tag);if(text!==undefined)
 function button(text,fn){const b=node('button',text);b.type='button';b.addEventListener('click',()=>run(fn));return b;}
 async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},body:body?JSON.stringify(body):undefined});const p=await r.json();if(r.status===501)throw Error('此容器尚未設定後端，登入、雲端場次與 AI 無法使用；固定遊戲仍可遊玩。');if(!r.ok)throw Error(p.error||'服務暫時無法使用');return p;}
 async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
-async function session(){const p=await api('/api/auth/session');account=p.user;csrf=p.csrfToken||'';$('account-toggle').textContent=account?account.displayName:'登入';$('logout').hidden=!account;$('create').textContent=account?'建立雲端場次':'登入後建立場次';if(account)await sessions();}
+async function session(){const p=await api('/api/auth/session');account=p.user;csrf=p.csrfToken||'';hasRecoveryCode=account?p.hasRecoveryCode!==false:true;$('account-toggle').textContent=account?account.displayName:'登入';$('logout').hidden=!account;$('first-recovery-section').hidden=!account||hasRecoveryCode;$('create').textContent=account?'建立雲端場次':'登入後建立場次';if(account)await sessions();}
 async function sessions(){const p=await api('/api/court/sessions');$('sessions').replaceChildren(...p.sessions.map(s=>button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);open(p.view);})));}
 function choices(select,items){select.replaceChildren(...items.map(([value,label])=>{const o=node('option',label);o.value=value;return o;}));}
 function setup(){const t=cases.find(c=>c.id===$('case').value);if(!t)return;$('procedure').value=procedureNames[t.procedure];$('case-summary').textContent=t.summary;
@@ -61,13 +61,14 @@ async function autoStep(){if(!view||view.completed||document.hidden){pause();ret
 $('autoplay').onclick=()=>{if($('autoplay').textContent==='暫停'){pause();return;}$('autoplay').textContent='暫停';void autoStep();};$('step').onclick=()=>run(()=>act('step'));
 $('case').onchange=setup;$('setup-form').addEventListener('input',e=>{if(e.target.name!=='caseId')lawPanel();});$('account-toggle').onclick=()=>{$('account').hidden=!$('account').hidden;};
 $('auth-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(onPages){location.href=WORKER+'/court/';return;}const f=new FormData(e.target);const p=await api('/api/auth/'+f.get('mode'),Object.fromEntries(f));e.target.elements.password.value='';e.target.elements.recoveryCode.value='';$('recovery').hidden=!p.recoveryCode;$('recovery').textContent=p.recoveryCode?`請保存新的復原碼（僅顯示一次）：\n${p.recoveryCode}`:'';await session();status('登入成功。');});};
-$('logout').onclick=()=>run(async()=>{await api('/api/auth/logout',{});account=null;csrf='';pause();$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;$('sessions').replaceChildren();$('recovery').textContent='';$('recovery').hidden=true;await session();});
+$('logout').onclick=()=>run(async()=>{await api('/api/auth/logout',{});account=null;csrf='';hasRecoveryCode=true;pause();$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;$('sessions').replaceChildren();$('recovery').textContent='';$('recovery').hidden=true;$('first-recovery-section').hidden=true;await session();});
 $('setup-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(!account){$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return;}const b=Object.fromEntries(new FormData(e.target));b.claimantAid ||= 'none';for(const k of ['claimantAge','claimantHearingAge','respondentAge','respondentHearingAge'])b[k]=Number(b[k]);const p=await api('/api/court/sessions',b);open(p.view);});};
 $('speech-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await act('speak',{text:$('statement').value});$('statement').value='';});};
+$('first-recovery-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/first-recovery',{password:f.get('password')});e.target.elements.password.value='';$('recovery').hidden=false;$('recovery').textContent=`請保存首次復原碼（僅顯示一次）：\n${p.recoveryCode}`;hasRecoveryCode=true;$('first-recovery-section').hidden=true;status('復原碼已產生，請立即妥善保存。');});};
 $('back').onclick=()=>{pause();stopVoice(true);$('hearing').hidden=true;$('setup').hidden=false;$('scene').removeAttribute('src');$('scene').hidden=true;void run(sessions);};
 $('show-scene').onclick=()=>{$('scene').hidden=false;if(!$('scene').getAttribute('src'))$('scene').src='../play/?court=1';};
 $('seat').onclick=()=>scene('seat');$('overview').onclick=()=>scene('overview');$('walk').onclick=()=>scene('walk');
-$('ask-guide').onclick=()=>run(async()=>{const id=view.id,version=view.version;$('guidance').textContent='正在取得引導…';const p=await api(`/api/court/sessions/${id}/dialogue`,{});if(view.id===id&&view.version===version)$('guidance').textContent=`${p.mode==='scripted'?'固定引導（AI 暫不可用）':'AI 參考引導'}：${p.text}`;});
+$('ask-guide').onclick=()=>run(async()=>{const id=view.id,version=view.version;$('guidance').textContent='正在取得引導…';const p=await api(`/api/court/sessions/${id}/dialogue`,{});if(view.id===id&&view.version===version){const modeLabel=p.mode==='scripted'?'固定台詞（AI 暫不可用）':p.mode==='ai-dialogue'?`AI 對話（${p.speaker}）`:'AI 程序引導';$('guidance').textContent=`${modeLabel}：${p.text}`;}});
 $('read-guide').onclick=()=>{if(!('speechSynthesis'in window)){status('此瀏覽器不支援朗讀。');return;}stopVoice(true);speechSynthesis.cancel();const u=new SpeechSynthesisUtterance($('guidance').textContent);u.lang='zh-TW';speechSynthesis.speak(u);};
 function stopVoice(cancel=false){cancelVoice=cancel;if(recognition){cancel?recognition.abort():recognition.stop();} }
 // Cancel before navigation or a submitted action, including multi-touch input.
