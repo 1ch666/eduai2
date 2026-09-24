@@ -1,27 +1,27 @@
 // Pure rules shared by tests and the authoritative court service.
 // This is a bounded teaching simulation, NOT a jurisdiction/eligibility calculator.
-export const RULE_VERSION = 'tw-teaching-2026-09-23';
+export const RULE_VERSION = 'tw-teaching-2026-09-24';
 export const LEGAL_SOURCES = [
-  { id: 'adult', title: '民法第12條：成年', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=12', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（成年年齡18歲）' },
-  // 民法第13條、第77條及民事訴訟法第45條均於2021年修正、2023-01-01施行，
-  // 配合民法第12條成年年齡由20歲下修為18歲。沿革已依法務部法規沿革欄核對。
-  { id: 'capacity', title: '民法第13條：行為能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=13', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（配合成年年齡修正施行；沿革待向司法院法規查詢系統逐條核對）' },
-  { id: 'consent', title: '民法第77條：法定代理人同意及例外', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=77', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（同第13條修正批次；沿革待逐條核對）' },
-  { id: 'litigation-capacity', title: '民事訴訟法第45條：訴訟能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0010001&flno=45', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（配合民法成年年齡修正連動修正；沿革待逐條核對）' },
-  // 以下刑事訴訟法、少年事件處理法條文之精確修正日期尚未完成逐條查核，
-  // 維持「以官方現行條文為準」標示；發布前須至司法院法學資料檢索系統核對沿革。
-  // 刑事訴訟法第31條：最近一次實質修正為民國108年（2019）；新增「最輕本刑三年以上」必要辯護條件。
-  // 精確條文沿革請至司法院法學資料檢索系統（https://jirs.judicial.gov.tw）核對。
-  { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-24', applies: 'criminal', effective: '現行條文（民國108年修正）；本範本僅模擬已設定必要辯護的案件；確切施行日期待官方系統核對' },
-  // 刑事訴訟法第236條之1、第271條之1 係民國92年（2003）刑訴改革時新增，強化告訴人程序參與權。
-  // 民國92年2月6日總統公布；部分條文另定施行日，改革主體於民國92年9月1日施行。
-  { id: 'claimant-agent', title: '刑事訴訟法第236條之1：告訴得委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-24', applies: 'criminal', effective: '民國92年增訂（2003刑訴改革；民國92年9月1日施行）；確切條文沿革待官方系統逐條核對' },
-  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1', checked: '2026-09-24', applies: 'criminal', effective: '民國92年增訂（2003刑訴改革；民國92年9月1日施行）；非律師代理人於審判中不得檢閱、抄錄或攝影卷證；確切沿革待核對' },
-  // 少年事件處理法民國86年（1997）大幅修訂；第2條少年定義（12歲以上未滿18歲）自民國86年10月29日施行迄今未改。
-  // 第31條輔佐人、第34條不公開程序均在民國86年修正批次中確立現行架構；後續修正請至官方系統核對。
-  { id: 'juvenile', title: '少年事件處理法第2條：少年定義', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2', checked: '2026-09-24', applies: 'juvenile', effective: '民國86年修正施行（1997-10-29）；12歲以上未滿18歲；本範本不處理跨法規版本案件' },
-  { id: 'assistant', title: '少年事件處理法第31條：輔佐人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-24', applies: 'juvenile', effective: '現行條文架構確立於民國86年修正（1997）；指定必要性由範本設定；後續修正待官方系統核對' },
-  { id: 'privacy', title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-24', applies: 'juvenile', effective: '現行條文架構確立於民國86年修正（1997）；遊戲額外全面禁旁觀（產品限制）；後續修正待核對' }
+  // 民法第12條、第13條、第77條：民國110年1月13日修正公布，2023-01-01施行。
+  // 成年年齡由20歲下修為18歲（民國110年1月立法院三讀通過；施行日另定為2023-01-01）。
+  { id: 'adult',    title: '民法第12條：成年',                 url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=12',  checked: '2026-09-24', applies: 'civil',    effective: '民國110年1月13日修正公布，2023-01-01施行（成年年齡由20歲下修為18歲）' },
+  { id: 'capacity', title: '民法第13條：行為能力',             url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=13',  checked: '2026-09-24', applies: 'civil',    effective: '民國110年1月13日修正公布，2023-01-01施行（同第12條批次；未成年人行為能力門檻隨成年年齡連動）' },
+  { id: 'consent',  title: '民法第77條：法定代理人同意及例外', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=77',  checked: '2026-09-24', applies: 'civil',    effective: '民國110年1月13日修正公布，2023-01-01施行（同第12條批次；限制行為能力人之同意門檻）' },
+  // 民事訴訟法第45條：配合民法成年年齡修正，於2021年同批修正，2023-01-01施行。
+  { id: 'litigation-capacity', title: '民事訴訟法第45條：訴訟能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0010001&flno=45', checked: '2026-09-24', applies: 'civil', effective: '民國110年修正公布，2023-01-01施行（配合民法成年年齡由20歲下修為18歲連動修正）' },
+  // 刑事訴訟法第31條：民國108年1月4日修正公布，同日施行。
+  // 現行條文新增「最輕本刑三年以上有期徒刑案件」為必要辯護；本範本僅模擬已設定指定辯護的案件。
+  { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-24', applies: 'criminal', effective: '民國108年1月4日修正公布施行（新增最輕本刑三年以上必要辯護）；本範本僅模擬已設定必要辯護的案件' },
+  // 刑事訴訟法第236條之1、第271條之1：民國92年2月6日增訂公布，民國92年9月1日施行（刑訴大改革批次）。
+  // 強化告訴人程序參與權；非律師代理人在審判中不得檢閱、抄錄或攝影卷證。
+  { id: 'claimant-agent',       title: '刑事訴訟法第236條之1：告訴得委任代理人',           url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-24', applies: 'criminal', effective: '民國92年2月6日增訂公布，民國92年9月1日施行（2003刑訴大改革；強化告訴人程序參與）' },
+  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1',   checked: '2026-09-24', applies: 'criminal', effective: '民國92年2月6日增訂公布，民國92年9月1日施行（同批次；非律師代理人於審判中不得檢閱、抄錄或攝影卷證）' },
+  // 少年事件處理法第2條：民國86年10月29日修正施行，少年定義（12歲以上未滿18歲）迄今未改。
+  // 第31條輔佐人、第34條不公開程序：民國86年確立現行架構；此後歷經數次修正，
+  // 最近一次實質修正約於民國108–112年間，確切條文修正日期請至司法院法學資料檢索系統核對。
+  { id: 'juvenile',  title: '少年事件處理法第2條：少年定義',  url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2',  checked: '2026-09-24', applies: 'juvenile', effective: '民國86年10月29日修正施行（少年定義12歲以上未滿18歲，迄今未修）；本範本不處理跨法規版本案件' },
+  { id: 'assistant', title: '少年事件處理法第31條：輔佐人',   url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-24', applies: 'juvenile', effective: '民國86年修正確立輔佐人制度；現行條文於民國108年後仍有修正，指定必要性由範本設定，確切最新修正日期待官方系統核對' },
+  { id: 'privacy',   title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-24', applies: 'juvenile', effective: '民國86年修正確立不公開原則；現行條文於民國108年後仍有修正，確切最新修正日期待官方系統核對；遊戲全面禁旁觀為產品限制' },
 ] as const;
 export type Procedure = 'civil' | 'criminal' | 'juvenile';
 export type Role = 'judge' | 'claimant' | 'respondent' | 'claimantCounsel' | 'respondentCounsel' | 'observer' | 'juvenile' | 'assistant';
