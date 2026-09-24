@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="公民、法律與經濟題目練習，伺服器判分，依弱點補強。"><title>題目練習｜公民法律研究室</title><link rel="stylesheet" href="../styles.css"><script type="module" src="practice.js"></script></head>
+<body><header><a href="../">公民法律研究室</a><span>題目練習</span><button id="account-toggle">登入</button></header>
+<main>
+<p id="status" role="status"></p>
+<section id="account" hidden><h2>學習帳號</h2><p>請至<a href="../court/">開庭練習</a>頁面登入後再回來使用題目練習。</p></section>
+<section id="practice-area">
+  <div class="bar">
+    <label>科目
+      <select id="subject-filter">
+        <option value="">全部</option>
+        <option value="law">法律</option>
+        <option value="civics">公民</option>
+        <option value="economics">經濟</option>
+      </select>
+    </label>
+    <button id="get-question">取題</button>
+    <button id="show-weakness">查看弱點分析</button>
+  </div>
+
+  <section id="question-section" hidden>
+    <p id="question-meta"></p>
+    <p id="question-text"></p>
+    <div id="choices"></div>
+  </section>
+
+  <section id="result-section" hidden>
+    <p id="result-verdict"></p>
+    <p id="result-explanation"></p>
+    <p id="result-source"></p>
+    <div id="reinforce-guide" hidden>
+      <h3 id="guide-title"></h3>
+      <p id="guide-summary"></p>
+      <div id="guide-errors"></div>
+      <div id="guide-points"></div>
+      <button id="next-reinforce">繼續同概念補題</button>
+    </div>
+    <button id="next-question">下一題</button>
+  </section>
+
+  <section id="weakness-section" hidden>
+    <h2>弱點分析</h2>
+    <p id="weakness-help">依最近 20 次首次作答計算（需至少 5 題）。</p>
+    <div id="weakness-list"></div>
+    <button id="close-weakness">關閉</button>
+  </section>
+</section>
+<footer>題目為教學用途，非正式試題或考場保證。AI 不決定分數。</footer>
+</main></body></html>
