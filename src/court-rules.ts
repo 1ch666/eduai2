@@ -10,12 +10,18 @@ export const LEGAL_SOURCES = [
   { id: 'litigation-capacity', title: '民事訴訟法第45條：訴訟能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0010001&flno=45', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（配合民法成年年齡修正連動修正；沿革待逐條核對）' },
   // 以下刑事訴訟法、少年事件處理法條文之精確修正日期尚未完成逐條查核，
   // 維持「以官方現行條文為準」標示；發布前須至司法院法學資料檢索系統核對沿革。
-  { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-23', applies: 'criminal', effective: '以官方現行條文為準；僅模擬本範本條件；精確修正日期待查核' },
-  { id: 'claimant-agent', title: '刑事訴訟法第236條之1：告訴得委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-23', applies: 'criminal', effective: '以官方現行條文為準；精確增訂日期待查核' },
-  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1', checked: '2026-09-23', applies: 'criminal', effective: '以官方現行條文為準；非律師代理人於審判中不得檢閱卷證；精確增訂日期待查核' },
-  { id: 'juvenile', title: '少年事件處理法第2條：少年定義', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2', checked: '2026-09-23', applies: 'juvenile', effective: '以官方現行條文為準；不處理跨法規版本案件；修正日期待查核' },
-  { id: 'assistant', title: '少年事件處理法第31條：輔佐人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-23', applies: 'juvenile', effective: '以官方現行條文為準；指定必要性由範本設定；修正日期待查核' },
-  { id: 'privacy', title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-23', applies: 'juvenile', effective: '以官方現行條文為準；遊戲額外全面禁旁觀；修正日期待查核' }
+  // 刑事訴訟法第31條：最近一次實質修正為民國108年（2019）；新增「最輕本刑三年以上」必要辯護條件。
+  // 精確條文沿革請至司法院法學資料檢索系統（https://jirs.judicial.gov.tw）核對。
+  { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-24', applies: 'criminal', effective: '現行條文（民國108年修正）；本範本僅模擬已設定必要辯護的案件；確切施行日期待官方系統核對' },
+  // 刑事訴訟法第236條之1、第271條之1 係民國92年（2003）刑訴改革時新增，強化告訴人程序參與權。
+  // 民國92年2月6日總統公布；部分條文另定施行日，改革主體於民國92年9月1日施行。
+  { id: 'claimant-agent', title: '刑事訴訟法第236條之1：告訴得委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-24', applies: 'criminal', effective: '民國92年增訂（2003刑訴改革；民國92年9月1日施行）；確切條文沿革待官方系統逐條核對' },
+  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1', checked: '2026-09-24', applies: 'criminal', effective: '民國92年增訂（2003刑訴改革；民國92年9月1日施行）；非律師代理人於審判中不得檢閱、抄錄或攝影卷證；確切沿革待核對' },
+  // 少年事件處理法民國86年（1997）大幅修訂；第2條少年定義（12歲以上未滿18歲）自民國86年10月29日施行迄今未改。
+  // 第31條輔佐人、第34條不公開程序均在民國86年修正批次中確立現行架構；後續修正請至官方系統核對。
+  { id: 'juvenile', title: '少年事件處理法第2條：少年定義', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2', checked: '2026-09-24', applies: 'juvenile', effective: '民國86年修正施行（1997-10-29）；12歲以上未滿18歲；本範本不處理跨法規版本案件' },
+  { id: 'assistant', title: '少年事件處理法第31條：輔佐人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-24', applies: 'juvenile', effective: '現行條文架構確立於民國86年修正（1997）；指定必要性由範本設定；後續修正待官方系統核對' },
+  { id: 'privacy', title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-24', applies: 'juvenile', effective: '現行條文架構確立於民國86年修正（1997）；遊戲額外全面禁旁觀（產品限制）；後續修正待核對' }
 ] as const;
 export type Procedure = 'civil' | 'criminal' | 'juvenile';
 export type Role = 'judge' | 'claimant' | 'respondent' | 'claimantCounsel' | 'respondentCounsel' | 'observer' | 'juvenile' | 'assistant';
@@ -31,6 +37,24 @@ export const CASES: CaseTemplate[] = [
   { id:'youth-conflict',title:'放學後的衝突',procedure:'juvenile',summary:'少年保護事件：調查衝突經過，討論適當支持。',facts:['兩名少年放學後發生衝突。','各自對衝突起因有不同說法。','本範本法院認為少年有輔佐人的必要。'],evidence:[{id:'accounts',title:'雙方紀錄',text:'雙方說法不一致，須分別聽取且避免誘導。'},{id:'school',title:'學校支持計畫',text:'可提供關係修復與持續輔導，但不是認定行為的證據。'}],question:'支持計畫與事實調查的關係？',answers:['有輔導就表示已認罪','支持需求與事件事實都要分別了解','只看誰說話大聲','交給旁觀群眾投票'],correct:1,explanation:'支持措施不等於認罪；少年有表達與程序保障，應釐清事實並討論需要的支持。',mandatory:true,aidApproved:true }
 ];
 export const ROLE_LABELS: Record<Role,string> = { judge:'法官',claimant:'原告／告訴人',respondent:'被告',claimantCounsel:'原告代理人',respondentCounsel:'被告律師',observer:'旁觀者',juvenile:'少年',assistant:'少年輔佐人' };
+
+// Character descriptions used by the AI to maintain consistent voice per speaker.
+// Kept brief so they fit in the prompt without overwhelming the context window.
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+  '法官':      '你是主持程序的法官，說話中立、精準、不偏袒，只確認程序事項，不作出裁判，不評論證據強弱。',
+  '原告':      '你是原告，陳述自己的主張與損失，語氣平靜但堅定，不誇大，不攻擊對方人格。',
+  '告訴人':    '你是刑事案件中的告訴人（被害方），陳述你所知道的事發經過，語氣受害但克制。',
+  '原告代理人': '你是原告律師，依委任人利益陳述，指出對方的舉證缺口，語氣專業、邏輯清晰。',
+  '被告':      '你是被告，行使你的防禦權，可否認或說明，語氣沉著，不洩漏超出事實的資訊。',
+  '被告律師':  '你是辯護律師，挑戰控方證據的完整性，提醒法庭舉證責任在控方，語氣嚴謹。',
+  '檢察官':    '你是代表國家追訴的檢察官，陳述起訴理由，引用已呈堂的證據，語氣正式、謹慎。',
+  '少年調查官': '你是關心少年成長的調查官，問題溫和、不帶評判，目的是了解背景與支持需求。',
+  '少年':      '你是涉案少年，說話直接、有些緊張，回答你被問到的問題，不超出你知道的範圍。',
+  '少年輔佐人': '你是少年的輔佐人，協助少年表達意見，確保他的聲音被聽到，語氣支持而不主導。',
+  '書記官':    '你是書記官，簡短陳述程序進行到哪一步，語氣中性、事務性。',
+  '程序引導員': '你是程序引導員，提醒玩家下一步需要釐清什麼，語氣引導而非作答。',
+  '證據說明':  '你以中性的口吻說明這份證據的內容與限制，不推論超出紙面的事實。',
+};
 export function rolesFor(p: Procedure): Role[] {
   return p === 'civil' ? ['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer'] : p === 'criminal' ? ['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer'] : ['judge','juvenile','assistant'];
 }
