@@ -10,6 +10,7 @@ import { handlePractice } from './practice';
 import { handlePlanner } from './planner';
 import { handlePush } from './push';
 import { handleRankings } from './rankings';
+import { handlePhoto } from './photo';
 export { CourtRoom, Learner } from './court';
 export { Practice } from './practice';
 export { Planner } from './planner';
@@ -36,6 +37,7 @@ function isApiPath(pathname: string): boolean {
     pathname.startsWith('/api/practice/') || pathname.startsWith('/api/planner/') ||
     pathname.startsWith('/api/push/') ||
     pathname.startsWith('/api/rankings/') ||
+    pathname.startsWith('/api/photo/') ||
     pathname === "/api/messages" ||
     pathname === "/api/progress" ||
     pathname.startsWith("/api/auth/") ||
@@ -58,13 +60,14 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
 
   if (url.pathname === '/api/capabilities') {
     if (request.method !== 'GET') return respond({error:'此端點只接受 GET'},405);
-    return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&Boolean(env.OLLAMA_API_KEY),textAi:Boolean(env.OLLAMA_API_KEY),practice:true,photo:false,push:true,planner:true,rankings:true});
+    return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&Boolean(env.OLLAMA_API_KEY),textAi:Boolean(env.OLLAMA_API_KEY),practice:true,photo:Boolean(env.OLLAMA_API_KEY),photoOcr:false,push:true,planner:true,rankings:true});
   }
   if (url.pathname.startsWith('/api/court/')) return handleCourt(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/practice/')) return handlePractice(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/planner/')) return handlePlanner(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/push/')) return handlePush(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/rankings/')) return handleRankings(request,env,respond);
+  if (url.pathname.startsWith('/api/photo/')) return handlePhoto(request,env,respond,trustedOrigin);
 
   if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, respond, trustedOrigin);
   if (url.pathname === "/api/progress") return await handleProgress(request, env, respond, trustedOrigin);

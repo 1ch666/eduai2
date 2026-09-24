@@ -19,4 +19,7 @@ export type AppEnv = Env & {
   PASSWORD_ITERATIONS?: string;
   /** Idle session lifetime in days (default 14, capped at 30). */
   SESSION_TTL_DAYS?: string;
+  /** Set to 'vision' when a server-side vision model is available for OCR.
+   *  Currently unused; client-side manual input is the only supported path. */
+  PHOTO_AI_ENABLED?: string;
 };

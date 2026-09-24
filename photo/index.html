@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="拍下題目照片，AI 幫你解析公民、法律與經濟考題。"><title>照片題目講解｜公民法律研究室</title>
+<link rel="stylesheet" href="../styles.css">
+<script type="module" src="photo.js"></script>
+<style>
+#preview-img { max-width:100%; max-height:260px; border:1px solid #ddd; border-radius:6px; display:block; margin:.75rem 0; object-fit:contain; }
+#size-info { font-size:.82rem; color:#555; }
+.data-notice { font-size:.83rem; background:#f5f5f0; border:1px solid #ddd; border-radius:6px; padding:.7rem 1rem; margin:.75rem 0; color:#444; }
+.data-notice strong { display:block; margin-bottom:.25rem; }
+#question-input { width:100%; min-height:100px; padding:.5rem; font-size:.95rem; border:1px solid #ccc; border-radius:4px; resize:vertical; box-sizing:border-box; }
+#char-count { font-size:.8rem; color:#777; float:right; margin-top:.2rem; }
+#result-area { border:1px solid #ddd; border-radius:6px; padding:1rem; margin-top:1rem; background:#fafafa; }
+#result-area h3 { margin:.25rem 0 .6rem; font-size:1rem; }
+#explanation-text { white-space:pre-wrap; line-height:1.7; font-size:.95rem; }
+.note-item { border-bottom:1px solid #eee; padding:.6rem 0; }
+.note-q { font-weight:600; font-size:.85rem; margin:.2rem 0; }
+.note-e { font-size:.88rem; line-height:1.6; margin:.3rem 0; white-space:pre-wrap; }
+.del-btn { font-size:.78rem; padding:.2rem .5rem; margin-top:.2rem; }
+#cap-notice { color:#b00020; font-size:.88rem; margin:.5rem 0; }
+</style>
+</head>
+<body>
+<header><a href="../">公民法律研究室</a><span>照片題目講解</span><button id="account-toggle">登入</button></header>
+<main>
+<p id="status" role="status"></p>
+
+<section id="login-required" hidden>
+  <h2>請先登入</h2>
+  <p>照片題目講解需要登入帳號。請至<a href="../court/">開庭練習</a>頁面登入後再回來使用。</p>
+</section>
+
+<section id="photo-area" hidden>
+  <p id="cap-notice" hidden></p>
+
+  <div class="data-notice">
+    <strong>資料用途說明</strong>
+    照片僅在你的裝置上壓縮處理，<strong>不會上傳或永久保存</strong>。
+    你確認的題目文字會傳送至 Ollama AI 服務進行講解，不寫入排行榜，不用於廣告或訓練。
+  </div>
+
+  <div>
+    <label for="image-input"><strong>選擇題目照片</strong>（JPEG / PNG / WebP，2 MB 以下）</label><br>
+    <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp" style="margin:.5rem 0">
+  </div>
+
+  <img id="preview-img" alt="題目圖片預覽" hidden>
+  <p id="size-info"></p>
+
+  <section id="step-extract" hidden>
+    <h2>輸入題目文字</h2>
+    <p style="font-size:.88rem;color:#555">對照圖片，在下方輸入或貼上題目的題幹與選項，然後點「取得 AI 講解」。</p>
+    <textarea id="question-input" placeholder="例：下列何者符合正當法律程序原則？&#10;（A）…&#10;（B）…" maxlength="1000" aria-label="題目文字"></textarea>
+    <span id="char-count">0 / 1000</span>
+    <div style="margin-top:.75rem">
+      <button id="explain-btn">取得 AI 講解</button>
+    </div>
+  </section>
+
+  <section id="result-area" hidden>
+    <h3>AI 講解</h3>
+    <p id="explanation-text"></p>
+    <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button id="save-note-btn">儲存為筆記</button>
+    </div>
+    <p style="font-size:.8rem;color:#777;margin-top:.5rem">講解為教學用途，非正式解答或法律意見。AI 不決定分數。</p>
+  </section>
+
+  <section style="margin-top:1.5rem">
+    <button id="show-notes-btn" style="font-size:.88rem">查看已儲存筆記</button>
+    <section id="notes-section" hidden style="margin-top:.75rem">
+      <h3>已儲存筆記 <small id="notes-count" style="font-weight:400;color:#666"></small></h3>
+      <div id="notes-list"></div>
+      <button id="clear-notes-btn" style="font-size:.8rem;margin-top:.5rem">清除全部筆記</button>
+      <p style="font-size:.78rem;color:#777">筆記僅儲存於此裝置的瀏覽器中。</p>
+    </section>
+  </section>
+</section>
+
+<footer>照片在裝置端處理，AI 講解為教學用途，非正式成績或法律意見。</footer>
+</main>
+</body></html>
