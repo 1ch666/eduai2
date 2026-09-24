@@ -54,7 +54,7 @@ if(v.actions.includes('closeEvidence'))$('actions').append(button(v.config.role=
 if(v.actions.includes('rule'))for(const r of v.proceduralRequests){const row=node('section');row.append(node('p',r.text));if(r.done)row.append(node('p','已完成准駁'));else row.append(button('准許',()=>act('rule',{rulingId:r.id,decision:'allow'})),button('不准許',()=>act('rule',{rulingId:r.id,decision:'deny'})));$('actions').prepend(row);}
 if(v.actions.includes('answer'))v.answers.forEach((a,i)=>$('actions').append(button(`${i+1}. ${a}`,()=>act('answer',{answer:i}))));
 $('feedback').textContent=v.feedback;$('assessment').replaceChildren();if(v.assessment)Object.entries(v.assessment).filter(([k])=>k!=='ranked').forEach(([,value])=>$('assessment').append(node('p',value)));
-if(v.completed)pause();$('guidance').textContent=`${v.turn.speaker}（預寫教學對話）：${v.turn.text}`;}
+if(v.completed)pause();$('guidance').textContent=`${v.turn.speaker}：${v.turn.text}`;}
 async function act(type,data={}){if(!view)return;const requestId=crypto.randomUUID();try{const p=await api(`/api/court/sessions/${view.id}/actions`,{type,version:view.version,requestId,...data});view=p.view;render();scene();status('已保存');}catch(e){const p=await api('/api/court/sessions/'+view.id);view=p.view;render();throw e;}}
 function pause(){clearTimeout(playTimer);playTimer=null;$('autoplay').textContent='播放';}
 async function autoStep(){if(!view||view.completed||document.hidden){pause();return;}await run(()=>act('step'));if(!view.completed&&$('autoplay').textContent==='暫停')playTimer=setTimeout(autoStep,4500);}
@@ -81,5 +81,17 @@ else{
  $('microphone').addEventListener('pointerdown',e=>{if(recognition)return;e.preventDefault();$('microphone').setPointerCapture(e.pointerId);window.speechSynthesis?.cancel();cancelVoice=false;recognition=new Speech();recognition.lang='zh-TW';recognition.interimResults=false;recognition.continuous=false;recognition.onresult=e=>{if(!cancelVoice)$('statement').value=($('statement').value+' '+e.results[0][0].transcript).trim().slice(0,600);};recognition.onerror=()=>{$('voice-status').textContent='辨識未完成，可重新錄音或直接打字。';};recognition.onend=()=>{recognition=null;$('microphone').textContent='按住說話';};try{recognition.start();$('microphone').textContent='正在聆聽，鬆開停止';}catch{recognition=null;}});
  $('microphone').addEventListener('pointerup',()=>stopVoice());$('microphone').addEventListener('pointercancel',()=>stopVoice(true));
 }
-$('cancel-voice').onclick=()=>stopVoice(true);document.addEventListener('visibilitychange',()=>{if(document.hidden){pause();stopVoice(true);window.speechSynthesis?.cancel();}});
+$('cancel-voice').onclick=()=>stopVoice(true);
+// Track autoplay state across background/foreground transitions.
+let wasAutoPlaying=false;
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    wasAutoPlaying=$('autoplay').textContent==='暫停';
+    pause();stopVoice(true);window.speechSynthesis?.cancel();
+  }else{
+    // Page is visible again — notify user; let them resume manually.
+    if(wasAutoPlaying&&view&&!view.completed)status('已從背景恢復，請按「播放」繼續。');
+    wasAutoPlaying=false;
+  }
+});
 await run(async()=>{if(onPages){status('雲端功能請使用同源平台，以確保手機登入正常。');const a=node('a','前往完整平台');a.href=WORKER+'/court/';$('status').append(' ',a);return;}const p=await api('/api/court/cases');cases=p.cases;legalSources=p.sources||[];choices($('case'),cases.map(t=>[t.id,t.title]));setup();$('sources').replaceChildren(...p.sources.map(s=>{const p=node('p');const a=node('a',s.title);a.href=s.url;a.target='_blank';a.rel='noopener';p.append(a,` · 查核 ${s.checked} · ${s.effective}`);return p;}));await session();});
