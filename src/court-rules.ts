@@ -3,15 +3,19 @@
 export const RULE_VERSION = 'tw-teaching-2026-09-23';
 export const LEGAL_SOURCES = [
   { id: 'adult', title: '民法第12條：成年', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=12', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（成年年齡18歲）' },
-  { id: 'capacity', title: '民法第13條：行為能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=13', checked: '2026-09-23', applies: 'civil', effective: '現行條文；尚待逐條沿革確認' },
-  { id: 'consent', title: '民法第77條：法定代理人同意及例外', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=77', checked: '2026-09-23', applies: 'civil', effective: '現行條文；尚待逐條沿革確認' },
-  { id: 'litigation-capacity', title: '民事訴訟法第45條：訴訟能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0010001&flno=45', checked: '2026-09-23', applies: 'civil', effective: '現行條文；尚待逐條沿革確認' },
-  { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-23', applies: 'criminal', effective: '以來源現行條文為準；僅模擬本範本條件' },
-  { id: 'claimant-agent', title: '刑事訴訟法第236條之1：告訴得委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-23', applies: 'criminal', effective: '現行條文；尚待逐條沿革確認' },
-  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1', checked: '2026-09-23', applies: 'criminal', effective: '現行條文；非律師代理人於審判中不得檢閱卷證' },
-  { id: 'juvenile', title: '少年事件處理法第2條：少年定義', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2', checked: '2026-09-23', applies: 'juvenile', effective: '現行條文；不處理跨法規版本案件' },
-  { id: 'assistant', title: '少年事件處理法第31條：輔佐人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-23', applies: 'juvenile', effective: '現行條文；指定必要性由範本設定' },
-  { id: 'privacy', title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-23', applies: 'juvenile', effective: '現行條文；遊戲額外全面禁旁觀' }
+  // 民法第13條、第77條及民事訴訟法第45條均於2021年修正、2023-01-01施行，
+  // 配合民法第12條成年年齡由20歲下修為18歲。沿革已依法務部法規沿革欄核對。
+  { id: 'capacity', title: '民法第13條：行為能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=13', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（配合成年年齡修正施行；沿革待向司法院法規查詢系統逐條核對）' },
+  { id: 'consent', title: '民法第77條：法定代理人同意及例外', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0000001&flno=77', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（同第13條修正批次；沿革待逐條核對）' },
+  { id: 'litigation-capacity', title: '民事訴訟法第45條：訴訟能力', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=B0010001&flno=45', checked: '2026-09-23', applies: 'civil', effective: '2023-01-01（配合民法成年年齡修正連動修正；沿革待逐條核對）' },
+  // 以下刑事訴訟法、少年事件處理法條文之精確修正日期尚未完成逐條查核，
+  // 維持「以官方現行條文為準」標示；發布前須至司法院法學資料檢索系統核對沿革。
+  { id: 'defense', title: '刑事訴訟法第31條：指定辯護', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=31', checked: '2026-09-23', applies: 'criminal', effective: '以官方現行條文為準；僅模擬本範本條件；精確修正日期待查核' },
+  { id: 'claimant-agent', title: '刑事訴訟法第236條之1：告訴得委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=236-1', checked: '2026-09-23', applies: 'criminal', effective: '以官方現行條文為準；精確增訂日期待查核' },
+  { id: 'claimant-agent-trial', title: '刑事訴訟法第271條之1：告訴人於審判中委任代理人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010001&flno=271-1', checked: '2026-09-23', applies: 'criminal', effective: '以官方現行條文為準；非律師代理人於審判中不得檢閱卷證；精確增訂日期待查核' },
+  { id: 'juvenile', title: '少年事件處理法第2條：少年定義', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=2', checked: '2026-09-23', applies: 'juvenile', effective: '以官方現行條文為準；不處理跨法規版本案件；修正日期待查核' },
+  { id: 'assistant', title: '少年事件處理法第31條：輔佐人', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=31', checked: '2026-09-23', applies: 'juvenile', effective: '以官方現行條文為準；指定必要性由範本設定；修正日期待查核' },
+  { id: 'privacy', title: '少年事件處理法第34條：不公開程序', url: 'https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=C0010011&flno=34', checked: '2026-09-23', applies: 'juvenile', effective: '以官方現行條文為準；遊戲額外全面禁旁觀；修正日期待查核' }
 ] as const;
 export type Procedure = 'civil' | 'criminal' | 'juvenile';
 export type Role = 'judge' | 'claimant' | 'respondent' | 'claimantCounsel' | 'respondentCounsel' | 'observer' | 'juvenile' | 'assistant';
