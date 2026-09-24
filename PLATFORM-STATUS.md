@@ -14,7 +14,8 @@
 - 年齡上下限改由 `AGE_LIMITS` 單一來源提供：`validateConfig` 依它拒絕，`/api/court/cases` 也回傳同一組限制，`/court/` 設定畫面在送出前就顯示適用程序、年齡與法律協助限制、對應法條連結，並在年齡不符範本時提供切換到對應範本的按鈕。伺服器仍是唯一權威，前端只呈現同一組限制。
 - `/court/` 設定、存檔恢復、證物、陳述、程序／證據／自我論證回饋；語音按住辨識、確認文字送出、取消、文字 fallback、選擇性朗讀。
 - 主網站帳號面板提供練習紀錄 JSON 匯出／預覽／確認匯入，限制100KB與每類500題；只合併明確允許的欄位，永遠是自行回報、不計排名。登入不自動搬移遊客進度，換帳號不混合雲端紀錄，雲端尚未讀取成功時不覆寫。
-- 預寫對話可離開 AI 完成。AI 引導有逾時／格式檢查、每使用者限流及每版本快取；`COURT_AI_ENABLED=true` 且有 key 才可能呼叫。未查證免費額度前不得開啟。**目前 AI 仍是程序引導，不是完整多角色發言引擎。**
+- 預寫對話可離開 AI 完成。AI 引導有逾時／格式檢查、每使用者限流及每版本快取；`COURT_AI_ENABLED=true` 且有 key 才可能呼叫。未查證免費額度前不得開啟。**AI 對話已改為依當前說話角色（scriptedTurn.speaker）生成台詞，並以固定台詞作為參考；fallback 仍為預寫模式。前端顯示改為「AI 對話（角色名）」。仍需 COURT_AI_ENABLED=true 與 key。**
+- `POST /api/auth/first-recovery`：已實作。登入帳號可在確認目前密碼後，為尚無復原碼的既有帳號產生首次復原碼（僅顯示一次）。已有復原碼的帳號回 409。`/api/auth/session` 現在回傳 `hasRecoveryCode` 布林值；`/court/` 帳號面板在 `hasRecoveryCode=false` 時顯示首次取碼區塊。
 - 真 Unity WebGL 已重新建置；修正原有未編譯 WorkerDialogueProvider 缺少 jsonserialize/unitywebrequest 內建模組。原遊戲預設不變；`?court=1` 同源 iframe 才啟用座位／全景／走動鏡頭與原創積木式人物。
 - Unity橋接只接白名單的視角資料，不接 session、金鑰、案件裁判。網頁是同源 API 唯一登入邊界。
 
@@ -49,16 +50,20 @@ WebGL 壓縮後下載比較（bytes，不包含 HTTP header／HTML／快取效�
 2. 完整多角色 AI 對話、法庭人物動作與發言／證物特寫仍需完成。現有引導不可稱完整 AI 審判。
 3. 完整平台尚未遷至正式 Worker；Pages 導流、同源入口待完成。已提供練習紀錄匯出／匯入，但未包含 IndexedDB 待同步留言；不得自動搬移其他來源 localStorage 或把匯入留言直接公開。
 4. 尚未部署本分支 Worker／Pages。不要僅因本機測試通過就開正式開關；先備份部署版本、確認 v2/v3 增量遷移，再後端後前端。
-5. 原有帳號首次取得復原碼的流程、完整語音取消／背景恢復與各角色實機验收待補。
+5. 完整語音取消／背景恢復與各角色實機驗收待補。
 
-## 第二、三階段尚未實作
+## 第二階段：部分已實作
 
-- 伺服器客觀題派發／判分、最近20次首次作答的弱點分析及補強流程。
-- 照片裁切／壓縮／EXIF 去除、裝置 OCR、確認文字後講解；沒有已確認免費的視覺模型，不可直接啟用或謊称支援圖片。
-- 週課表、AI／確定性排程草稿與確認、時區／重複／衝突檢查、專注統計。
-- PWA／Web Push／伺服器排程、通知去重／逾時丟棄／失效訂閱、ICS fallback。
-- 音樂播放／錄音朗讀暫停及免費素材授權。
-- 伺服器 heartbeat 計時、首次作答競賽題組、每週排行／段位、私人群組權限及可撤銷邀請。
+- **伺服器客觀題派發與判分（2026-09-24）**：`GET /api/practice/questions` 依弱點概念挑題、發出一次性 questionToken（正解不下傳）；`POST /api/practice/answer` 伺服器判分、記錄首次作答標記；`GET /api/practice/weakness` 依最近 20 次首次作答計算概念強弱（< 5 題顯示 insufficient，< 60% 為 reinforce，60–79% 為 review，≥ 80% 為 consolidate）。題庫含 13 題覆蓋法律、公民、經濟。Practice DO（v4 migration）按帳號拆分，重做不計首次統計。需部署前確認 v4 migration。
+- **弱點補強流程（2026-09-24）**：`GET /api/practice/reinforce` 返回概念短講解（常見錯誤＋重點）＋同概念補題 token；13 個概念均有預寫指南。`practice/index.html`+`practice.js` 提供完整練習 UI。
+- **弱點→排程串接（2026-09-24）**：weakness API 回傳加入 `subject` 欄位；弱點頁對 reinforce/review 概念顯示「安排複習」按鈕，點按帶 `title`/`subject` params 跳轉 `/planner/`；排程頁 `prefillFromParams()` 讀取 params 自動填入表單並展開，URL 隨即用 `history.replaceState` 清除。
+- **每週排程後端與 UI（2026-09-24）**：`GET/POST /api/planner/slots`、`GET/PUT/DELETE /api/planner/slots/:id`（衝突檢查、CSRF、速率限制）；`POST /api/planner/focus/start|beat|end`（伺服器 heartbeat，離線 > 5 分鐘不計）。Planner DO v5 migration。`planner/index.html`+`planner.js`+`planner.css` 週曆 UI、ICS 匯出已完成。弱點→排程串接（自動安排複習時段）尚未實作。
+- **Web Push 訂閱儲存（2026-09-24）**：`GET /api/push/vapid-key`（公鑰）、`POST /api/push/subscribe|unsubscribe`（CSRF 保護）；PushStore DO v6 migration；`public/sw.js` 服務工人處理 push 事件；`public/manifest.json` PWA 宣告。實際推送（伺服器送出通知）需 VAPID 私鑰 + cron trigger，Cloudflare 付費方案才有 cron，目前尚未啟用（capability `push: true` 指訂閱端已就緒）。
+- **背景音樂播放器（2026-09-24）**：`public/music-data.js` 授權清單（5 首 CC BY 4.0 及公共領域）；`public/music-player.js` 浮動播放器 widget（播放／暫停／切歌／音量／靜音、顯示授權）；排程頁動態載入。音樂檔案（`.mp3`）需自行下載至 `public/music/`，未隨原始碼提交。
+- 照片裁切／壓縮／EXIF 去除、裝置 OCR、確認文字後講解；沒有已確認免費的視覺模型，不可直接啟用或謊稱支援圖片。
+- 伺服器 cron + VAPID 私鑰實際推送通知（需付費方案）。
+- 伺服器 cron + VAPID 私鑰實際推送通知（需付費方案）。
+- 首次作答競賽題組、每週排行／段位、私人群組權限及可撤銷邀請（第三階段）。
 
 上述 capability 回 false，不可用只有外觀的按钮冒充完成。
 
