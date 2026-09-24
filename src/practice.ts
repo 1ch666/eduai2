@@ -7,6 +7,7 @@ import type { AppEnv } from './env';
 import { readJsonObject, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
 import { QUESTIONS, CONCEPTS, CONCEPT_GUIDES, type Subject } from './practice-data';
+import { tierForScore } from './rankings';
 
 const WEAKNESS_WINDOW = 20;  // last N first-attempt answers per concept
 const WEAKNESS_MIN    = 5;   // minimum attempts before rate is meaningful
@@ -194,6 +195,15 @@ export async function handlePractice(
     const firstAttempt = await practice.isFirstAttempt(questionId);
     const correct = answerIdx === q.correct;
     await practice.record(crypto.randomUUID(), questionId, q.concept, firstAttempt, correct);
+
+    // Update global leaderboard for first-attempt answers (fire-and-forget).
+    if (firstAttempt) {
+      try {
+        const rankingsNs = env.RANKINGS;
+        const rankings = rankingsNs.get(rankingsNs.idFromName('global'));
+        await rankings.record(session.user.id, session.user.displayName, q.difficulty, correct);
+      } catch { /* non-critical; do not fail the response */ }
+    }
 
     const weakness = await practice.weakness();
     return respond({

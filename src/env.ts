@@ -1,12 +1,14 @@
 import type { Practice } from './practice';
 import type { Planner } from './planner';
 import type { PushStore } from './push';
+import type { Rankings } from './rankings';
 // Worker bindings plus the values that only exist as secrets or vars.
 // Secrets are set with `wrangler secret put` and never committed.
 export type AppEnv = Env & {
   PRACTICE: DurableObjectNamespace<Practice>;
   PLANNER: DurableObjectNamespace<Planner>;
   PUSH_STORE: DurableObjectNamespace<PushStore>;
+  RANKINGS: DurableObjectNamespace<Rankings>;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   OLLAMA_API_KEY?: string;
