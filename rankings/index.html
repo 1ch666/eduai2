@@ -19,18 +19,25 @@
 .tier-progress { margin-top:.75rem; }
 .tier-bar-wrap { background:#e0e0e0; border-radius:4px; height:8px; margin:.3rem 0; overflow:hidden; }
 .tier-bar { height:100%; background:#4a90d9; border-radius:4px; transition:width .4s ease; }
+#optin-section { border:1px solid #ddd; border-radius:8px; padding:1rem; margin:1rem 0; background:#fff; }
+#optin-section p { margin:.25rem 0 .75rem; font-size:.9rem; color:#555; }
+.tab-bar { display:flex; gap:.5rem; margin-bottom:1rem; }
+.tab-btn { padding:.4rem .9rem; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer; font-size:.88rem; }
+.tab-btn.active { background:#344b50; color:#fff; border-color:#344b50; }
+#tier-notice { font-size:.82rem; color:#666; margin:.25rem 0; }
 </style>
 </head>
 <body><header><a href="../">公民法律研究室</a><span>排行榜</span><button id="account-toggle">登入</button></header>
 <main>
 <p id="status" role="status"></p>
 
+<!-- 自己的段位（登入才顯示）-->
 <section id="my-stats" hidden>
-  <h3>我的段位</h3>
+  <h3>我的排行</h3>
   <div class="stat-row">
     <div class="stat-item"><span class="stat-value" id="my-tier-badge">—</span><span class="stat-label">段位</span></div>
-    <div class="stat-item"><span class="stat-value" id="my-score">—</span><span class="stat-label">總分</span></div>
-    <div class="stat-item"><span class="stat-value" id="my-rank">—</span><span class="stat-label">排名</span></div>
+    <div class="stat-item"><span class="stat-value" id="my-score">—</span><span class="stat-label">分數</span></div>
+    <div class="stat-item"><span class="stat-value" id="my-rank">—</span><span class="stat-label">名次</span></div>
     <div class="stat-item"><span class="stat-value" id="my-correct">—</span><span class="stat-label">答對（首次）</span></div>
     <div class="stat-item"><span class="stat-value" id="my-attempts">—</span><span class="stat-label">作答次數</span></div>
   </div>
@@ -40,11 +47,29 @@
   </div>
 </section>
 
+<!-- 加入／退出排行榜（登入才顯示）-->
+<section id="optin-section" hidden>
+  <h3>排行榜參與</h3>
+  <p id="optin-desc">排行榜為自願加入。加入後，你的首次作答成績會計入公開榜；可隨時退出，退出後不再更新排名。</p>
+  <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+    <button id="join-btn">加入排行榜</button>
+    <button id="leave-btn" hidden>退出排行榜</button>
+    <span id="optin-status" style="font-size:.85rem;color:#555"></span>
+  </div>
+</section>
+
 <section id="rankings-section">
-  <h2>累積練習積分榜 <small style="font-size:.8rem;font-weight:400;color:#666">（依首次作答得分累積）</small></h2>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+    <h2 style="margin:0">排行榜</h2>
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-all">累積總分</button>
+      <button class="tab-btn" id="tab-week">本週積分</button>
+    </div>
+  </div>
+  <p id="tier-notice"></p>
   <p><small>難度 1＝1分，難度 2＝2分，難度 3＝3分。只有首次答對才計分。</small></p>
   <table id="rankings-table" aria-label="排行榜">
-    <thead><tr><th>名次</th><th>使用者</th><th>段位</th><th>總分</th><th>答對</th><th>作答</th></tr></thead>
+    <thead><tr><th>名次</th><th>使用者</th><th>段位</th><th>分數</th><th>答對</th><th>作答</th></tr></thead>
     <tbody id="rankings-body"><tr><td colspan="6">載入中…</td></tr></tbody>
   </table>
 </section>
@@ -55,7 +80,8 @@
     <thead><tr><th style="padding:.3rem .7rem;border-bottom:1px solid #ddd">段位</th><th style="padding:.3rem .7rem;border-bottom:1px solid #ddd">所需分數</th></tr></thead>
     <tbody id="tier-table"></tbody>
   </table>
+  <p style="font-size:.82rem;color:#666;margin-top:.5rem">段位需排行榜達 20 人以上才開始顯示。</p>
 </section>
 
-<footer>排行榜每次作答即時更新。分數僅供學習參考，非正式成績。</footer>
+<footer>排行榜為自願加入，分數僅供學習參考，非正式成績。AI 不決定排名。</footer>
 </main></body></html>

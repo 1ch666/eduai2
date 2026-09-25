@@ -66,7 +66,7 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   if (url.pathname.startsWith('/api/practice/')) return handlePractice(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/planner/')) return handlePlanner(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/push/')) return handlePush(request,env,respond,trustedOrigin);
-  if (url.pathname.startsWith('/api/rankings/')) return handleRankings(request,env,respond);
+  if (url.pathname.startsWith('/api/rankings/')) return handleRankings(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/photo/')) return handlePhoto(request,env,respond,trustedOrigin);
 
   if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, respond, trustedOrigin);
@@ -80,6 +80,13 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
 }
 
 export default {
+  /** Weekly leaderboard reset: runs every Monday 00:00 Asia/Taipei (Sunday 16:00 UTC). */
+  async scheduled(_controller: ScheduledController, env: AppEnv): Promise<void> {
+    const store = env.RANKINGS;
+    const rankings = store.get(store.idFromName('global'));
+    await rankings.resetWeek();
+  },
+
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
     try {
