@@ -21,8 +21,10 @@
 .tier-bar { height:100%; background:#4a90d9; border-radius:4px; transition:width .4s ease; }
 </style>
 </head>
-<body><header><a href="../">公民法律研究室</a><span>排行榜</span><button id="account-toggle">登入</button></header>
-<main>
+<body class="learning-page"><a class="skip-link" href="#learning-main">跳至內容</a><header class="learning-header"><a class="learning-brand" href="../">公民法律研究室<span>學習工具</span></a><button id="account-toggle">登入</button></header>
+<main id="learning-main">
+<nav class="learning-nav" aria-label="學習工具"><a href="../practice/">弱點練習</a><a href="../planner/">週排程</a><a href="../rankings/" aria-current="page">排行榜</a><a href="../photo/">照片講解</a></nav>
+<div class="learning-heading"><p class="eyebrow">06 / RANK</p><h1>每一次練習，都算數。</h1><p>累積首次答對的積分，看見自己的進步。</p></div>
 <p id="status" role="status"></p>
 
 <section id="my-stats" hidden>
@@ -41,12 +43,14 @@
 </section>
 
 <section id="rankings-section">
-  <h2>累積練習積分榜 <small style="font-size:.8rem;font-weight:400;color:#666">（依首次作答得分累積）</small></h2>
-  <p><small>難度 1＝1分，難度 2＝2分，難度 3＝3分。只有首次答對才計分。</small></p>
+  <div class="section-top"><h2>練習積分榜</h2><a class="text-action" href="../practice/">去練習 ↗</a></div>
+  <p class="section-note">首次答對依難度獲得 1–3 分，重做不重複計分。</p>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="積分榜，可左右捲動">
   <table id="rankings-table" aria-label="排行榜">
     <thead><tr><th>名次</th><th>使用者</th><th>段位</th><th>總分</th><th>答對</th><th>作答</th></tr></thead>
     <tbody id="rankings-body"><tr><td colspan="6">載入中…</td></tr></tbody>
   </table>
+  </div>
 </section>
 
 <section style="margin-top:1.5rem">
