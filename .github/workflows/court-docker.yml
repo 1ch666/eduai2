@@ -25,7 +25,7 @@ jobs:
           docker run --rm eduai-court:preview nginx -t
           docker run -d --name court-check --read-only --tmpfs /tmp:size=32m,mode=1777 --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:8080:8080 eduai-court:preview
           trap 'docker logs court-check; docker rm -f court-check' EXIT
-          curl --retry 10 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:8080/healthz
+          curl --retry 10 --retry-all-errors --retry-delay 1 --max-time 5 --fail http://127.0.0.1:8080/healthz
           curl --fail http://127.0.0.1:8080/ -o /tmp/court.html
           cmp play/index.html /tmp/court.html
           curl --fail http://127.0.0.1:8080/play/ -o /tmp/court-play.html
