@@ -17,7 +17,7 @@ scripts/check-npc-api.mjs 使用本機 Worker、AI 關閉：中文存檔、跨�
 
 新版下載 bytes：data 15,281,765；wasm 5,838,136；framework 83,078；loader 48,540。
 四項 21,251,519，比前版 21,246,672 增加 4,847 bytes；另 touch 5,172。此次是功能與修正，不宣稱首載加速。
-play/ 已同步本批真正建置。Docker 需執行本批 commit 的 Court Docker handoff，以 GitHub Actions 成功結果為準。
+play/ 已同步本批真正建置。Docker 已成功：來源 b918757530cb0b4e78ef03009ca41229ff3ceead，run https://github.com/1ch666/eduai2/actions/runs/36162611235 。實際 build/run、HTTP、遊戲資源位元組、非 root／唯讀及校驗包產出通過。artifact 保留1天；後續純文件提交不影響此映像位元組。此映像仍不含正式 session／AI 後端。
 
 P0（發布／安全驗收）：
 - 使用者手動部署 Cloudflare；前先確認新表增量、備份及原帳號／session 保留。不得自動 reset 或更換資源。
