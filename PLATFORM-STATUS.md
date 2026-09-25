@@ -1,3 +1,11 @@
+【2026-09-26 WebGL 建置完成；優先於下方歷史狀態】
+Unity 已一致性升級至官方 6000.6.2f1；6000.3 的政策封鎖未繞過。NpcUpgrade、Scene validation、CourtSmokeTests、CourtPlayTests 均通過，Release WebGL build exit 0。15 項 JS 測試通過，check-build 實際 Gzip／WASM 檢查通過。
+本次提交新版 Courtroom 場景、人物／材質／匯入設定、packages／ProjectSettings 與 play/Build 成品。Edge headless 實際載入到「開始遊戲」並進入法庭，截圖可見人物；console 有一筆未定位 404，未出現 Unity 崩潰。不將此啟動檢查等同完整瀏覽器或手機真機驗收。
+下載 bytes：data 15,280,568；wasm 5,836,179；framework 82,319；loader 48,540；四項合計 21,247,606（另 touch 5,172）。前版四項 6,413,059；此次增加 14,834,547 bytes，主要為完整中文動態字型與角色素材。不可宣稱首載變快。
+遊戲仍是固定平板案與 scripted 備用 NPC 對話，不是真正 AI／案件生成。P0 的編譯／場景接線／成品已完成；P0 瀏覽器全流程與手機驗收、P1 美術/UI 細節及後端 AI、P2/P3 仍照下方待辦。模型是大頭低多邊形風格，座位／穿模／鏡頭待後續精修。
+Cloudflare 由使用者手動部署，本次不部署 Worker、不改正式資料／Secret／權限。部署前確認使用最新 main 的 play 成品；不要拿舊 public 複製目錄當最新檔案。正式後端及 migration 仍由管理者核對。
+Docker 需以本次 commit 重建，完成狀態看 GitHub Actions「Court Docker handoff」，不能以 Dockerfile 存在視為重建完成。
+
 # 最新補充：2026-09-25 NPC Unity 原始碼批次
 
 本批只處理模型／對話 UI 與接手文件，未修改或部署正式後端。同步到 c1dfe49 後新增 CC0 Kenney 人物、增量場景接線工具與明示非 AI 的本機對話。Unity 實際編譯被 Windows 應用程式控制封鎖 NiceIO.dll（0x800711C7，exit 1），尚未接入 Courtroom 或產出新 WebGL；線上遊戲未替換。見 court-game/STATUS.md 與 NPC-IMPLEMENTATION.md；不把原始碼、模型檔或 mock 稱成完成遊戲。
