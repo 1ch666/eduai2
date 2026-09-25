@@ -63,7 +63,7 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
 
   if (url.pathname === '/api/capabilities') {
     if (request.method !== 'GET') return respond({error:'此端點只接受 GET'},405);
-    return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&Boolean(env.OLLAMA_API_KEY),textAi:Boolean(env.OLLAMA_API_KEY),practice:true,photo:Boolean(env.OLLAMA_API_KEY),photoOcr:false,push:true,planner:true,rankings:true});
+    return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&Boolean(env.OLLAMA_API_KEY),textAi:Boolean(env.OLLAMA_API_KEY),practice:true,photo:Boolean(env.OLLAMA_API_KEY),photoOcr:false,push:true,planner:true,rankings:true,groups:true});
   }
   if (url.pathname.startsWith('/api/court/')) return handleCourt(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/practice/')) return handlePractice(request,env,respond,trustedOrigin);

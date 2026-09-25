@@ -19,12 +19,12 @@
 .tab-bar { display:flex; gap:.5rem; margin:.5rem 0; }
 .tab-btn { padding:.35rem .8rem; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer; font-size:.86rem; }
 .tab-btn.active { background:#344b50; color:#fff; border-color:#344b50; }
-#group-detail { display:none; }
 </style>
 </head>
-<body>
-<header><a href="../">公民法律研究室</a><span>私人群組</span><button id="account-toggle">登入</button></header>
-<main>
+<body class="learning-page"><a class="skip-link" href="#learning-main">跳至內容</a><header class="learning-header"><a class="learning-brand" href="../">公民法律研究室<span>學習工具</span></a><button id="account-toggle">登入</button></header>
+<main id="learning-main">
+<nav class="learning-nav" aria-label="學習工具"><a href="../practice/">弱點練習</a><a href="../planner/">週排程</a><a href="../rankings/">排行榜</a><a href="../photo/">照片講解</a><a href="../groups/" aria-current="page">私人群組</a></nav>
+<div class="learning-heading"><p class="eyebrow">07 / GROUP</p><h1>和朋友一起學。</h1><p>私人群組，可撤銷邀請碼，退出即隔離。</p></div>
 <p id="status" role="status"></p>
 
 <section id="login-notice" hidden>
@@ -35,7 +35,7 @@
 
   <!-- 我的群組列表 -->
   <section id="group-list-section">
-    <h1>我的群組</h1>
+    <h2>我的群組</h2>
     <div id="group-list"></div>
 
     <details style="margin-top:1.25rem">
@@ -62,7 +62,7 @@
   </section>
 
   <!-- 群組詳細頁（點入後顯示）-->
-  <section id="group-detail">
+  <section id="group-detail" hidden>
     <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;flex-wrap:wrap">
       <button id="back-btn" type="button">← 返回列表</button>
       <h2 id="group-name" style="margin:0;font-size:1.15rem"></h2>
@@ -105,3 +105,4 @@
 
 <footer>群組為個人學習工具，退出後立即失去群組資料的讀取權限。</footer>
 </main></body></html>
+

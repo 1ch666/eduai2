@@ -62,8 +62,15 @@ WebGL 壓縮後下載比較（bytes，不包含 HTTP header／HTML／快取效�
 - **背景音樂播放器（2026-09-24）**：`public/music-data.js` 授權清單（5 首 CC BY 4.0 及公共領域）；`public/music-player.js` 浮動播放器 widget（播放／暫停／切歌／音量／靜音、顯示授權）；排程頁動態載入。音樂檔案（`.mp3`）需自行下載至 `public/music/`，未隨原始碼提交。
 - 照片裁切／壓縮／EXIF 去除、裝置 OCR、確認文字後講解；沒有已確認免費的視覺模型，不可直接啟用或謊稱支援圖片。
 - 伺服器 cron + VAPID 私鑰實際推送通知（需付費方案）。
-- 伺服器 cron + VAPID 私鑰實際推送通知（需付費方案）。
-- 首次作答競賽題組、每週排行／段位、私人群組權限及可撤銷邀請（第三階段）。
+
+## 第三階段：部分已實作（2026-09-25）
+
+- **全站排行榜自願加入／退出**：`POST /api/rankings/join|leave`（CSRF 保護）；Rankings DO 新增 `opted_in` 欄位，`record()` 只為已加入用戶計分；`GET /api/rankings/me` 回傳 `optedIn` 狀態。Rankings DO（v7 migration）。
+- **每週榜與段位最低人數**：`week_score`、`week_correct`、`week_attempts`、`week_start` 欄位；`record()` 自動偵測週別切換並重置週統計；Cron trigger（週日 16:00 UTC = 週一 00:00 台北）呼叫 `resetWeek()`；段位只在 20 人以上才回傳。
+- **私人群組（2026-09-25）**：Groups DO（v8 migration）含 `groups`、`members`、`invite_codes` 三表；`POST /api/groups`（建立）、`POST /api/groups/join`（邀請碼加入）、`GET/DELETE /api/groups/:id`（查看／退出）、`POST /api/groups/:id/invite`（產生邀請碼）、`DELETE /api/groups/:id/invite/:code`（撤銷）、`DELETE /api/groups/:id/members/:uid`（移除成員）、`GET /api/groups/:id/leaderboard`（群組排行）。群主退出解散群組，退出立即失去讀取權限。`/api/capabilities` 新增 `groups:true`。
+- **選項隨機排列（2026-09-25）**：練習題由伺服器 Fisher-Yates 洗牌後下傳；洗牌順序存入 `pending` token；答題時自動映射回原始索引判分；`correctIndex` 回傳已洗牌後的正解位置，前端顯示正確。`pending` 表增量遷移新增 `shuffle_json` 欄。
+- 專注時間進排行榜（focus heartbeat → rankings，尚未實作）。
+- 競賽題組派題（每週至少 20 題不重複伺服器派發，尚未實作）。
 
 上述 capability 回 false，不可用只有外觀的按钮冒充完成。
 

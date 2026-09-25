@@ -45,7 +45,8 @@ export class Practice extends DurableObject<AppEnv> {
         CREATE TABLE IF NOT EXISTS pending (
           token TEXT PRIMARY KEY,
           question_id TEXT NOT NULL,
-          issued_at INTEGER NOT NULL
+          issued_at INTEGER NOT NULL,
+          shuffle_json TEXT NOT NULL DEFAULT '[]'
         );
         CREATE TABLE IF NOT EXISTS limits (
           key TEXT PRIMARY KEY,
@@ -53,6 +54,7 @@ export class Practice extends DurableObject<AppEnv> {
           count INTEGER NOT NULL
         );
       `);
+      try { this.ctx.storage.sql.exec(`ALTER TABLE pending ADD COLUMN shuffle_json TEXT NOT NULL DEFAULT '[]'`); } catch { /* already exists */ }
     });
   }
 
@@ -72,18 +74,20 @@ export class Practice extends DurableObject<AppEnv> {
     this.ctx.storage.sql.exec('DELETE FROM pending WHERE issued_at < ?', Date.now() - 600_000);
   }
 
-  issuePending(token: string, questionId: string): void {
+  issuePending(token: string, questionId: string, shuffle: number[]): void {
     this.purgePending();
-    this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending VALUES(?,?,?)', token, questionId, Date.now());
+    this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending VALUES(?,?,?,?)', token, questionId, Date.now(), JSON.stringify(shuffle));
   }
 
-  consumePending(token: string): string | null {
+  consumePending(token: string): { questionId: string; shuffle: number[] } | null {
     const row = this.ctx.storage.sql
-      .exec<{ question_id: string }>('SELECT question_id FROM pending WHERE token = ?', token)
+      .exec<{ question_id: string; shuffle_json: string }>('SELECT question_id, shuffle_json FROM pending WHERE token = ?', token)
       .toArray()[0];
     if (!row) return null;
     this.ctx.storage.sql.exec('DELETE FROM pending WHERE token = ?', token);
-    return row.question_id;
+    let shuffle: number[] = [];
+    try { shuffle = JSON.parse(row.shuffle_json); } catch { /* use empty = no shuffle */ }
+    return { questionId: row.question_id, shuffle };
   }
 
   isFirstAttempt(questionId: string): boolean {
@@ -165,9 +169,14 @@ export async function handlePractice(
     }
 
     const q = pool[Math.floor(Math.random() * pool.length)];
+    const shuffle = q.answers.map((_, i) => i);
+    for (let i = shuffle.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffle[i], shuffle[j]] = [shuffle[j], shuffle[i]];
+    }
     const token = crypto.randomUUID();
-    await practice.issuePending(token, q.id);
-    return respond({ questionToken: token, question: clientQuestion(q) });
+    await practice.issuePending(token, q.id, shuffle);
+    return respond({ questionToken: token, question: { ...clientQuestion(q), answers: shuffle.map(i => q.answers[i]) } });
   }
 
   // POST /api/practice/answer — score server-side, record weakness
@@ -185,16 +194,18 @@ export async function handlePractice(
     if (!Number.isInteger(answer)) return respond({ error: '答案需為整數索引' }, 400);
     const answerIdx = answer as number;
 
-    const questionId = await practice.consumePending(questionToken);
-    if (!questionId) return respond({ error: '答題憑證不存在或已過期，請重新取題' }, 409);
+    const pending = await practice.consumePending(questionToken);
+    if (!pending) return respond({ error: '答題憑證不存在或已過期，請重新取題' }, 409);
+    const { questionId, shuffle } = pending;
 
     const q = QUESTIONS.find(q => q.id === questionId);
     if (!q) return respond({ error: '題目不存在' }, 404);
 
     if (answerIdx < 0 || answerIdx >= q.answers.length) return respond({ error: '答案索引超出範圍' }, 400);
 
+    const originalIdx = shuffle.length === q.answers.length ? shuffle[answerIdx] : answerIdx;
     const firstAttempt = await practice.isFirstAttempt(questionId);
-    const correct = answerIdx === q.correct;
+    const correct = originalIdx === q.correct;
     await practice.record(crypto.randomUUID(), questionId, q.concept, firstAttempt, correct);
 
     // Update global leaderboard for first-attempt answers (fire-and-forget).
@@ -206,10 +217,11 @@ export async function handlePractice(
       } catch { /* non-critical; do not fail the response */ }
     }
 
+    const correctShuffledIdx = shuffle.length === q.answers.length ? shuffle.indexOf(q.correct) : q.correct;
     const weakness = await practice.weakness();
     return respond({
       correct,
-      correctIndex: q.correct,
+      correctIndex: correctShuffledIdx,
       explanation: q.explanation,
       source: q.source,
       firstAttempt,
@@ -254,10 +266,15 @@ export async function handlePractice(
     if (!pool.length) return respond({ guide, questionToken: null, question: null });
 
     const q = pool[Math.floor(Math.random() * pool.length)];
+    const shuffle = q.answers.map((_, i) => i);
+    for (let i = shuffle.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffle[i], shuffle[j]] = [shuffle[j], shuffle[i]];
+    }
     const token = crypto.randomUUID();
-    await practice.issuePending(token, q.id);
+    await practice.issuePending(token, q.id, shuffle);
     const stat = weakness.find(s => s.concept === targetConcept) ?? null;
-    return respond({ guide, stat, questionToken: token, question: clientQuestion(q) });
+    return respond({ guide, stat, questionToken: token, question: { ...clientQuestion(q), answers: shuffle.map(i => q.answers[i]) } });
   }
 
   return respond({ error: '找不到端點' }, 404);

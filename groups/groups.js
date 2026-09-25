@@ -1,3 +1,4 @@
+import '../auth-sync.js';
 const $=id=>document.getElementById(id);
 const onPages=location.hostname.endsWith('github.io');
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -44,7 +45,7 @@ async function openGroup(id,name){
   currentGroupId=id;
   const p=await api(`/api/groups/${id}`);
   $('group-list-section').hidden=true;
-  $('group-detail').style.display='';
+  $('group-detail').hidden=false;
   $('group-name').textContent=name||p.group.name;
   $('group-owner-badge').hidden=!p.group.isOwner;
   $('member-count').textContent=`共 ${p.group.memberCount} 人`;
@@ -116,7 +117,7 @@ async function loadLeaderboard(id){
 // ── Event bindings ────────────────────────────────────────────────────────────
 
 $('back-btn').addEventListener('click',()=>{
-  $('group-detail').style.display='none';
+  $('group-detail').hidden=true;
   $('group-list-section').hidden=false;
   currentGroupId=null;
   run(loadGroups);
@@ -154,7 +155,7 @@ $('leave-btn').addEventListener('click',()=>{
   if(!confirm(msg))return;
   run(async()=>{
     await api(`/api/groups/${currentGroupId}/leave`,'DELETE');
-    $('group-detail').style.display='none';
+    $('group-detail').hidden=true;
     $('group-list-section').hidden=false;
     currentGroupId=null;
     status(isOwner?'群組已解散':'已退出群組');
@@ -189,7 +190,7 @@ $('account-toggle').onclick=()=>location.href='../court/';
 
 async function init(){
   try{
-    const p=await api('/api/auth/session');
+    const p=await window.EduAuth.session();
     account=p.user;csrf=p.csrfToken||'';
     $('account-toggle').textContent=account?account.displayName:'登入';
     if(!account){$('login-notice').hidden=false;return;}
