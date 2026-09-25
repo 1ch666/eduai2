@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="拍下題目照片，AI 幫你解析公民、法律與經濟考題。"><title>照片題目講解｜公民法律研究室</title>
+<meta name="description" content="對照題目照片，輸入文字取得公民、法律與經濟題目的 AI 講解。"><title>照片題目講解｜公民法律研究室</title>
 <link rel="stylesheet" href="../styles.css">
 <script type="module" src="photo.js"></script>
 <style>
@@ -20,27 +20,27 @@
 #cap-notice { color:#b00020; font-size:.88rem; margin:.5rem 0; }
 </style>
 </head>
-<body>
-<header><a href="../">公民法律研究室</a><span>照片題目講解</span><button id="account-toggle">登入</button></header>
-<main>
+<body class="learning-page"><a class="skip-link" href="#learning-main">跳至內容</a>
+<header class="learning-header"><a class="learning-brand" href="../">公民法律研究室<span>學習工具</span></a><button id="account-toggle">登入</button></header>
+<main id="learning-main">
+<nav class="learning-nav" aria-label="學習工具"><a href="../practice/">弱點練習</a><a href="../planner/">週排程</a><a href="../rankings/">排行榜</a><a href="../photo/" aria-current="page">照片講解</a></nav>
+<div class="learning-heading"><p class="eyebrow">07 / PHOTO</p><h1>卡住的題目，慢慢讀懂。</h1><p>選張照片，輸入題目文字，再看講解。</p></div>
 <p id="status" role="status"></p>
 
-<section id="login-required" hidden>
-  <h2>請先登入</h2>
-  <p>照片題目講解需要登入帳號。請至<a href="../court/">開庭練習</a>頁面登入後再回來使用。</p>
+<section id="login-required" class="account-card" hidden>
+  <p class="eyebrow">一道題，一個觀念</p><h2>登入後，開始講解。</h2>
+  <p>目前需手動輸入題目文字，尚未提供自動圖片辨識。</p><a class="action-link" href="../court/">前往登入 →</a>
 </section>
 
 <section id="photo-area" hidden>
   <p id="cap-notice" hidden></p>
 
   <div class="data-notice">
-    <strong>資料用途說明</strong>
-    照片僅在你的裝置上壓縮處理，<strong>不會上傳或永久保存</strong>。
-    你確認的題目文字會傳送至 Ollama AI 服務進行講解，不寫入排行榜，不用於廣告或訓練。
+    照片留在這台裝置。送出後，只有你輸入的題目文字會傳至 Ollama 進行講解。
   </div>
 
-  <div>
-    <label for="image-input"><strong>選擇題目照片</strong>（JPEG / PNG / WebP，2 MB 以下）</label><br>
+  <div class="upload-panel">
+    <p class="eyebrow">01 / 選擇照片</p><label for="image-input"><strong>把題目放在這裡</strong></label><p class="section-note">JPEG、PNG 或 WebP · 壓縮後上限 2 MB</p>
     <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp" style="margin:.5rem 0">
   </div>
 
@@ -48,7 +48,7 @@
   <p id="size-info"></p>
 
   <section id="step-extract" hidden>
-    <h2>輸入題目文字</h2>
+    <p class="eyebrow">02 / 確認文字</p><h2>輸入題目文字</h2>
     <p style="font-size:.88rem;color:#555">對照圖片，在下方輸入或貼上題目的題幹與選項，然後點「取得 AI 講解」。</p>
     <textarea id="question-input" placeholder="例：下列何者符合正當法律程序原則？&#10;（A）…&#10;（B）…" maxlength="1000" aria-label="題目文字"></textarea>
     <span id="char-count">0 / 1000</span>

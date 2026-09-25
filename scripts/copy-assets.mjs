@@ -4,7 +4,7 @@ await mkdir(new URL("../public/", import.meta.url), { recursive: true });
 for (const directory of ['court', 'photo', 'play', 'planner', 'practice', 'rankings']) {
   await cp(new URL(`../${directory}/`, import.meta.url), new URL(`../public/${directory}/`, import.meta.url), { recursive: true, force: true });
 }
-for (const file of ["styles.css", "favicon.svg", "robots.txt", "sitemap.xml", "sw.js", "manifest.json", "music-data.js", "music-player.js"]) {
+for (const file of ["styles.css", "favicon.svg", "robots.txt", "sitemap.xml", "sw.js", "manifest.json", "music-data.js", "music-player.js", "auth-sync.js"]) {
   await copyFile(new URL(`../${file}`, import.meta.url), new URL(`../public/${file}`, import.meta.url));
 }
 await copyFile(

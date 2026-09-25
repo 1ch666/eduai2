@@ -9,6 +9,7 @@ ARG WEB_ROOT=play
 COPY court-game/docker/nginx.conf /etc/nginx/nginx.conf
 COPY --chown=nginx:nginx ${WEB_ROOT}/ /usr/share/nginx/html/
 COPY --chown=nginx:nginx court/ /usr/share/nginx/html/court/
+COPY --chown=nginx:nginx auth-sync.js /usr/share/nginx/html/auth-sync.js
 RUN test -s /usr/share/nginx/html/index.html \
     && test -s /usr/share/nginx/html/touch-controls.js \
     && test -s /usr/share/nginx/html/Build/WebGL.loader.js \

@@ -1,3 +1,4 @@
+import '../auth-sync.js';
 const $=id=>document.getElementById(id);
 const onPages=location.hostname.endsWith('github.io');
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -19,7 +20,7 @@ async function api(path,body){
 async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){status(e.message);}finally{busy=false;}}
 
 async function loadSession(){
-  const p=await api('/api/auth/session');
+  const p=await window.EduAuth.session();
   account=p.user;csrf=p.csrfToken||'';
   $('account-toggle').textContent=account?account.displayName:'登入';
   if(!account){$('account').hidden=false;$('practice-area').hidden=true;}

@@ -1,23 +1,26 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="每週讀書排程、專注計時、提醒。"><title>週排程｜公民法律研究室</title><link rel="stylesheet" href="../styles.css"><link rel="stylesheet" href="planner.css"><script type="module" src="planner.js"></script></head>
-<body><header><a href="../">公民法律研究室</a><span>週排程</span><button id="account-toggle">登入</button></header>
-<main>
+<body class="learning-page"><a class="skip-link" href="#learning-main">跳至內容</a><header class="learning-header"><a class="learning-brand" href="../">公民法律研究室<span>學習工具</span></a><button id="account-toggle">登入</button></header>
+<main id="learning-main">
+<nav class="learning-nav" aria-label="學習工具"><a href="../practice/">弱點練習</a><a href="../planner/" aria-current="page">週排程</a><a href="../rankings/">排行榜</a><a href="../photo/">照片講解</a></nav>
+<div class="learning-heading"><p class="eyebrow">05 / PLAN</p><h1>留一段時間，給學習。</h1><p>安排這週的進度，一次專心一件事。</p></div>
 <p id="status" role="status"></p>
-<section id="login-notice" hidden><p>請至<a href="../court/">帳號頁面</a>登入後使用排程功能。</p></section>
+<section id="login-notice" class="account-card" hidden><p class="eyebrow">你的讀書計畫</p><h2>從這週開始。</h2><p>登入後安排時段，記錄專注時間。</p><a class="action-link" href="../court/">前往登入 →</a></section>
 
 <section id="planner-area" hidden>
   <!-- 週導覽 -->
   <div class="bar week-nav">
-    <button id="prev-week">&#8249;</button>
+    <button id="prev-week" aria-label="上一週">&#8249;</button>
     <span id="week-label"></span>
-    <button id="next-week">&#8250;</button>
+    <button id="next-week" aria-label="下一週">&#8250;</button>
     <button id="today-btn">本週</button>
     <button id="export-ics">匯出 ICS</button>
     <button id="push-toggle">通知設定</button>
   </div>
 
   <!-- 週曆格 -->
-  <div id="week-grid" class="week-grid" role="grid" aria-label="本週排程"></div>
+  <p class="calendar-hint">點選空白時段新增排程 · 手機可左右滑動週曆</p>
+  <div class="calendar-scroll" tabindex="0" role="region" aria-label="本週排程，可左右捲動"><div id="week-grid" class="week-grid" role="grid" aria-label="本週排程"></div></div>
 
   <!-- AI 排程草稿 -->
   <details id="ai-draft-details">

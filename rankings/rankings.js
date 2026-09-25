@@ -1,3 +1,4 @@
+import '../auth-sync.js';
 const $=id=>document.getElementById(id);
 const onPages=location.hostname.endsWith('github.io');
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -162,7 +163,7 @@ $('account-toggle').onclick=()=>location.href='../court/';
 
 async function init(){
   try{
-    const p=await api('/api/auth/session');
+    const p=await window.EduAuth.session();
     account=p.user;csrf=p.csrfToken||'';
     $('account-toggle').textContent=account?account.displayName:'登入';
     if(account)await loadMyStats();

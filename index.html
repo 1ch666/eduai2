@@ -637,13 +637,13 @@
         <a class="mode-card" href="./practice/" data-mark="04">
           <span class="mode-no">04 / PRACTICE</span>
           <h2 class="serif">弱點練習</h2>
-          <p>伺服器判分、依弱點補強，法律×公民×經濟。</p>
+          <p>練一道題，找出還不熟的觀念。</p>
           <span class="mode-enter">開始答題 →</span>
         </a>
         <a class="mode-card" href="./planner/" data-mark="05">
           <span class="mode-no">05 / PLAN</span>
           <h2 class="serif">週排程</h2>
-          <p>規劃讀書時段、專注計時、ICS 匯出。</p>
+          <p>安排這週的進度，留點時間專心。</p>
           <span class="mode-enter">開啟排程 →</span>
         </a>
         <a class="mode-card" href="./rankings/" data-mark="06">
@@ -661,7 +661,7 @@
         <a class="mode-card" href="./photo/" data-mark="08">
           <span class="mode-no">07 / PHOTO</span>
           <h2 class="serif">照片講解</h2>
-          <p>拍下題目照片，確認文字後取得 AI 解析，可存為筆記。</p>
+          <p>對照照片輸入題目，讀懂解題思路。</p>
           <span class="mode-enter">上傳照片 →</span>
         </a>
       </div>
@@ -881,6 +881,7 @@
   </div>
   <div class="toast" id="toast" aria-live="polite"></div>
 
+  <script src="./auth-sync.js"></script>
   <script src="./civics-data.js"></script>
   <script>
     const CASES = [
@@ -1619,7 +1620,7 @@
       $("accountChip").classList.toggle("hidden", !signedIn);
       $("logoutButton").classList.toggle("hidden", !signedIn);
       $("accountButton").classList.remove("hidden");
-      $("accountButton").textContent = signedIn ? "帳號／紀錄" : "登入 / 註冊";
+      $("accountButton").textContent = window.EduAuth.onPages ? "前往正式站登入" : signedIn ? "帳號／紀錄" : "登入 / 註冊";
     }
 
     function setAuthMessage(message) {
@@ -1639,8 +1640,7 @@
 
     async function loadSession() {
       try {
-        const { response, payload } = await apiFetch(`${AUTH_API_PATH}/session`);
-        if (!response.ok) throw new Error(payload.error || "無法確認登入狀態");
+        const payload = await window.EduAuth.session();
         authState.user = payload.user || null;
         authState.csrfToken = payload.csrfToken || "";
       } catch {
@@ -1666,6 +1666,7 @@
         const body = authState.mode === "register" ? { username, password, displayName } : { username, password };
         const { response, payload } = await apiFetch(`${AUTH_API_PATH}/${authState.mode}`, { method: "POST", body: JSON.stringify(body) });
         if (!response.ok) { setAuthMessage(payload.error || "登入失敗，請再試一次。"); return; }
+        window.EduAuth.changed(payload);
         authState.user = payload.user;
         authState.csrfToken = payload.csrfToken || "";
         $("authPassword").value = "";
@@ -1692,6 +1693,7 @@
         showToast("尚未完成登出，請恢復連線後再試。");
         return;
       }
+      window.EduAuth.changed({ user: null });
       $("authRecovery").textContent = "";
       $("authRecovery").classList.add("hidden");
       authState.user = null;
@@ -2171,7 +2173,10 @@
       if (target.dataset.quizAnswer !== undefined) { answerQuiz(Number(target.dataset.quizAnswer)); queueProgressSave("civics"); }
       if (target.dataset.dailyAnswer !== undefined) { answerDaily(Number(target.dataset.dailyAnswer)); queueProgressSave("daily"); }
       if (target.dataset.authTab) setAuthMode(target.dataset.authTab);
-      if (target.id === "accountButton") { setAuthMode("login"); openModal("authModal"); $("authUsername").focus(); }
+      if (target.id === "accountButton") {
+        if (window.EduAuth.onPages) { location.href = window.EduAuth.worker + '/#login'; return; }
+        setAuthMode("login"); openModal("authModal"); $("authUsername").focus();
+      }
       if (target.id === "logoutButton") logout();
       if (target.dataset.dailyBank) { dailyState.bank = target.dataset.dailyBank; dailyState.index = 0; dailyState.queue = []; dailyState.queueTopic = null; renderDaily(); }
       if (target.dataset.dailyTopic) { dailyState.topic = target.dataset.dailyTopic; dailyState.index = 0; dailyState.queue = []; dailyState.queueTopic = null; renderDaily(); }
@@ -2237,6 +2242,9 @@
     renderQuiz();
     renderAccount();
     loadSession();
+    if (location.hash === '#login' && !window.EduAuth.onPages) {
+      setAuthMode('login'); openModal('authModal'); $('authUsername').focus();
+    }
     // Load law shards and shared messages only when their views are opened.
     window.addEventListener("online", syncSharedMessages);
     window.setInterval(() => {
