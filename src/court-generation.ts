@@ -17,6 +17,24 @@ export function generatedCandidates(caseId:string):CaseTemplate[]{
   summary:base.summary+' 本輪加查：'+e.title+'。'}));
 }
 
+// Select only within the chosen legal template: switching procedure or counsel
+// requirements behind the user's back would invalidate the selected config.
+export function randomLibraryCase(caseId:string,history:CaseTemplate[]):CaseTemplate{
+ const pool=generatedCandidates(caseId);
+ if(!pool.length)throw Error('找不到案件類型');
+ const counts=new Map(pool.map(t=>[t.id,history.filter(h=>h.id===t.id).length]));
+ const minimum=Math.min(...counts.values());
+ let candidates=pool.filter(t=>counts.get(t.id)===minimum);
+ const last=history.filter(h=>counts.has(h.id)).at(-1)?.id;
+ const withoutLast=candidates.filter(t=>t.id!==last);if(withoutLast.length)candidates=withoutLast;
+ const selected=structuredClone(candidates[crypto.getRandomValues(new Uint32Array(1))[0]%candidates.length]);
+ const correct=selected.answers[selected.correct];
+ for(let i=selected.answers.length-1;i>0;i--){const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);[selected.answers[i],selected.answers[j]]=[selected.answers[j],selected.answers[i]];}
+ selected.correct=selected.answers.indexOf(correct);
+ selected.title='[題庫] '+selected.title;
+ return selected;
+}
+
 const clean=(v:unknown,max:number):v is string=>typeof v==='string'&&v.trim().length>=4&&v.length<=max&&!/[<>]|https?:|第[零一二三四五六七八九十百千\d]+條|判處|判決有罪/.test(v);
 export function validateGenerated(value:unknown,base:CaseTemplate):CaseTemplate|null{
  if(!value||typeof value!=='object'||Array.isArray(value))return null;

@@ -3,7 +3,7 @@ import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
 import { NPC_IDS, npcKnowledge, npcResponse, validNpcInput, type NpcId, type NpcInput, type NpcReply } from './court-npc';
-import { generatedCandidates, generateModelCase, similarCase, GENERATION_VERSION } from './court-generation';
+import { generatedCandidates, generateModelCase, randomLibraryCase, similarCase, GENERATION_VERSION } from './court-generation';
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, ROLE_DESCRIPTIONS, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -101,20 +101,22 @@ export class Learner extends DurableObject<AppEnv>{
     if(previous)return previous.payload===payload?{id:previous.room,template:JSON.parse(previous.body) as ReturnType<typeof generatedCandidates>[number]}:{error:'請求識別已使用',status:409};
     const attempt=this.ctx.storage.sql.exec<{payload:string;error:string|null}>('SELECT payload,error FROM generation_attempts WHERE id=?',requestId).toArray()[0];
     if(attempt)return {error:attempt.payload!==payload?'請求識別已用於不同內容':attempt.error||'生成處理中或已中斷，請稍後恢復；相同請求不重複呼叫模型。',status:409};
-    if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM generation_attempts WHERE created>?',Date.now()-86400000).one().n>=10)return {error:'已達24小時10次生成上限，請使用已保存案件。',status:429};
-    if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM generation_attempts').one().n>=200)return {error:'已達帳號生成嘗試上限，請使用已保存案件。',status:429};
+    const withinBudget=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND (error IS NULL OR error!='SKIP')",Date.now()-86400000).one().n<10;
+    const coolingDown=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND error IS NOT NULL AND error!='SKIP'",Date.now()-300000).one().n>0;
     if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM courts').one().n>=100)return {error:'場次上限已達',status:409};
     this.ctx.storage.sql.exec('INSERT INTO generation_attempts VALUES(?,?,?,NULL)',requestId,payload,Date.now());
     const readHistory=()=>this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM generated_requests ORDER BY rowid').toArray().map(r=>JSON.parse(r.body) as ReturnType<typeof generatedCandidates>[number]);
     let template:ReturnType<typeof generatedCandidates>[number];
+    const skipAI=!withinBudget||coolingDown||this.env.COURT_AI_ENABLED==='false'||!this.env.OLLAMA_API_KEY;
     try{
+      if(skipAI)throw Error('AI 暫停嘗試，改用題庫。');
       template=await generateModelCase(this.env,CASES.find(t=>t.id===config.caseId)!,readHistory());
       // Re-read after provider I/O: concurrent generation may have saved a match.
       if([...CASES,...readHistory()].some(t=>similarCase(template,t)))throw Error('生成內容與已有案件過於相似，已拒絕保存；請重新生成。');
     }catch(e){
       const error=e instanceof Error&&e.name!=='TimeoutError'&&e.message.startsWith('AI ')?e.message:e instanceof Error&&e.message.startsWith('生成內容')?e.message:'AI 生成逾時或失敗，未建立案件；請稍後再試。';
-      this.ctx.storage.sql.exec('UPDATE generation_attempts SET error=? WHERE id=?',error,requestId);
-      return {error,status:503};
+      this.ctx.storage.sql.exec('UPDATE generation_attempts SET error=? WHERE id=?',skipAI?'SKIP':error,requestId);
+      template=randomLibraryCase(config.caseId,readHistory());
     }
     const id=crypto.randomUUID();
     const saved=this.ctx.storage.transactionSync(()=>{

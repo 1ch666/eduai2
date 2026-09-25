@@ -23,7 +23,10 @@ assert.equal((await call(npc,{...input,requestId:crypto.randomUUID()},a)).status
 const restored=await call(route,undefined,a);assert.equal(restored.data.view.version,1);assert.equal(restored.data.view.npcHistory.length,1);assert.equal(restored.data.view.npcHistory[0].question,input.text);
 assert.equal((await call(route,undefined,b)).status,404);
 const request={...config,requestId:crypto.randomUUID()};
-const generated=await call('/api/court/cases/generate',request,a);assert.equal(generated.status,503);assert.match(generated.data.error,/AI/);
-assert.equal((await call('/api/court/cases/generate',request,a)).status,409);
-assert.equal((await call('/api/court/sessions',undefined,a)).data.sessions.length,1);
-console.log('NPC local integration passed: auth, CSRF, ownership, Chinese, length, replay/projection, stale version, restore; AI-off generation fails closed and creates no fake case.');
+const generated=await call('/api/court/cases/generate',request,a);assert.equal(generated.status,201);assert.match(generated.data.view.title,/題庫/);
+assert.deepEqual((await call('/api/court/cases/generate',request,a)).data,generated.data);
+const titles=new Set([generated.data.view.title]);
+for(let i=0;i<2;i++){const p=await call('/api/court/cases/generate',{...config,requestId:crypto.randomUUID()},a);assert.equal(p.status,201);titles.add(p.data.view.title);}
+assert.equal(titles.size,3);
+assert.equal((await call('/api/court/sessions',undefined,a)).data.sessions.length,4);
+console.log('NPC local integration passed including AI-off random library, unique cycle, saved sessions and idempotent replay.');
