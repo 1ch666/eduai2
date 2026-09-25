@@ -21,7 +21,9 @@ test('disabled AI never calls provider; valid selection and failures are bounded
  try{
   globalThis.fetch=async()=>{calls++;return Response.json({message:{content:JSON.stringify({factIds:['k0'],uncertain:false})}});};
   assert.equal((await npcResponse({},state,'Lawyer',input,true)).mode,'scripted');assert.equal(calls,0);
-  const env={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'fake-local-test'};
+  const env={OLLAMA_API_KEY:'fake-local-test'};
+  assert.equal((await npcResponse({...env,COURT_AI_ENABLED:'false'},state,'Lawyer',input,true)).mode,'scripted');assert.equal(calls,0);
+  assert.equal((await npcResponse(env,state,'Lawyer',input,false)).errorCode,'RATE_LIMIT');assert.equal(calls,0);
   assert.equal((await npcResponse(env,state,'Lawyer',input,true)).mode,'ai');
   globalThis.fetch=async()=>new Response('',{status:429});
   assert.equal((await npcResponse(env,state,'Lawyer',input,true)).errorCode,'QUOTA');

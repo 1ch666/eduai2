@@ -15,7 +15,7 @@ export type AppEnv = Env & {
   VAPID_PRIVATE_KEY?: string;
   OLLAMA_API_KEY?: string;
   OLLAMA_MODEL?: string;
-  /** Explicit release gate: enable only after checking this model's free quota. */
+  /** NPC defaults to auto with an existing key; false disables it. Stage dialogue still requires true. Check provider free quota; never auto-upgrade. */
   COURT_AI_ENABLED?: string;
   /** PBKDF2 rounds for new passwords. Do not reduce merely to fit a quota. */
   PASSWORD_ITERATIONS?: string;

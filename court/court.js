@@ -16,15 +16,16 @@ window.addEventListener('message',async e=>{
  if(npcBusy||busy){reply({error:'另一項操作進行中，請稍候。'});return;}
  npcBusy=true;
  try{
-  let mode='scripted';
+  let mode='history',notice='';
   if(operation==='message'){
    const p=await api(`/api/court/sessions/${id}/npcs/${npcId}/messages`,{requestId,version:view.version,text});mode=p.reply.mode;
+   if(mode!=='ai')notice='AI 暫時無法回覆，以下為案件參考資料。';
   }
   const p=await api('/api/court/sessions/'+id);
   if(view?.id!==id||account?.id!==owner)return;
   view=p.view;render();
   const history=(view.npcHistory||[]).filter(r=>r.npcId===npcId);
-  reply({mode,name:view.npcs?.find(n=>n.id===npcId)?.name||npcId,historyText:history.map(r=>`你：${r.question}\n角色：${r.text}`).join('\n\n')||'尚無對話。可詢問這位角色已知的情況。'});
+  reply({mode,notice,name:view.npcs?.find(n=>n.id===npcId)?.name||npcId,historyText:history.map(r=>`你：${r.question}\n${r.mode==='ai'?'角色':'案件參考資料'}：${r.text}`).join('\n\n')||'可直接提問，系統會自動連接 AI。'});
  }catch{reply({error:'對話未完成。請關閉再開啟以恢復紀錄；不會自動重送或清除進度。'});}
  finally{npcBusy=false;}
 });

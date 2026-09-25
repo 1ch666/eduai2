@@ -31,7 +31,7 @@ namespace EduAI.Court
         private readonly Vector3[] inputCorners=new Vector3[4];
         private string cloudTicket;
         private float cloudDeadline;
-        [System.Serializable] private class CloudReply { public string requestId; public string npcId; public string text; public string error; public string historyText; public string name; public string mode; }
+        [System.Serializable] private class CloudReply { public string requestId; public string npcId; public string text; public string error; public string historyText; public string name; public string mode; public string notice; }
         private float keyboardInset;
         private RectTransform inputRect, sendRect;
         private GameObject viewportObject, suggestObject, continueObject;
@@ -78,7 +78,7 @@ namespace EduAI.Court
             panel.GetComponent<Image>().color = new Color(.96f,.97f,.96f,.99f); panelRect = (RectTransform)panel.transform;
             heading = Label(panel.transform,"Heading","",22);
             Place(heading.rectTransform,new Vector2(0,1),Vector2.one,new Vector2(16,-66),new Vector2(-16,-12));
-            state = Label(panel.transform,"Mode","備用對話模式｜未連接 AI；紀錄只保留本次遊玩。",16);
+            state = Label(panel.transform,"Mode","固定案件練習｜AI 對話請由學堂的雲端法庭進入。",16);
             Place(state.rectTransform,new Vector2(0,1),Vector2.one,new Vector2(16,-120),new Vector2(-16,-68));
             var viewport = new GameObject("HistoryViewport",typeof(RectTransform),typeof(Image),typeof(RectMask2D),typeof(ScrollRect));
             viewport.transform.SetParent(panel.transform,false); viewport.GetComponent<Image>().color = Color.white;
@@ -123,7 +123,7 @@ namespace EduAI.Court
             heading.text = target.DisplayName + " · 固定平板案件\n玩家：調查練習者";
             if (!histories.ContainsKey(target.name)) histories[target.name] = new List<string>();
             input.text = ""; send.interactable = true; panel.SetActive(true); RenderHistory();
-            state.text="備用對話模式｜未連接 AI；紀錄只保留本次遊玩。";
+            state.text="固定案件練習｜AI 對話請由學堂的雲端法庭進入。";
             if(CourtPresentation.IsHosted){history.text="正在恢復雲端對話…";RequestCloud("history","");}
             viewCamera = Camera.main;
             Focus(target.transform.position + Vector3.up * .5f, 48);
@@ -136,11 +136,11 @@ namespace EduAI.Court
         {
             if (!IsOpen || evidenceMode || pending != null || composing) return;
             var question = input.text.Trim();
-            if (question.Length == 0 || question.Length > 400) { state.text="請輸入 1～400 字。備用對話模式，非 AI。"; return; }
+            if (question.Length == 0 || question.Length > 400) { state.text="請輸入 1～400 字。"; return; }
             if(CourtPresentation.IsHosted){if(cloudTicket!=null)return;RequestCloud("message",question);return;}
             var owner = npc; int ticket = generation;
             Add(owner.name,"你：" + question); input.text=""; send.interactable=false;
-            state.text="正在取得固定台詞…（非 AI）";
+            state.text="正在查閱案件資料…";
             pending = StartCoroutine(Reply(owner,question,ticket));
         }
         private IEnumerator Reply(NPCInteractable owner, string question, int ticket)
@@ -149,7 +149,7 @@ namespace EduAI.Court
             if (!IsOpen || generation != ticket || npc != owner) yield break;
             Add(owner.name,owner.DisplayName + "：" + ScriptedNpcDialogue.Reply(owner.DisplayName,question));
             owner.GetComponentInChildren<NpcActorMotion>()?.Speak();
-            state.text="備用對話模式｜固定台詞，未連接 AI；不會自動新增證據。";
+            state.text="案件參考資料｜AI 對話請由學堂的雲端法庭進入。";
             send.interactable=true; pending=null;
         }
         private void Add(string key,string line)
@@ -175,7 +175,7 @@ namespace EduAI.Court
             if(!string.IsNullOrEmpty(r.error)){state.text=r.error;return;}
             heading.text=(r.name??npc.DisplayName)+" · 雲端場次";
             history.text=r.historyText??r.text??"尚無對話";input.text="";
-            state.text=r.mode=="ai"?"AI 依角色知識選擇回覆｜已保存":"備用對話模式／已恢復雲端紀錄";
+            state.text=!string.IsNullOrEmpty(r.notice)?r.notice:r.mode=="history"?"對話已恢復，可直接提問。":"已保存";
             Canvas.ForceUpdateCanvases();scroll.verticalNormalizedPosition=0;
             npc.GetComponentInChildren<NpcActorMotion>()?.Speak();
         }
