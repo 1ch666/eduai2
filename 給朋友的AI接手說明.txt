@@ -1,3 +1,8 @@
+【2026-09-26 第二批：證物特寫與對話鏡頭】
+新增 Unity 內證物 A 近景與可捲動說明；查看期間隔離移動／作答，關閉恢復原鏡頭旋轉及 FOV。NPC 對話加入近景鏡頭；重玩清空上一輪對話。CourtPlayTests 新增證物操作／視野恢復斷言並通過，Release WebGL build exit 0，15 項 JS 測試通過。瀏覽器已進入遊戲，唯一 HTTP404 已定位 /favicon.ico（非遊戲資源）；不等於完整手機或對話畫面驗收。
+本批 data 15,280,680 / wasm 5,835,125 / framework 82,327 / loader 48,540 bytes；四項 21,246,672，另 touch 5,172。play 成品已同步。真正 AI、案件生成及雲端對話仍未實作，正式後端未修改／部署。
+請讀 court-game/REQUIREMENTS-CHECKLIST.md 的逐項狀態與後端改動提案。後端需確認的檔案、端點、DO 影響及資料風險已列出；沒有新增 migration 或 Secret。Docker 必須使用本批後續成功 run，前批 c3401d8 的 Docker run 36158825653 已通過但不是本批位元組。
+
 【2026-09-26 WebGL 建置完成；優先於下方歷史狀態】
 Unity 已一致性升級至官方 6000.6.2f1；6000.3 的政策封鎖未繞過。NpcUpgrade、Scene validation、CourtSmokeTests、CourtPlayTests 均通過，Release WebGL build exit 0。15 項 JS 測試通過，check-build 實際 Gzip／WASM 檢查通過。
 本次提交新版 Courtroom 場景、人物／材質／匯入設定、packages／ProjectSettings 與 play/Build 成品。Edge headless 實際載入到「開始遊戲」並進入法庭，截圖可見人物；console 有一筆未定位 404，未出現 Unity 崩潰。不將此啟動檢查等同完整瀏覽器或手機真機驗收。

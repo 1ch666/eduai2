@@ -25,6 +25,8 @@ namespace EduAI.Court
         private int generation;
         private Camera viewCamera;
         private Quaternion savedCamera;
+        private float savedFieldOfView;
+        private bool evidenceMode;
         private float keyboardInset;
         private RectTransform inputRect, sendRect;
         private GameObject viewportObject, suggestObject, continueObject;
@@ -103,7 +105,7 @@ namespace EduAI.Court
         public void Open(NPCInteractable target)
         {
             if (!target || CourtPresentation.IsHosted) return;
-            BuildUI(); if (IsOpen) Close(); npc = target; generation++;
+            BuildUI(); if (IsOpen) Close(); evidenceMode=false; npc = target; generation++;
             IsOpen = true;
             FirstPersonController.Active?.ResetTouchInput(); FirstPersonController.Active?.Capture(false);
             FindFirstObjectByType<ChoiceSystem>()?.Close();
@@ -111,14 +113,14 @@ namespace EduAI.Court
             if (!histories.ContainsKey(target.name)) histories[target.name] = new List<string>();
             input.text = ""; send.interactable = true; panel.SetActive(true); RenderHistory();
             viewCamera = Camera.main;
-            if (viewCamera) { savedCamera = viewCamera.transform.localRotation; viewCamera.transform.LookAt(target.transform.position + Vector3.up * .5f); }
+            Focus(target.transform.position + Vector3.up * .5f, 48);
 #if UNITY_WEBGL && !UNITY_EDITOR
             CourtDialogueModal(1);
 #endif
         }
         public void Submit()
         {
-            if (!IsOpen || pending != null) return;
+            if (!IsOpen || evidenceMode || pending != null) return;
             var question = input.text.Trim();
             if (question.Length == 0 || question.Length > 400) { state.text="請輸入 1～400 字。備用對話模式，非 AI。"; return; }
             var owner = npc; int ticket = generation;
@@ -145,6 +147,31 @@ namespace EduAI.Court
             if (history.text.Length==0) history.text="可詢問這位角色已知的情況。\n\n目前是本機固定案件練習，重新整理會清除對話。";
             Canvas.ForceUpdateCanvases(); scroll.verticalNormalizedPosition=0;
         }
+        // Local educational evidence only. No AI-created evidence or server state.
+        public void OpenEvidence(EvidenceInteractable target)
+        {
+            if(!target || CourtPresentation.IsHosted)return;
+            BuildUI();if(IsOpen)Close();evidenceMode=true;npc=null;generation++;IsOpen=true;
+            FirstPersonController.Active?.ResetTouchInput();FirstPersonController.Active?.Capture(false);
+            FindFirstObjectByType<ChoiceSystem>()?.Close();
+            heading.text="證物 A · 虛構監視器截圖";
+            state.text="教學證物｜不是完整錄影，不可用推測補足畫面。";
+            history.text="畫面可確認：小明進入教室。\n\n畫面未拍到：取走平板的動作。\n\n取得時間：2026/09/21（虛構）。\n\n思考：出現在現場，是否就足以認定取走物品？請再比對證人親眼所見與傳聞。\n\n此為教育模擬，不是法律意見。";
+            panel.SetActive(true);Canvas.ForceUpdateCanvases();scroll.verticalNormalizedPosition=1;
+            Focus(target.transform.position,32);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            CourtDialogueModal(1);
+#endif
+        }
+        private void Focus(Vector3 target,float fieldOfView)
+        {
+            viewCamera=Camera.main;if(!viewCamera)return;
+            savedCamera=viewCamera.transform.localRotation;savedFieldOfView=viewCamera.fieldOfView;
+            // Do not teleport through geometry or move the player's collider.
+            viewCamera.transform.LookAt(target);viewCamera.fieldOfView=fieldOfView;
+            if(Screen.width>Screen.height)viewCamera.transform.Rotate(0,16,0,Space.Self);
+        }
+        public void ResetHistory(){Close();histories.Clear();}
         public void ContinueInvestigation() { var target=npc; Close(); if(target)target.ContinueInvestigation(); }
         public void Close()
         {
@@ -152,7 +179,7 @@ namespace EduAI.Court
             generation++; if(pending!=null)StopCoroutine(pending); pending=null;
             input.DeactivateInputField(); EventSystem.current?.SetSelectedGameObject(null);
             IsOpen=false; panel.SetActive(false); keyboardInset=0;
-            if(viewCamera)viewCamera.transform.localRotation=savedCamera;
+            if(viewCamera){viewCamera.transform.localRotation=savedCamera;viewCamera.fieldOfView=savedFieldOfView;}
             FirstPersonController.Active?.ResetTouchInput(); FirstPersonController.Active?.Capture(false);
 #if UNITY_WEBGL && !UNITY_EDITOR
             CourtDialogueModal(0);
@@ -167,9 +194,12 @@ namespace EduAI.Court
             Place(panelRect,new Vector2(portrait?.02f:.48f,keyboardInset+.02f),new Vector2(.98f,.98f),Vector2.zero,Vector2.zero);
             // Landscape keyboard can leave very little vertical room. Keep input,
             // send and close visible; restore history/labels after keyboard closes.
-            bool compact=panelRect.rect.height<390;
+            bool compact=!evidenceMode&&panelRect.rect.height<390;
             viewportObject.SetActive(!compact);heading.gameObject.SetActive(!compact);
             state.gameObject.SetActive(!compact);suggestObject.SetActive(!compact);continueObject.SetActive(!compact);
+            input.gameObject.SetActive(!evidenceMode);send.gameObject.SetActive(!evidenceMode);
+            suggestObject.SetActive(!compact&&!evidenceMode);continueObject.SetActive(!compact&&!evidenceMode);
+            Place((RectTransform)viewportObject.transform,Vector2.zero,Vector2.one,new Vector2(16,evidenceMode?80:226),new Vector2(-16,-124));
             Place(inputRect,Vector2.zero,compact?Vector2.one:new Vector2(1,0),new Vector2(16,compact?66:136),new Vector2(-16,compact?-8:214));
             Place(sendRect,new Vector2(compact?0:.68f,0),new Vector2(compact?.5f:1,0),new Vector2(8,compact?12:80),new Vector2(-8,compact?58:126));
             Place(closeRect,new Vector2(compact?.5f:.68f,0),new Vector2(1,0),new Vector2(8,compact?12:20),new Vector2(-8,compact?58:66));

@@ -76,6 +76,7 @@ namespace EduAI.Court
             if (index == 0)
             {
                 started = evidenceReviewed = witnessHeard = completed = false;
+                FindFirstObjectByType<NpcDialogueUI>()?.ResetHistory();
                 BeginHearing();
             }
             else if (index == 1) ui.ShowMessage("學習重點：區分親眼所見與傳聞；不要用猜測補上缺少的證據。", 18);

@@ -71,6 +71,17 @@ namespace EduAI.Court.Editor
             Require(mobileChoices.IsOpen, "Near NPC can continue into original choices");
             mobileChoices.ChooseFromTouch(3);
             Require(!mobileChoices.IsOpen, "Touch answer closes choices");
+            if(dialogue)
+            {
+                var camera=Camera.main;var rotation=camera.transform.localRotation;float fov=camera.fieldOfView;
+                var evidence=UnityEngine.Object.FindFirstObjectByType<EvidenceInteractable>();
+                evidence.Interact();
+                Require(NpcDialogueUI.IsOpen&&!FirstPersonController.InputActive,"Evidence closeup blocks movement");
+                Require(Mathf.Abs(camera.fieldOfView-32)<.01f,"Evidence uses closeup lens");
+                dialogue.Submit();dialogue.Close();
+                Require(Quaternion.Angle(camera.transform.localRotation,rotation)<.01f&&Mathf.Abs(camera.fieldOfView-fov)<.01f,"Close restores original view");
+                dialogue.ResetHistory();
+            }
             var hosted = UnityEngine.Object.FindFirstObjectByType<CourtPresentation>();
             Require(hosted && !CourtPresentation.IsHosted, "Classic mode remains default");
             hosted.SetView("{\"mode\":\"seat\",\"role\":\"observer\",\"procedure\":\"juvenile\"}");

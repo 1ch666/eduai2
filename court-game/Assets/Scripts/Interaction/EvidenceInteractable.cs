@@ -8,6 +8,10 @@ namespace EduAI.Court
         public void Configure(CourtSession court) { session = court; }
         public string GetInteractionText() => "查看證物";
         public void Interact()
-        { if (session) session.ReviewEvidence(); }
+        {
+            if(CourtPresentation.IsHosted)return;
+            if (session) session.ReviewEvidence();
+            FindFirstObjectByType<NpcDialogueUI>()?.OpenEvidence(this);
+        }
     }
 }
