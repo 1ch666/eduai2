@@ -1,4 +1,14 @@
 EduAI2：給朋友與接手 AI 的現況、問題與續作指南
+【最新正式部署紀錄：2026-09-25；優先於下方 2026-09-24 盤點】
+使用者本次明確授權將倉庫登入／後端部署到本人既有 Cloudflare。已同步並部署 main f82e314（包含朋友後續的登入 Cookie、題庫及其他修正），未修改應用程式碼。
+目標：既有 civic-law-lab-212；https://civic-law-lab-212.yichengc869.workers.dev
+新 Worker version：512efd86-36cc-449a-b290-5cef0d1fb348；前一 version：f7557b73-ecbc-4b50-9268-740cdc210517。舊版只有 MESSAGE_ROOM；新版8個 Durable Object bindings 已成功部署，沿用 repo 的 v1–v7 增量宣告。沒有刪除、重建或清空既有物件；MessageRoom 既有程式會以增量方式補作者欄位。
+Wrangler deploy --keep-vars 保留環境變數及既有 Secrets；未改 Secret、owner、account、collaborator 或付款方案。DO 新類別遷移後不可把旧版本號視為可無條件直接 rollback；回復前需管理者確認遷移相容性。
+驗證：npm run check（含 TypeScript／dry-run）及23項測試通過；隔離本機 check-api.mjs 的註冊、登入、Session、CSRF、進度與留言檢查通過。正式網站首頁HTTP200、/api/auth/session HTTP200且未登入時user:null、Pages Origin登入OPTIONS204且允許credentials。沒有登入真實使用者、沒有建立正式測試帳號，也未驗收Safari第三方Cookie政策。
+已知失敗：本機 check-court-api.mjs 在首次取復原碼防護測試失敗，預期409卻得到400。src/auth.ts 在 first-recovery 分支之前一律要求 username/password，但該前端／測試只傳目前password；應交朋友修正此驗證順序並重測。一般帳密登入已通過本機整合測試；本次未順手改此程式。
+線上capabilities回 platform-3-preview、auth:true、textAi:true、courtAi:false、photoOcr:false。key存在不表示已實測AI回答；push:true仍只有訂閱功能，非通知發送驗收。法庭AI未啟用，未購買任何額度。
+下方問題清單以b967986為歷史盤點，朋友的a6be76d、452bc21、f82e314已修正其中部分項目；後续應先看最新程式，不要重做已修正項目。未授權的後端／權限改動仍遵守下方邊界。
+
 盤點日期：2026-09-24
 程式基準：遠端 main b967986（含朋友新增的 practice、planner、rankings、photo）。
 之前依 d06d2bb 的本機盤點已過時，本文件已重新依遠端新增程式修正。
