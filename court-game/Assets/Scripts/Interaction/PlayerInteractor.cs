@@ -15,7 +15,6 @@ namespace EduAI.Court
         { viewCamera = camera; ui = hud; choices = choiceSystem; }
         public void TouchInteract(string payload)
         {
-            if (CourtPresentation.IsHosted) return; // Hosted actions use the accessible parent evidence panel.
             if (!FirstPersonController.TouchEnabled || !FirstPersonController.InputActive ||
                 !viewCamera || (choices && choices.IsOpen) ||
                 !FirstPersonController.TryTouchVector(payload, out var position) ||
@@ -24,13 +23,12 @@ namespace EduAI.Court
             var ray = viewCamera.ViewportPointToRay(new Vector3(position.x, position.y, 0));
             if (Physics.Raycast(ray, out var hit, distance, layers, QueryTriggerInteraction.Ignore))
                 foreach (var candidate in hit.collider.GetComponentsInParent<MonoBehaviour>())
-                    if (candidate is IInteractable item && candidate.isActiveAndEnabled)
+                    if (candidate is IInteractable item && candidate.isActiveAndEnabled && (!CourtPresentation.IsHosted||candidate is NPCInteractable))
                     { item.Interact(); return; }
             if (ui) ui.ShowMessage("再靠近角色或物件，然後輕點它。", 3);
         }
         private void Update()
         {
-            if (CourtPresentation.IsHosted) { ClearTarget(); return; }
             if (FirstPersonController.TouchEnabled) { ClearTarget(); return; }
             // 最近命中的 collider 若不是 IInteractable，互動就停止：避免隔牆使用物件。
             // 選項開啟或滑鼠解鎖時暫停射線互動，但不隱藏中央準星。
@@ -43,7 +41,7 @@ namespace EduAI.Court
                 if (Physics.Raycast(ray, out RaycastHit hit, distance, layers, QueryTriggerInteraction.Ignore))
                 {
                     foreach (MonoBehaviour candidate in hit.collider.GetComponentsInParent<MonoBehaviour>())
-                        if (candidate is IInteractable interactable && candidate.isActiveAndEnabled)
+                        if (candidate is IInteractable interactable && candidate.isActiveAndEnabled && (!CourtPresentation.IsHosted||candidate is NPCInteractable))
                         { next = interactable; component = candidate; break; }
                 }
             }

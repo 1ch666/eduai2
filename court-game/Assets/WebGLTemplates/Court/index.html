@@ -78,6 +78,11 @@
     let unityInstance;
     const hostedCourt = new URLSearchParams(location.search).get('court') === '1' && window.parent !== window;
     if (hostedCourt) {
+      window.addEventListener('message', event => {
+        if(event.origin!==location.origin||event.source!==window.parent||!entered||event.data?.type!=='court-npc-reply')return;
+        const payload=event.data.payload;
+        if(typeof payload==='string'&&payload.length<=65536)unityInstance.SendMessage('NpcDialogue','OnCloudReply',payload);
+      });
       document.querySelector('#cover h1').textContent = '角色法庭';
       document.querySelector('#cover p').textContent = '案件、證據與發言由外側面板操作。';
       window.addEventListener('message', event => {

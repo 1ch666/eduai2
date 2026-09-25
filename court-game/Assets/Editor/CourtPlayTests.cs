@@ -80,6 +80,10 @@ namespace EduAI.Court.Editor
                 Require(Mathf.Abs(camera.fieldOfView-32)<.01f,"Evidence uses closeup lens");
                 dialogue.Submit();dialogue.Close();
                 Require(Quaternion.Angle(camera.transform.localRotation,rotation)<.01f&&Mathf.Abs(camera.fieldOfView-fov)<.01f,"Close restores original view");
+                var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
+                var storedPitch=(float)typeof(FirstPersonController).GetField("pitch",flags).GetValue(player);
+                Require(Mathf.Abs(Mathf.DeltaAngle(storedPitch,camera.transform.localEulerAngles.x))<.01f,"Restored camera pitch matches movement controller");
+                Require(!(bool)typeof(FirstPersonController).GetField("wasDragging",flags).GetValue(player),"Closing dialogue clears stale drag origin");
                 dialogue.ResetHistory();
             }
             var hosted = UnityEngine.Object.FindFirstObjectByType<CourtPresentation>();

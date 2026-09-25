@@ -91,7 +91,7 @@ export const STAGES = ['確認程序權利','陳述與爭點','調查證據','�
 // The server chooses the speaker and the permitted source text; the model never
 // chooses a procedure, advances a stage, or writes into the immutable template.
 export function scriptedTurn(s:CourtState) {
-  const t = CASES.find(t=>t.id===s.config.caseId)!;
+  const t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;
   const claimantSide = s.config.role==='claimant'||s.config.role==='claimantCounsel';
   // 刑事由檢察官實行公訴；站在告訴人這一側時，對造發言的是被告或辯護人。
   const opponent = t.procedure==='juvenile'?'少年調查官':t.procedure==='criminal'?(claimantSide?'被告':'檢察官'):claimantSide?'被告':'原告';
@@ -104,7 +104,7 @@ export const PROCEDURAL_REQUESTS = [
   {id:'shortcut',text:'不再核對資料，直接把單一片段或一方主張當作已證明的爭議事實。',correct:'deny',reason:'這些範本都仍有待釐清的爭點，不能跳過查證。'}
 ] as const;
 export type CourtAction = { requestId: string; version: number; type: string; text?: string; evidenceId?: string; answer?: number; rulingId?:string; decision?:string };
-export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string };
+export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string; generatedCase?:CaseTemplate; generationVersion?:string };
 export function newCourt(id:string, owner:string, config:CourtConfig): CourtState {
   const error = validateConfig(config); if (error) throw new Error(error);
   return { id,owner,config,stage:0,version:0,reviewed:[],statements:[],attempts:0,completed:false,feedback:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),ruleVersion:RULE_VERSION };
@@ -117,7 +117,7 @@ export function allowedActions(s:CourtState): string[] {
 export function transition(s:CourtState, a:CourtAction): CourtState {
   if(a.version !== s.version) throw new Error('版本已變更，請重新讀取場次');
   if(!allowedActions(s).includes(a.type)) throw new Error('目前階段不允許此動作');
-  const n = structuredClone(s), t = CASES.find(t=>t.id===s.config.caseId)!;
+  const n = structuredClone(s), t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;
   if(a.type === 'step') { n.stage++; if(n.stage===5){n.completed=true;n.feedback=t.explanation;} }
   if(a.type === 'acknowledge') n.stage++;
   if(a.type === 'speak') {
@@ -147,8 +147,8 @@ export function transition(s:CourtState, a:CourtAction): CourtState {
   n.version++;n.updatedAt=new Date().toISOString();return n;
 }
 export function courtView(s:CourtState) {
-  const t = CASES.find(t=>t.id===s.config.caseId)!;
-  const { owner, ...state } = s;
+  const t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;
+  const { owner, generatedCase, ...state } = s;
   return { ...state, title:t.title,procedure:t.procedure,summary:t.summary,facts:t.facts,evidence:t.evidence,
     question:t.question,answers:t.answers,actions:allowedActions(s),stageLabel:STAGES[s.stage],turn:scriptedTurn(s),
     proceduralRequests:s.config.role==='judge'?PROCEDURAL_REQUESTS.map(({id,text})=>({id,text,done:s.rulings?.includes(id)||false})):[],

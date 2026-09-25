@@ -1,4 +1,45 @@
-【2026-09-26 第二批：證物特寫與對話鏡頭】
+【2026-09-26 第三批：中文輸入、視角重置、NPC 雲端橋接】
+本節為最新現況；下方早期「AI／存檔未實作」與「未授權修改後端原始碼」是歷史紀錄。使用者已允許開發後端程式碼，但正式 Cloudflare 仍由使用者手動部署，不可改 Secret、權限、付費方案或清空資料。
+
+本批已實作：
+1. WebGL 使用瀏覽器原生 textarea 處理中文 IME；組字中不送出，400 字限制、輸入隔離、關閉清除 DOM。Unity 保存同步文字，不攔截中文鍵盤。
+2. 關閉 NPC／證物鏡頭時同步控制器 pitch，重置拖曳起點及觸控向量；恢復後短暫忽略殘留視角訊號。不是所有手機／滑鼠環境已驗收。
+3. Worker 同源 /court/ 的 Unity NPC 對話橋接：owner、CSRF、版本、請求 ID、40 次場次上限、供應商嘗試限制、20 秒 UI 逾時、恢復紀錄。/play/ 獨立遊客仍是固定本機對話，不冒充雲端 AI。
+4. src/court-npc.ts：模型只選擇角色可知的已核准事實 ID；不讓模型寫新事實、法條或判決。不等於完整生成式自由對話。未配置、額度不足、錯誤時顯示 scripted 備用模式。真實 Ollama 尚未呼叫驗證，未開通／購買任何服務。
+5. src/court-generation.ts：6 範本各 3 個證據限制變化，每使用者同範本不重複，耗盡明示。共 18 個有限變化，不是 18 個原創故事，也不是無限 AI 案件。/court/ 已有勾選入口。
+6. CourtRoom 新增 npc_requests、Learner 新增 generated_requests，均為 CREATE TABLE IF NOT EXISTS 增量表；沒有修改 Wrangler migration／binding，但使用者部署新版後會建立新表，不能說「資料庫完全沒有變更」。舊場次仍相容。
+
+驗證：
+Unity 6000.6.2f1 真實 Play 與 Release WebGL build exit 0；17 項 WebGL／觸控／IME JS 測試、4 項法庭規則測試、3 項 NPC 模型格式／fallback 測試、tsc 與前端檢查通過。
+scripts/check-npc-api.mjs 使用本機 Worker、AI 關閉：中文存檔、跨帳號拒絕、CSRF、輸入長度、同請求重送、額外欄位忽略、過期版本拒絕、恢复及變化去重通過。未使用正式資料。
+既有 scripts/check-court-api.mjs 在最後 first-recovery 斷言失敗：只有 password 的請求被 src/auth.ts 共用 username 檢查先擋為 400，而預期 409；不是本批引入，本批未修改登入程式，需另處理／回歸。
+瀏覽器已顯示 NPC 畫面與原生中文文字框，無捕捉到 error/warn；不等同手機 IME、完整雲端 UI、各瀏覽器或全角色驗收。
+
+新版下載 bytes：data 15,281,765；wasm 5,838,136；framework 83,078；loader 48,540。
+四項 21,251,519，比前版 21,246,672 增加 4,847 bytes；另 touch 5,172。此次是功能與修正，不宣稱首載加速。
+play/ 已同步本批真正建置。Docker 需執行本批 commit 的 Court Docker handoff，以 GitHub Actions 成功結果為準。
+
+P0（發布／安全驗收）：
+- 使用者手動部署 Cloudflare；前先確認新表增量、備份及原帳號／session 保留。不得自動 reset 或更換資源。
+- Worker 同源 /court/ 登入→雲端場次→顯示 3D→走動接近 NPC→交談→重新開啟恢復。Pages 單獨遊戲不是雲端入口。
+- iPhone/Android 中文組字、取消錄音／鍵盤、橫直向、關閉 NPC 後不飄移；PC WASD/E/1234/Pointer Lock 回歸。
+- 修 first-recovery 前後端契約（src/auth.ts、court/court.js、scripts/check-court-api.mjs）；不要重做登入或更換資料庫。
+
+P1（未完成需求）：
+- 真實免費供應商能力／限額由管理者確認；現有選擇式 AI 不等於完整 NPC 生成對話。
+- 完整新案件生成仍缺案件 schema、語義去重、事實一致性、版本與人工／規則核對。有限證據變化不得宣稱達成。
+- 雲端對話帶動證物解鎖、重要線索摘要與記憶仍未完成；只能由伺服器決策，不讀模型文字直接改分數。
+- 目前 hosted 需切走動接近 NPC；座位直接選 NPC、各角色動畫、鏡頭遮擋與人物穿模待改進。
+
+P2（體驗）：
+- 字型16MB對 data 影響明顯；先評估動態中文內容與字集覆蓋，再考慮分拆，勿只為縮小而缺字。
+- 美術比例、對話框手機空間、對話恢復狀態、無網路提示持續改善。
+
+P3（進階）：
+- 完整多角色 AI 審判、進階案件編排、照片／學習規劃等仍以朋友AI續作_完整需求規格.md及實際程式為準，不因本批 NPC 接線就算全平台完成。
+- 法律內容要核對官方來源／生效／沿革並區分產品限制。本平台是教育模擬，不是法律意見。
+
+【歷史：2026-09-26 第二批：證物特寫與對話鏡頭】
 新增 Unity 內證物 A 近景與可捲動說明；查看期間隔離移動／作答，關閉恢復原鏡頭旋轉及 FOV。NPC 對話加入近景鏡頭；重玩清空上一輪對話。CourtPlayTests 新增證物操作／視野恢復斷言並通過，Release WebGL build exit 0，15 項 JS 測試通過。瀏覽器已進入遊戲，唯一 HTTP404 已定位 /favicon.ico（非遊戲資源）；不等於完整手機或對話畫面驗收。
 本批 data 15,280,680 / wasm 5,835,125 / framework 82,327 / loader 48,540 bytes；四項 21,246,672，另 touch 5,172。play 成品已同步。真正 AI、案件生成及雲端對話仍未實作，正式後端未修改／部署。
 請讀 court-game/REQUIREMENTS-CHECKLIST.md 的逐項狀態與後端改動提案。後端需確認的檔案、端點、DO 影響及資料風險已列出；沒有新增 migration 或 Secret。Docker 必須使用本批後續成功 run，前批 c3401d8 的 Docker run 36158825653 已通過但不是本批位元組。

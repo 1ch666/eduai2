@@ -5,13 +5,36 @@ const onPages=location.hostname.endsWith('github.io');
 const base=onPages?WORKER:'';
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
+let npcBusy=false;
+window.addEventListener('message',async e=>{
+ if(e.origin!==location.origin||e.source!==$('scene').contentWindow||e.data?.type!=='court-npc-request')return;
+ const {operation,npcId,requestId,text}=e.data;
+ if(!['history','message'].includes(operation)||!['Judge','Prosecutor','Lawyer','Defendant','Witness'].includes(npcId)||typeof requestId!=='string'||!/^[0-9a-f-]{36}$/.test(requestId)||typeof text!=='string'||text.length>400)return;
+ const id=view?.id,owner=account?.id;
+ const reply=payload=>{if(account?.id===owner&&view?.id===id)$('scene').contentWindow?.postMessage({type:'court-npc-reply',payload:JSON.stringify({requestId,npcId,...payload})},location.origin);};
+ if(!id||!account||onPages){reply({error:'請在 Worker 同源網站登入後開啟雲端 NPC。'});return;}
+ if(npcBusy||busy){reply({error:'另一項操作進行中，請稍候。'});return;}
+ npcBusy=true;
+ try{
+  let mode='scripted';
+  if(operation==='message'){
+   const p=await api(`/api/court/sessions/${id}/npcs/${npcId}/messages`,{requestId,version:view.version,text});mode=p.reply.mode;
+  }
+  const p=await api('/api/court/sessions/'+id);
+  if(view?.id!==id||account?.id!==owner)return;
+  view=p.view;render();
+  const history=(view.npcHistory||[]).filter(r=>r.npcId===npcId);
+  reply({mode,name:view.npcs?.find(n=>n.id===npcId)?.name||npcId,historyText:history.map(r=>`你：${r.question}\n角色：${r.text}`).join('\n\n')||'尚無對話。可詢問這位角色已知的情況。'});
+ }catch{reply({error:'對話未完成。請關閉再開啟以恢復紀錄；不會自動重送或清除進度。'});}
+ finally{npcBusy=false;}
+});
 const procedureNames={civil:'民事程序',criminal:'成人刑事程序',juvenile:'少年保護程序'};
 const labels={judge:'法官',claimant:'原告',respondent:'被告',claimantCounsel:'原告代理人',respondentCounsel:'被告律師',observer:'旁觀者',juvenile:'少年',assistant:'少年輔佐人'};
 function status(text){$('status').textContent=text;}
 function node(tag,text){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;}
 function button(text,fn){const b=node('button',text);b.type='button';b.addEventListener('click',()=>run(fn));return b;}
 async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},body:body?JSON.stringify(body):undefined});const p=await r.json();if(r.status===501)throw Error('此容器尚未設定後端，登入、雲端場次與 AI 無法使用；固定遊戲仍可遊玩。');if(!r.ok)throw Error(p.error||'服務暫時無法使用');return p;}
-async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
+async function run(fn){if(busy||npcBusy)return;busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
 async function session(){const p=await window.EduAuth.session();account=p.user;csrf=p.csrfToken||'';hasRecoveryCode=account?p.hasRecoveryCode!==false:true;$('account-toggle').textContent=account?account.displayName:'登入';$('logout').hidden=!account;$('first-recovery-section').hidden=!account||hasRecoveryCode;$('create').textContent=account?'建立雲端場次':'登入後建立場次';if(account)await sessions();}
 async function sessions(){const p=await api('/api/court/sessions');$('sessions').replaceChildren(...p.sessions.map(s=>button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);open(p.view);})));}
 function choices(select,items){select.replaceChildren(...items.map(([value,label])=>{const o=node('option',label);o.value=value;return o;}));}
@@ -63,7 +86,7 @@ $('autoplay').onclick=()=>{if($('autoplay').textContent==='暫停'){pause();retu
 $('case').onchange=setup;$('setup-form').addEventListener('input',e=>{if(e.target.name!=='caseId')lawPanel();});$('account-toggle').onclick=()=>{$('account').hidden=!$('account').hidden;};
 $('auth-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/'+f.get('mode'),Object.fromEntries(f));window.EduAuth.changed(p);e.target.elements.password.value='';e.target.elements.recoveryCode.value='';$('recovery').hidden=!p.recoveryCode;$('recovery').textContent=p.recoveryCode?`請保存新的復原碼（僅顯示一次）：\n${p.recoveryCode}`:'';await session();status('登入成功。');});};
 $('logout').onclick=()=>run(async()=>{await api('/api/auth/logout',{});window.EduAuth.changed({user:null});account=null;csrf='';hasRecoveryCode=true;pause();$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;$('sessions').replaceChildren();$('recovery').textContent='';$('recovery').hidden=true;$('first-recovery-section').hidden=true;await session();});
-$('setup-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(!account){$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return;}const b=Object.fromEntries(new FormData(e.target));b.claimantAid ||= 'none';for(const k of ['claimantAge','claimantHearingAge','respondentAge','respondentHearingAge'])b[k]=Number(b[k]);const p=await api('/api/court/sessions',b);open(p.view);});};
+$('setup-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(!account){$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return;}const b=Object.fromEntries(new FormData(e.target));const variation=b.variation==='on';delete b.variation;b.claimantAid ||= 'none';for(const k of ['claimantAge','claimantHearingAge','respondentAge','respondentHearingAge'])b[k]=Number(b[k]);if(variation)b.requestId=crypto.randomUUID();const p=await api(variation?'/api/court/cases/generate':'/api/court/sessions',b);open(p.view);});};
 $('speech-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await act('speak',{text:$('statement').value});$('statement').value='';});};
 $('first-recovery-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/first-recovery',{password:f.get('password')});e.target.elements.password.value='';$('recovery').hidden=false;$('recovery').textContent=`請保存首次復原碼（僅顯示一次）：\n${p.recoveryCode}`;hasRecoveryCode=true;$('first-recovery-section').hidden=true;status('復原碼已產生，請立即妥善保存。');});};
 $('back').onclick=()=>{pause();stopVoice(true);$('hearing').hidden=true;$('setup').hidden=false;$('scene').removeAttribute('src');$('scene').hidden=true;void run(sessions);};

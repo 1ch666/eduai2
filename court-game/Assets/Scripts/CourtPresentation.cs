@@ -39,7 +39,7 @@ namespace EduAI.Court
                 if (dialogue) dialogue.Close();
                 IsHosted = true;
                 // Hide legacy tablet case labels/UI, not the court geometry.
-                foreach (var text in FindObjectsByType<UnityEngine.UI.Text>(FindObjectsSortMode.None)) text.gameObject.SetActive(false);
+                foreach (var text in FindObjectsByType<UnityEngine.UI.Text>(FindObjectsSortMode.None)) if(!text.GetComponentInParent<NpcDialogueUI>())text.gameObject.SetActive(false);
                 var choices = FindFirstObjectByType<ChoiceSystem>(); if (choices) choices.enabled = false;
                 BuildCharacters();
             }

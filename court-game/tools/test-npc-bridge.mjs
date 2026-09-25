@@ -29,3 +29,29 @@ test('closing restores mobile controls and removes keyboard resize listener',()=
 test('desktop/hidden touch controls remain hidden after closing',()=>{
  const s=setup(false);s.modal(1);s.modal(0);assert.equal(s.controls.hidden,true);
 });
+
+function inputSetup(){
+ const library={},calls=[],listeners={};let removed=false;
+ const element={style:{},value:'',setAttribute(){},addEventListener:(n,f)=>listeners[n]=f,remove(){removed=true;}};
+ const window={};
+ vm.runInNewContext(code,{LibraryManager:{library},mergeInto:Object.assign,window,UTF8ToString:v=>v,
+  document:{createElement:()=>element,body:{appendChild(){}},querySelector:()=>({getBoundingClientRect:()=>({left:10,top:20,width:800,height:600})})},
+  Module:{SendMessage:(...a)=>calls.push(a)}});
+ return {library,element,listeners,calls,window,get removed(){return removed;}};
+}
+test('Chinese composition stays in native input until committed',()=>{
+ const s=inputSetup();s.library.CourtInputRect(.1,.2,.5,.1,'',1);
+ s.listeners.compositionstart();s.element.value='法庭中文';s.listeners.input();
+ s.library.CourtInputRect(.1,.2,.5,.1,'',1);
+ assert.equal(s.element.value,'法庭中文');assert.equal(s.calls.length,1);
+ s.listeners.compositionend();
+ assert.deepEqual(s.calls.slice(1),[['NpcDialogue','SetBrowserText','法庭中文'],['NpcDialogue','SetComposition','0']]);
+});
+test('native input is positioned, bounded, isolated and removed on close',()=>{
+ const s=inputSetup();s.library.CourtInputRect(.1,.2,.5,.1,'',1);
+ assert.equal(s.element.style.left,'90px');assert.equal(s.element.style.width,'400px');
+ s.element.value='中'.repeat(450);s.listeners.input();assert.equal(s.element.value.length,400);
+ let stopped=false;s.listeners.keydown({stopPropagation(){stopped=true;}});assert.ok(stopped);
+ s.library.CourtInputRect(.1,.2,.5,.1,'新問題',0);assert.equal(s.element.value,'新問題');assert.ok(s.element.disabled);
+ s.library.CourtInputHide();assert.ok(s.removed);assert.equal(s.window.courtInput,null);
+});

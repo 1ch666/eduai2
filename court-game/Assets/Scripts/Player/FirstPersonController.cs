@@ -20,6 +20,7 @@ namespace EduAI.Court
         private bool entered;
         private bool seated;
         private Vector2 touchMove, touchLook;
+        private int ignoreLookUntil;
         public bool TouchMode { get; private set; }
         public static bool TouchEnabled => Active && Active.TouchMode;
         public static FirstPersonController Active { get; private set; }
@@ -92,10 +93,16 @@ namespace EduAI.Court
         { if (TouchMode && entered && !NpcDialogueUI.IsOpen && TryTouchVector(payload, out var value)) touchMove = Vector2.ClampMagnitude(value, 1); }
         public void TouchLook(string payload)
         { if (TouchMode && entered && !NpcDialogueUI.IsOpen && TryTouchVector(payload, out var value)) touchLook += Vector2.ClampMagnitude(value, 30); }
-        public void ResetTouchInput() { touchMove = touchLook = Vector2.zero; }
+        public void ResetTouchInput() { touchMove = touchLook = Vector2.zero; wasDragging=false; previousDragPosition=Input.mousePosition; }
+        public void SynchronizeLook()
+        {
+            if(viewCamera)pitch=Mathf.Clamp(Mathf.DeltaAngle(0,viewCamera.transform.localEulerAngles.x),-85,85);
+            ResetTouchInput();Input.ResetInputAxes();ignoreLookUntil=Time.frameCount+2;
+        }
         public void Capture(bool capture)
         {
             if (NpcDialogueUI.IsOpen) capture = false;
+            ResetTouchInput();ignoreLookUntil=Time.frameCount+2;
             dragLookActive = capture;
             Cursor.lockState = capture && !dragLook && !TouchMode ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = dragLook || !capture;
@@ -135,6 +142,8 @@ namespace EduAI.Court
                 previousDragPosition = Input.mousePosition;
                 wasDragging = dragging;
             }
+            if(Time.frameCount<=ignoreLookUntil)look=Vector2.zero;
+            look=Vector2.ClampMagnitude(look,15); // Discard browser focus/lock discontinuities.
             if (look != Vector2.zero)
             {
                 pitch = Mathf.Clamp(pitch - look.y * mouseSensitivity, -85f, 85f);

@@ -27,12 +27,20 @@ namespace EduAI.Court
         private Quaternion savedCamera;
         private float savedFieldOfView;
         private bool evidenceMode;
+        private bool composing;
+        private readonly Vector3[] inputCorners=new Vector3[4];
+        private string cloudTicket;
+        private float cloudDeadline;
+        [System.Serializable] private class CloudReply { public string requestId; public string npcId; public string text; public string error; public string historyText; public string name; public string mode; }
         private float keyboardInset;
         private RectTransform inputRect, sendRect;
         private GameObject viewportObject, suggestObject, continueObject;
         private RectTransform closeRect;
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] private static extern void CourtDialogueModal(int open);
+        [DllImport("__Internal")] private static extern void CourtNpcRequest(string operation,string npcId,string requestId,string text);
+        [DllImport("__Internal")] private static extern void CourtInputRect(float x,float y,float w,float h,string value,int enabled);
+        [DllImport("__Internal")] private static extern void CourtInputHide();
 #endif
         public void Configure(Font font) { dialogueFont = font; }
         private void Awake() { IsOpen = false; }
@@ -95,6 +103,9 @@ namespace EduAI.Court
             inputRect=(RectTransform)entry.transform;
             input.characterLimit = 400; input.lineType = InputField.LineType.MultiLineNewline;
             input.shouldHideMobileInput = false;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            input.readOnly=true; // Native DOM textarea handles IME; Unity retains the value only.
+#endif
             suggestObject=ButtonAt("Suggest","你親眼看見什麼？",0,.68f,80,()=>{input.text="你親眼看見什麼？";}).gameObject;
             send = ButtonAt("Send","送出",.68f,1,80,Submit);
             sendRect=(RectTransform)send.transform;
@@ -104,7 +115,7 @@ namespace EduAI.Court
         }
         public void Open(NPCInteractable target)
         {
-            if (!target || CourtPresentation.IsHosted) return;
+            if (!target) return;
             BuildUI(); if (IsOpen) Close(); evidenceMode=false; npc = target; generation++;
             IsOpen = true;
             FirstPersonController.Active?.ResetTouchInput(); FirstPersonController.Active?.Capture(false);
@@ -112,17 +123,21 @@ namespace EduAI.Court
             heading.text = target.DisplayName + " · 固定平板案件\n玩家：調查練習者";
             if (!histories.ContainsKey(target.name)) histories[target.name] = new List<string>();
             input.text = ""; send.interactable = true; panel.SetActive(true); RenderHistory();
+            state.text="備用對話模式｜未連接 AI；紀錄只保留本次遊玩。";
+            if(CourtPresentation.IsHosted){history.text="正在恢復雲端對話…";RequestCloud("history","");}
             viewCamera = Camera.main;
             Focus(target.transform.position + Vector3.up * .5f, 48);
 #if UNITY_WEBGL && !UNITY_EDITOR
             CourtDialogueModal(1);
+            WebGLInput.captureAllKeyboardInput=false;
 #endif
         }
         public void Submit()
         {
-            if (!IsOpen || evidenceMode || pending != null) return;
+            if (!IsOpen || evidenceMode || pending != null || composing) return;
             var question = input.text.Trim();
             if (question.Length == 0 || question.Length > 400) { state.text="請輸入 1～400 字。備用對話模式，非 AI。"; return; }
+            if(CourtPresentation.IsHosted){if(cloudTicket!=null)return;RequestCloud("message",question);return;}
             var owner = npc; int ticket = generation;
             Add(owner.name,"你：" + question); input.text=""; send.interactable=false;
             state.text="正在取得固定台詞…（非 AI）";
@@ -140,6 +155,29 @@ namespace EduAI.Court
         private void Add(string key,string line)
         {
             var list=histories[key]; list.Add(line); while(list.Count>20) list.RemoveAt(0); RenderHistory();
+        }
+        private void RequestCloud(string operation,string text)
+        {
+            cloudTicket=System.Guid.NewGuid().ToString();cloudDeadline=Time.unscaledTime+20;send.interactable=false;
+            state.text="正在連接場次…";
+#if UNITY_WEBGL && !UNITY_EDITOR
+            CourtNpcRequest(operation,npc.name,cloudTicket,text);
+#else
+            cloudTicket=null;send.interactable=true;state.text="Editor 尚未連接同源網頁橋接。";
+#endif
+        }
+        public void OnCloudReply(string json)
+        {
+            if(!IsOpen||!CourtPresentation.IsHosted||json==null||json.Length>65536)return;
+            CloudReply r;try{r=JsonUtility.FromJson<CloudReply>(json);}catch{return;}
+            if(r==null||r.requestId!=cloudTicket||r.npcId!=npc.name)return;
+            cloudTicket=null;send.interactable=true;
+            if(!string.IsNullOrEmpty(r.error)){state.text=r.error;return;}
+            heading.text=(r.name??npc.DisplayName)+" · 雲端場次";
+            history.text=r.historyText??r.text??"尚無對話";input.text="";
+            state.text=r.mode=="ai"?"AI 依角色知識選擇回覆｜已保存":"備用對話模式／已恢復雲端紀錄";
+            Canvas.ForceUpdateCanvases();scroll.verticalNormalizedPosition=0;
+            npc.GetComponentInChildren<NpcActorMotion>()?.Speak();
         }
         private void RenderHistory()
         {
@@ -172,24 +210,39 @@ namespace EduAI.Court
             if(Screen.width>Screen.height)viewCamera.transform.Rotate(0,16,0,Space.Self);
         }
         public void ResetHistory(){Close();histories.Clear();}
-        public void ContinueInvestigation() { var target=npc; Close(); if(target)target.ContinueInvestigation(); }
+        public void ContinueInvestigation() { var target=npc; Close(); if(target&&!CourtPresentation.IsHosted)target.ContinueInvestigation(); }
         public void Close()
         {
             if (!IsOpen) return;
             generation++; if(pending!=null)StopCoroutine(pending); pending=null;
+            cloudTicket=null;
+            composing=false;
             input.DeactivateInputField(); EventSystem.current?.SetSelectedGameObject(null);
             IsOpen=false; panel.SetActive(false); keyboardInset=0;
             if(viewCamera){viewCamera.transform.localRotation=savedCamera;viewCamera.fieldOfView=savedFieldOfView;}
             FirstPersonController.Active?.ResetTouchInput(); FirstPersonController.Active?.Capture(false);
+            FirstPersonController.Active?.SynchronizeLook();
 #if UNITY_WEBGL && !UNITY_EDITOR
+            CourtInputHide();WebGLInput.captureAllKeyboardInput=true;
             CourtDialogueModal(0);
 #endif
         }
         public void SetKeyboardInset(string value)
         { if(float.TryParse(value,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var n)&&!float.IsNaN(n))keyboardInset=Mathf.Clamp(n,0,.65f); }
+        public void SetBrowserText(string value){if(IsOpen&&!evidenceMode&&value!=null&&value.Length<=400)input.text=value;}
+        public void SetComposition(string value){composing=value=="1";}
+        private void LateUpdate()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if(!IsOpen||evidenceMode)return;
+            inputRect.GetWorldCorners(inputCorners);
+            CourtInputRect(inputCorners[0].x/Screen.width,inputCorners[0].y/Screen.height,(inputCorners[2].x-inputCorners[0].x)/Screen.width,(inputCorners[2].y-inputCorners[0].y)/Screen.height,input.text,send.interactable?1:0);
+#endif
+        }
         private void Update()
         {
             if (!IsOpen) return;
+            if(cloudTicket!=null&&Time.unscaledTime>cloudDeadline){cloudTicket=null;send.interactable=true;state.text="連線逾時，請關閉再開啟恢復紀錄；未自動重送。";}
             bool portrait=Screen.height>Screen.width;
             Place(panelRect,new Vector2(portrait?.02f:.48f,keyboardInset+.02f),new Vector2(.98f,.98f),Vector2.zero,Vector2.zero);
             // Landscape keyboard can leave very little vertical room. Keep input,
@@ -198,7 +251,7 @@ namespace EduAI.Court
             viewportObject.SetActive(!compact);heading.gameObject.SetActive(!compact);
             state.gameObject.SetActive(!compact);suggestObject.SetActive(!compact);continueObject.SetActive(!compact);
             input.gameObject.SetActive(!evidenceMode);send.gameObject.SetActive(!evidenceMode);
-            suggestObject.SetActive(!compact&&!evidenceMode);continueObject.SetActive(!compact&&!evidenceMode);
+            suggestObject.SetActive(!compact&&!evidenceMode);continueObject.SetActive(!compact&&!evidenceMode&&!CourtPresentation.IsHosted);
             Place((RectTransform)viewportObject.transform,Vector2.zero,Vector2.one,new Vector2(16,evidenceMode?80:226),new Vector2(-16,-124));
             Place(inputRect,Vector2.zero,compact?Vector2.one:new Vector2(1,0),new Vector2(16,compact?66:136),new Vector2(-16,compact?-8:214));
             Place(sendRect,new Vector2(compact?0:.68f,0),new Vector2(compact?.5f:1,0),new Vector2(8,compact?12:80),new Vector2(-8,compact?58:126));

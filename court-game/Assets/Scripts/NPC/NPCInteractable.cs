@@ -15,7 +15,7 @@ namespace EduAI.Court
         public void Interact()
         {
             var dialogue = FindFirstObjectByType<NpcDialogueUI>();
-            if (dialogue && !CourtPresentation.IsHosted) dialogue.Open(this);
+            if (dialogue) dialogue.Open(this);
             else ContinueInvestigation();
         }
         public void ContinueInvestigation()
