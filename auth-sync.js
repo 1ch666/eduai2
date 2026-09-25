@@ -4,7 +4,7 @@
   const worker = 'https://civic-law-lab-212.yichengc869.workers.dev';
   const onPages = location.hostname.endsWith('github.io');
   const route = location.pathname.replace(/^\/eduai2(?=\/|$)/, '');
-  if (onPages && /^\/(court|practice|planner|rankings|photo)(\/|$)/.test(route)) {
+  if (onPages && /^\/(court|practice|planner|rankings|photo|groups)(\/|$)/.test(route)) {
     location.replace(worker + route + location.search + location.hash);
   }
   let snapshot, revision = 0, checking = false, attempted = false, loading = 0;

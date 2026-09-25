@@ -62,7 +62,7 @@ test('initial session load cannot race pageshow into a reload',async()=>{
   await b.listeners.pageshow();await pending;assert.equal(b.reloads,0);
 });
 test('Pages tools move to same-origin Worker with route/query/hash intact',()=>{
-  for(const route of ['court','practice','planner','rankings','photo']) {
+  for(const route of ['court','practice','planner','rankings','photo','groups']) {
     const b=browser('1ch666.github.io',`/eduai2/${route}/`);
     assert.equal(b.redirect,`https://civic-law-lab-212.yichengc869.workers.dev/${route}/?subject=law#top`);
   }
