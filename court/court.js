@@ -3,6 +3,11 @@ const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
 const base=onPages?WORKER:'';
+const gameEntry=new URLSearchParams(location.search).get('game')==='1';
+if(onPages&&gameEntry)location.replace(WORKER+'/court/?game=1');
+void fetch(base+'/api/capabilities').then(r=>{if(!r.ok)throw Error();return r.json();}).then(c=>{
+ $('ai-status').textContent=c.npcAi&&c.caseGenerationAi?'案件生成與 NPC AI 已設定；實際回覆仍受連線及額度影響。':c.npcAi===undefined?'線上後端尚未回報新版案件／NPC AI 能力，請部署最新版 Worker。':'案件／NPC AI 未啟用或未設定，仍可使用隨機題庫。';
+}).catch(()=>{$('ai-status').textContent='無法確認 AI 設定，請檢查後端連線。';});
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 let npcBusy=false;
@@ -69,7 +74,7 @@ for(const n of notes){if(!n.text)continue;const p=node('p',n.text);if(n.warn)p.c
 box.append(...legalSources.filter(s=>s.applies===t.procedure).map(s=>{const p=node('p');const a=node('a',s.title);a.href=s.url;a.target='_blank';a.rel='noopener';p.append(a,` · 查核 ${s.checked} · ${s.effective}`);return p;}));}
 function scene(mode=sceneMode){sceneMode=mode;const iframe=$('scene');if(!iframe.hidden)iframe.contentWindow?.postMessage({type:'court-view',mode,role:view.config.role,procedure:view.procedure},location.origin);}
 window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==$('scene').contentWindow)return;if(e.data?.type==='court-ready')scene();if(e.data?.type==='court-interact')$('actions').scrollIntoView({block:'center',behavior:'smooth'});});
-function open(next){view=next;$('setup').hidden=true;$('hearing').hidden=false;render();scene();status('場次已保存。');}
+function open(next){view=next;$('setup').hidden=true;$('hearing').hidden=false;render();if(gameEntry){sceneMode='walk';$('show-scene').click();}scene();status('場次已保存。');}
 function render(){const v=view;$('hearing-title').textContent=v.title;$('stage').textContent=`${procedureNames[v.procedure]} · ${v.stageLabel} · ${labels[v.config.role]} · 版本 ${v.version}`;$('notice').textContent=v.notices.join(' ');$('facts').replaceChildren(...v.facts.map(x=>node('li',x)));
 $('evidence').replaceChildren(...v.evidence.map(e=>{const box=node('div');box.className='evidence';box.append(node('strong',e.title),node('p',e.text));if(v.actions.includes('review'))box.append(button(v.reviewed.includes(e.id)?'已查看':'記錄：已查看這份證據',()=>act('review',{evidenceId:e.id})));return box;}));
 $('actions').replaceChildren();$('speech-form').hidden=!v.actions.includes('speak');$('observer').hidden=!v.actions.includes('step');$('turn-title').textContent=v.config.role==='judge'?'主持程序':v.config.role==='observer'?'觀察程序':'代表你的角色發言';
