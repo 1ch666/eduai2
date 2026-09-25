@@ -283,7 +283,7 @@ async function initPushPanel(){
     $('push-status-text').textContent='通知已啟用。';
     $('push-subscribe').hidden=true;$('push-unsubscribe').hidden=false;
   }else{
-    $('push-status-text').textContent='尚未授權通知。授權後，排程開始前約 1 分鐘會收到提醒（需瀏覽器在背景運行）。';
+    $('push-status-text').textContent='尚未授權通知。授權後訂閱資訊將儲存，推播提醒功能持續完善中。';
     $('push-subscribe').hidden=false;$('push-unsubscribe').hidden=true;
   }
 }
@@ -315,6 +315,71 @@ function urlBase64ToUint8Array(base64String){
   const rawData=atob(base64);
   return Uint8Array.from([...rawData],c=>c.charCodeAt(0));
 }
+
+// ── AI scheduling draft ───────────────────────────────────────────────────────
+const CONCEPT_TITLES={
+  'civil-burden-of-proof':'複習：民事舉證責任','evidence-types':'複習：證據種類',
+  'presumption-of-innocence':'複習：無罪推定原則','juvenile-protection':'複習：少年事件保護',
+  'civil-criminal-distinction':'複習：民刑事區別','legal-aid':'複習：法律扶助',
+  'causation':'複習：侵權因果關係','contract-formation':'複習：契約成立要件',
+  'intellectual-property':'複習：智慧財產權','consumer-protection':'複習：消費者保護',
+  'legal-representation':'複習：行為能力與代理','tort-liability':'複習：侵權損害賠償',
+  'judicial-remedy':'複習：司法救濟途徑','fundamental-rights':'複習：基本人權保障',
+  'due-process':'複習：正當法律程序','separation-of-powers':'複習：權力分立制衡',
+  'election-system':'複習：選舉制度','local-autonomy':'複習：地方自治',
+  'administrative-remedy':'複習：行政救濟','media-literacy':'複習：媒體素養',
+  'civil-society':'複習：公民社會','supply-demand':'複習：供需均衡',
+  'opportunity-cost':'複習：機會成本','market-failure':'複習：市場失靈',
+  'gdp-growth':'複習：GDP與成長','inflation-deflation':'複習：通膨與通縮',
+  'monetary-policy':'複習：貨幣政策','fiscal-policy':'複習：財政政策',
+  'international-trade':'複習：國際貿易'
+};
+const STATUS_LABEL={'reinforce':'需加強','review':'需複習','consolidate':'鞏固中','insufficient':'資料不足'};
+
+function nextWeekdayAt19(offsetDays){
+  const d=new Date();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()+offsetDays);
+  // Skip to next weekday if weekend
+  while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
+  d.setHours(19,0,0,0);
+  return d;
+}
+
+async function renderAIDraft(){
+  const statusEl=$('ai-draft-status'),listEl=$('ai-draft-list');
+  statusEl.textContent='載入弱點資料中…';listEl.innerHTML='';
+  let data;
+  try{data=await api('/api/practice/weakness');}
+  catch(e){statusEl.textContent='無法取得弱點資料：'+e.message;return;}
+  const items=(data.weakness||[]).filter(s=>s.status==='reinforce'||s.status==='review');
+  if(!items.length){
+    statusEl.textContent='目前沒有明顯弱點概念（需至少 '+data.minAttempts+' 題資料）。可先多練習後再來看草稿。';
+    return;
+  }
+  statusEl.textContent='以下為建議排程草稿，點「加入排程」後可編輯時間再儲存。';
+  const top=items.slice(0,5);
+  top.forEach((s,i)=>{
+    const title=CONCEPT_TITLES[s.concept]||('複習：'+s.concept);
+    const startD=nextWeekdayAt19(i+1);
+    const endD=new Date(startD.getTime()+3600000);
+    const fmtDT=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const div=document.createElement('div');div.className='draft-item';
+    div.innerHTML=`<span class="draft-label">${title}</span><span class="draft-meta">（${STATUS_LABEL[s.status]||s.status}，正確率 ${Math.round(s.rate*100)}%）</span><span class="draft-time">${fmtDT(startD)} – ${fmtDT(endD)}</span><button class="draft-add-btn">加入排程</button>`;
+    div.querySelector('.draft-add-btn').onclick=()=>run(async()=>{
+      const body={title,subject:s.subject||'other',start:startD.toISOString(),end:endD.toISOString(),recurrence:'none',note:'由 AI 草稿建議'};
+      await api('/api/planner/slots','POST',body);
+      div.querySelector('.draft-add-btn').textContent='已加入';
+      div.querySelector('.draft-add-btn').disabled=true;
+      await loadSlots();
+    });
+    listEl.appendChild(div);
+  });
+}
+
+$('ai-draft-details').addEventListener('toggle',()=>{
+  if($('ai-draft-details').open&&account)renderAIDraft();
+});
 
 // ── Service worker registration ───────────────────────────────────────────────
 if('serviceWorker' in navigator){

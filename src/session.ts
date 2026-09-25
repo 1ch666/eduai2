@@ -43,14 +43,17 @@ export function readSessionToken(request: Request): string | null {
 export function sessionCookie(request: Request, token: string, expiresAt: string): string {
   const maxAge = Math.max(0, Math.floor((Date.parse(expiresAt) - Date.now()) / 1000));
   const attributes = [`${cookieName(request)}=${token}`, "Path=/", "HttpOnly", `Max-Age=${maxAge}`];
-  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=Lax");
+  // SameSite=None is required for cross-site credentialed fetch:
+  // GitHub Pages (github.io) → Worker (workers.dev) are different origins.
+  // SameSite=Lax blocks cookies in cross-site fetch, breaking login on Pages.
+  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=None");
   else attributes.push("SameSite=Lax");
   return attributes.join("; ");
 }
 
 export function clearedSessionCookie(request: Request): string {
   const attributes = [`${cookieName(request)}=`, "Path=/", "HttpOnly", "Max-Age=0"];
-  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=Lax");
+  if (isSecureRequest(request)) attributes.push("Secure", "SameSite=None");
   else attributes.push("SameSite=Lax");
   return attributes.join("; ");
 }
