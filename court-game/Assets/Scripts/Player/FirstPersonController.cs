@@ -23,7 +23,7 @@ namespace EduAI.Court
         public bool TouchMode { get; private set; }
         public static bool TouchEnabled => Active && Active.TouchMode;
         public static FirstPersonController Active { get; private set; }
-        public static bool InputActive => Active && Active.entered && !Active.seated && Active.IsCaptured;
+        public static bool InputActive => Active && Active.entered && !Active.seated && !NpcDialogueUI.IsOpen && Active.IsCaptured;
         public bool IsCaptured => TouchMode ? entered : dragLook ? dragLookActive : Cursor.lockState == CursorLockMode.Locked;
 
         public void Configure(Camera camera) { viewCamera = camera; }
@@ -89,12 +89,13 @@ namespace EduAI.Court
             value = new Vector2(x, y); return true;
         }
         public void TouchMove(string payload)
-        { if (TouchMode && entered && TryTouchVector(payload, out var value)) touchMove = Vector2.ClampMagnitude(value, 1); }
+        { if (TouchMode && entered && !NpcDialogueUI.IsOpen && TryTouchVector(payload, out var value)) touchMove = Vector2.ClampMagnitude(value, 1); }
         public void TouchLook(string payload)
-        { if (TouchMode && entered && TryTouchVector(payload, out var value)) touchLook += Vector2.ClampMagnitude(value, 30); }
+        { if (TouchMode && entered && !NpcDialogueUI.IsOpen && TryTouchVector(payload, out var value)) touchLook += Vector2.ClampMagnitude(value, 30); }
         public void ResetTouchInput() { touchMove = touchLook = Vector2.zero; }
         public void Capture(bool capture)
         {
+            if (NpcDialogueUI.IsOpen) capture = false;
             dragLookActive = capture;
             Cursor.lockState = capture && !dragLook && !TouchMode ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = dragLook || !capture;
@@ -113,7 +114,7 @@ namespace EduAI.Court
         private void OnDisable() { Capture(false); if (Active == this) Active = null; }
         private void Update()
         {
-            if (!entered || seated) return;
+            if (!entered || seated || NpcDialogueUI.IsOpen) return;
             if (Input.GetKeyDown(KeyCode.Escape)) { Capture(false); return; }
             // Browsers require a fresh user gesture to recapture the pointer.
             if (!IsCaptured)

@@ -52,7 +52,23 @@ namespace EduAI.Court.Editor
             Require(!mobileChoices.IsOpen, "Distant taps cannot interact");
             Teleport(controller, new Vector3(0, .05f, 6.8f));
             player.GetComponent<PlayerInteractor>().TouchInteract("0.5,0.5");
-            Require(mobileChoices.IsOpen, "Near NPC tap opens choices without crosshair");
+            var dialogue = UnityEngine.Object.FindFirstObjectByType<NpcDialogueUI>();
+            if (dialogue)
+            {
+                Require(NpcDialogueUI.IsOpen, "Near NPC tap opens native dialogue");
+                Require(!FirstPersonController.InputActive, "Dialogue blocks movement, E and choices");
+                foreach(var text in dialogue.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+                    Require(!text.supportRichText, "Dialogue is plain text");
+                var field=dialogue.GetComponentInChildren<UnityEngine.UI.InputField>(true);
+                Require(field && field.characterLimit==400,"Dialogue input is bounded");
+                field.text="<b>你親眼看見什麼？</b>";
+                dialogue.Submit();dialogue.Close();
+                Require(!NpcDialogueUI.IsOpen,"Close cancels pending dialogue");
+                var judge=GameObject.Find("Judge").GetComponent<NPCInteractable>();
+                Require(judge.transform.Find("CharacterModel"),"Imported model attached to NPC");
+                dialogue.Open(judge);dialogue.ContinueInvestigation();
+            }
+            Require(mobileChoices.IsOpen, "Near NPC can continue into original choices");
             mobileChoices.ChooseFromTouch(3);
             Require(!mobileChoices.IsOpen, "Touch answer closes choices");
             var hosted = UnityEngine.Object.FindFirstObjectByType<CourtPresentation>();

@@ -1,3 +1,19 @@
+# 最新 NPC 續作 — 2026-09-25（原始碼批次，未發布）
+
+基準 main c1dfe49；新需求文件 01／04／05。已下載並準備 Kenney CC0 三款 FBX、共用貼圖與授權，新增 `NpcUpgrade.Apply` 增量接線工具、Unity 原生 `NpcDialogueUI`、角色固定 fallback、輸入隔離、說話動畫及手機鍵盤視窗橋接。完整範圍及管理者待辦見 `NPC-IMPLEMENTATION.md`、`ASSET-LICENSES.md`。
+
+**Unity 實際執行失敗（exit 1）**：6000.3.24f1 在 ScriptCompilationBuildProgram 載入 `Editor/Data/Tools/BuildPipeline/NiceIO.dll` 時，被 Windows 應用程式控制政策封鎖，0x800711C7。尚未完成 C# 編譯、NpcUpgrade 接線、Scene/Play 測試或 WebGL build。沒有停用／繞過安全政策。需要電腦管理者確認官方 Unity 安裝是否被政策誤擋；完成核准或修復後才能再跑建置。
+
+因此模型檔已入 repo、場景接線程式已寫，但 **Courtroom.unity 尚未接入新模型／UI**。現有 `play/Build/*` 與線上遊戲維持原成品。原下載量 data 1,296,767 / wasm 4,982,411 / framework 86,014 / loader 47,867 bytes，四項合計 6,413,059；新版本尚無成品，無法提供有效前後比較。
+
+本批沒有 AI 呼叫、新案件生成、伺服器存檔或正式 Worker 部署。對話明示「備用對話模式」，只存本次遊玩記憶體，刷新會清除；不能稱完整 AI 法庭。Docker 白名單補入既有 auth-sync.js，避免 court.js 匯入缺檔；未重建映像，不宣稱已完成新版容器。
+
+已執行的獨立測試：`node --test court-game/tools/test-template.mjs court-game/tools/test-touch.mjs court-game/tools/test-npc-bridge.mjs`，15/15 通過（含4項新對話觸控層／鍵盤橋接測試）。`git diff --check` 通過。這些 JS 測試不代表 C# 編譯、Unity UI 或手機真機通過。
+
+後續：解除官方 Editor 的政策阻擋 → NpcUpgrade.Apply → Scene/Smoke/Play → WebGL → 桌機/手機瀏覽器 → 比較大小 → 再決定發布與 Docker 重建。正式後端 API 需管理者另外确认。
+
+---
+
 # 進度檢查點 — 2026-09-22
 
 ## 最新：遷移到 eduai2

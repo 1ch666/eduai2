@@ -11,7 +11,14 @@ namespace EduAI.Court
         public void Configure(string npcName, bool judge, InteractionUI hud, CourtSession court)
         { displayName = npcName; isJudge = judge; ui = hud; session = court; }
         public string GetInteractionText() => "與" + displayName + "交談";
+        public string DisplayName => displayName;
         public void Interact()
+        {
+            var dialogue = FindFirstObjectByType<NpcDialogueUI>();
+            if (dialogue && !CourtPresentation.IsHosted) dialogue.Open(this);
+            else ContinueInvestigation();
+        }
+        public void ContinueInvestigation()
         {
             if (isJudge && session) session.BeginHearing();
             else if (displayName == "證人" && session) session.HearWitness();

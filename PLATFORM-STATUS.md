@@ -1,3 +1,7 @@
+# 最新補充：2026-09-25 NPC Unity 原始碼批次
+
+本批只處理模型／對話 UI 與接手文件，未修改或部署正式後端。同步到 c1dfe49 後新增 CC0 Kenney 人物、增量場景接線工具與明示非 AI 的本機對話。Unity 實際編譯被 Windows 應用程式控制封鎖 NiceIO.dll（0x800711C7，exit 1），尚未接入 Courtroom 或產出新 WebGL；線上遊戲未替換。見 court-game/STATUS.md 與 NPC-IMPLEMENTATION.md；不把原始碼、模型檔或 mock 稱成完成遊戲。
+
 # EduAI2 平台實作檢查點 — 2026-09-23
 
 本文件優先於舊版 STATUS 的範圍說明。最新使用者已授權開發登入、法庭、學習與排行榜後端；只推送 1ch666/eduai2，禁止付費服務與自動升級。**整份計畫尚未完成；本分支為開發預覽，不代表正式發布。**

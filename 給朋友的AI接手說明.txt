@@ -1,4 +1,7 @@
 EduAI2：給朋友與接手 AI 的現況、問題與續作指南
+【最新 Unity NPC 原始碼批次：2026-09-25】
+先讀 court-game/NPC-IMPLEMENTATION.md、ASSET-LICENSES.md 與 STATUS.md 最新段落。基準 main c1dfe49，已保留朋友群組／排行變更；新增免費 Kenney 模型來源、原生對話 UI、固定 fallback、輸入隔離與增量接線工具。Unity 在編譯階段被 Windows 應用程式控制封鎖官方 NiceIO.dll（0x800711C7，exit 1），尚未接入 Courtroom、未產出或發布新 WebGL。15項 JS 模板／觸控／橋接測試通過，不等於 Unity 編譯通過。AI NPC、新案件生成、雲端對話與存檔仍需要後端管理者依接口提案接續；本批未更動正式後端、權限、Secret 或資料庫。不要把這批程式與模型檔誤認為線上已完成。
+
 【最新正式部署紀錄：2026-09-25；優先於下方 2026-09-24 盤點】
 使用者本次明確授權將倉庫登入／後端部署到本人既有 Cloudflare。已同步並部署 main f82e314（包含朋友後續的登入 Cookie、題庫及其他修正），未修改應用程式碼。
 目標：既有 civic-law-lab-212；https://civic-law-lab-212.yichengc869.workers.dev

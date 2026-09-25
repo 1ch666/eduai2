@@ -3,6 +3,7 @@
 !play/**
 !court/
 !court/**
+!auth-sync.js
 !court-game/
 !court-game/docker/
 !court-game/docker/nginx.conf

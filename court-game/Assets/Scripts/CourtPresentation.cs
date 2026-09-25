@@ -35,6 +35,8 @@ namespace EduAI.Court
             }
             if (!IsHosted)
             {
+                var dialogue = FindFirstObjectByType<NpcDialogueUI>();
+                if (dialogue) dialogue.Close();
                 IsHosted = true;
                 // Hide legacy tablet case labels/UI, not the court geometry.
                 foreach (var text in FindObjectsByType<UnityEngine.UI.Text>(FindObjectsSortMode.None)) text.gameObject.SetActive(false);
@@ -51,6 +53,7 @@ namespace EduAI.Court
             // Original primitive-based low-poly figures: no external asset download.
             foreach (var npc in FindObjectsByType<NPCInteractable>(FindObjectsSortMode.None))
             {
+                if (npc.transform.Find("CharacterModel")) continue;
                 var old = npc.GetComponent<Renderer>();
                 if (!old) continue;
                 var material = old.sharedMaterial;
