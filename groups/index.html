@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="建立或加入私人群組，與朋友比較練習進度。">
+<title>私人群組｜公民法律研究室</title>
+<link rel="stylesheet" href="../styles.css">
+<script type="module" src="groups.js"></script>
+<style>
+.group-card { border:1px solid #ddd; border-radius:8px; padding:1rem; margin:.75rem 0; background:#fff; }
+.group-card h3 { margin:.1rem 0 .5rem; font-size:1rem; }
+.group-card .meta { font-size:.82rem; color:#666; }
+.member-row { display:flex; align-items:center; gap:.75rem; padding:.45rem 0; border-bottom:1px solid #f0f0f0; font-size:.88rem; }
+.member-row:last-child { border-bottom:none; }
+.owner-badge { font-size:.72rem; background:#344b50; color:#fff; border-radius:10px; padding:.1rem .45rem; }
+.invite-row { display:flex; align-items:center; gap:.75rem; padding:.35rem 0; font-size:.88rem; font-family:monospace; }
+.code-text { background:#f5f5f0; border:1px solid #ddd; border-radius:4px; padding:.25rem .5rem; letter-spacing:.1em; }
+#leaderboard-table { width:100%; border-collapse:collapse; font-size:.88rem; margin-top:.75rem; }
+#leaderboard-table th, #leaderboard-table td { padding:.4rem .6rem; border-bottom:1px solid #eee; text-align:left; }
+#leaderboard-table th { background:#f5f5f5; font-weight:600; }
+.tab-bar { display:flex; gap:.5rem; margin:.5rem 0; }
+.tab-btn { padding:.35rem .8rem; border:1px solid #ddd; border-radius:4px; background:#f5f5f5; cursor:pointer; font-size:.86rem; }
+.tab-btn.active { background:#344b50; color:#fff; border-color:#344b50; }
+#group-detail { display:none; }
+</style>
+</head>
+<body>
+<header><a href="../">公民法律研究室</a><span>私人群組</span><button id="account-toggle">登入</button></header>
+<main>
+<p id="status" role="status"></p>
+
+<section id="login-notice" hidden>
+  <p>請至<a href="../court/">帳號頁面</a>登入後使用群組功能。</p>
+</section>
+
+<section id="groups-area" hidden>
+
+  <!-- 我的群組列表 -->
+  <section id="group-list-section">
+    <h1>我的群組</h1>
+    <div id="group-list"></div>
+
+    <details style="margin-top:1.25rem">
+      <summary style="cursor:pointer;font-weight:600">建立新群組</summary>
+      <form id="create-form" style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+        <label style="display:grid;gap:4px;min-width:200px">
+          群組名稱
+          <input name="name" maxlength="40" required placeholder="例：升學讀書會">
+        </label>
+        <button type="submit">建立</button>
+      </form>
+    </details>
+
+    <details style="margin-top:.75rem">
+      <summary style="cursor:pointer;font-weight:600">用邀請碼加入群組</summary>
+      <form id="join-form" style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+        <label style="display:grid;gap:4px">
+          邀請碼（8碼）
+          <input name="code" maxlength="8" required placeholder="例：A1B2C3D4" style="text-transform:uppercase;letter-spacing:.1em;font-family:monospace;width:140px">
+        </label>
+        <button type="submit">加入</button>
+      </form>
+    </details>
+  </section>
+
+  <!-- 群組詳細頁（點入後顯示）-->
+  <section id="group-detail">
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;flex-wrap:wrap">
+      <button id="back-btn" type="button">← 返回列表</button>
+      <h2 id="group-name" style="margin:0;font-size:1.15rem"></h2>
+      <span id="group-owner-badge" hidden class="owner-badge">群主</span>
+    </div>
+
+    <!-- 成員與邀請碼 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem" id="detail-grid">
+      <section>
+        <h3>成員 <small id="member-count" style="font-weight:400;color:#666"></small></h3>
+        <div id="member-list"></div>
+        <button id="leave-btn" type="button" style="margin-top:.75rem;font-size:.85rem">退出群組</button>
+      </section>
+      <section id="invite-section" hidden>
+        <h3>邀請碼</h3>
+        <div id="invite-list"></div>
+        <button id="gen-invite-btn" type="button" style="margin-top:.5rem">產生邀請碼</button>
+        <p style="font-size:.78rem;color:#666;margin-top:.5rem">邀請碼不設使用次數上限，可隨時撤銷。</p>
+      </section>
+    </div>
+
+    <!-- 群組排行榜 -->
+    <section style="margin-top:1.5rem">
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+        <h3 style="margin:0">群組排行榜</h3>
+        <div class="tab-bar">
+          <button class="tab-btn active" id="lb-tab-all">累積</button>
+          <button class="tab-btn" id="lb-tab-week">本週</button>
+        </div>
+      </div>
+      <p style="font-size:.8rem;color:#666;margin:.35rem 0">排名僅計已加入全站排行榜的成員分數。</p>
+      <table id="leaderboard-table">
+        <thead><tr><th>名次</th><th>成員</th><th>分數</th><th>答對</th><th>作答</th></tr></thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </section>
+  </section>
+
+</section>
+
+<footer>群組為個人學習工具，退出後立即失去群組資料的讀取權限。</footer>
+</main></body></html>

@@ -11,11 +11,13 @@ import { handlePlanner } from './planner';
 import { handlePush } from './push';
 import { handleRankings } from './rankings';
 import { handlePhoto } from './photo';
+import { handleGroups } from './groups';
 export { CourtRoom, Learner } from './court';
 export { Practice } from './practice';
 export { Planner } from './planner';
 export { PushStore } from './push';
 export { Rankings } from './rankings';
+export { Groups } from './groups';
 
 export { MessageRoom } from "./messages";
 export { AccountStore } from "./accounts";
@@ -38,6 +40,7 @@ function isApiPath(pathname: string): boolean {
     pathname.startsWith('/api/push/') ||
     pathname.startsWith('/api/rankings/') ||
     pathname.startsWith('/api/photo/') ||
+    pathname === '/api/groups' || pathname.startsWith('/api/groups/') ||
     pathname === "/api/messages" ||
     pathname === "/api/progress" ||
     pathname.startsWith("/api/auth/") ||
@@ -67,6 +70,7 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   if (url.pathname.startsWith('/api/planner/')) return handlePlanner(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/push/')) return handlePush(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/rankings/')) return handleRankings(request,env,respond,trustedOrigin);
+  if (url.pathname === '/api/groups' || url.pathname.startsWith('/api/groups/')) return handleGroups(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/photo/')) return handlePhoto(request,env,respond,trustedOrigin);
 
   if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, respond, trustedOrigin);

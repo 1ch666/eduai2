@@ -143,6 +143,15 @@ export class Rankings extends DurableObject<AppEnv> {
       'SELECT * FROM leaderboard WHERE user_id=?', userId).toArray()[0] ?? null;
   }
 
+  /** Fetch scores for a list of user IDs (used by group leaderboard). */
+  forUsers(userIds: string[]): Row[] {
+    if (!userIds.length) return [];
+    const placeholders = userIds.map(() => '?').join(',');
+    return this.ctx.storage.sql.exec<Row>(
+      `SELECT * FROM leaderboard WHERE user_id IN (${placeholders})`, ...userIds
+    ).toArray();
+  }
+
   rankOf(userId: string, weekly = false): number {
     const sc = weekly ? 'week_score' : 'score';
     const r = this.ctx.storage.sql.exec<{ cnt: number }>(
