@@ -3,7 +3,7 @@ import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
 import { NPC_IDS, npcKnowledge, npcResponse, validNpcInput, type NpcId, type NpcInput, type NpcReply } from './court-npc';
-import { generatedCandidates, GENERATION_VERSION } from './court-generation';
+import { generatedCandidates, generateModelCase, similarCase, GENERATION_VERSION } from './court-generation';
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, ROLE_DESCRIPTIONS, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -85,6 +85,7 @@ export class Learner extends DurableObject<AppEnv>{
     CREATE TABLE IF NOT EXISTS courts(id TEXT PRIMARY KEY,title TEXT NOT NULL,created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS limits(key TEXT PRIMARY KEY,window INTEGER NOT NULL,count INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS generated_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,room TEXT NOT NULL,body TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS generation_attempts(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,error TEXT);
   `);});}
   allow(key:string,limit:number,windowMs=60000){
     const window=Math.floor(Date.now()/windowMs);
@@ -94,14 +95,28 @@ export class Learner extends DurableObject<AppEnv>{
     this.ctx.storage.sql.exec('INSERT OR REPLACE INTO limits VALUES(?,?,?)',key,window,r?.window===window?r.count+1:1);return true;
   }
   list(){return this.ctx.storage.sql.exec('SELECT id,title,created_at AS createdAt FROM courts ORDER BY created_at DESC LIMIT 20').toArray();}
-  generate(requestId:string,config:CourtConfig){
+  async generate(requestId:string,config:CourtConfig){
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
     if(previous)return previous.payload===payload?{id:previous.room,template:JSON.parse(previous.body) as ReturnType<typeof generatedCandidates>[number]}:{error:'請求識別已使用',status:409};
-    const used=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM generated_requests').toArray().map(r=>(JSON.parse(r.body) as {id:string}).id);
-    const candidates=generatedCandidates(config.caseId).filter(t=>!used.includes(t.id));
-    if(!candidates.length)return {error:'此範本的三種證據變化已全部練習；請選另一案件。系統不以改名冒充不重複。',status:409};
-    const template=candidates[crypto.getRandomValues(new Uint32Array(1))[0]%candidates.length],id=crypto.randomUUID();
+    const attempt=this.ctx.storage.sql.exec<{payload:string;error:string|null}>('SELECT payload,error FROM generation_attempts WHERE id=?',requestId).toArray()[0];
+    if(attempt)return {error:attempt.payload!==payload?'請求識別已用於不同內容':attempt.error||'生成處理中或已中斷，請稍後恢復；相同請求不重複呼叫模型。',status:409};
+    if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM generation_attempts WHERE created>?',Date.now()-86400000).one().n>=10)return {error:'已達24小時10次生成上限，請使用已保存案件。',status:429};
+    if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM generation_attempts').one().n>=200)return {error:'已達帳號生成嘗試上限，請使用已保存案件。',status:429};
+    if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM courts').one().n>=100)return {error:'場次上限已達',status:409};
+    this.ctx.storage.sql.exec('INSERT INTO generation_attempts VALUES(?,?,?,NULL)',requestId,payload,Date.now());
+    const readHistory=()=>this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM generated_requests ORDER BY rowid').toArray().map(r=>JSON.parse(r.body) as ReturnType<typeof generatedCandidates>[number]);
+    let template:ReturnType<typeof generatedCandidates>[number];
+    try{
+      template=await generateModelCase(this.env,CASES.find(t=>t.id===config.caseId)!,readHistory());
+      // Re-read after provider I/O: concurrent generation may have saved a match.
+      if([...CASES,...readHistory()].some(t=>similarCase(template,t)))throw Error('生成內容與已有案件過於相似，已拒絕保存；請重新生成。');
+    }catch(e){
+      const error=e instanceof Error&&e.name!=='TimeoutError'&&e.message.startsWith('AI ')?e.message:e instanceof Error&&e.message.startsWith('生成內容')?e.message:'AI 生成逾時或失敗，未建立案件；請稍後再試。';
+      this.ctx.storage.sql.exec('UPDATE generation_attempts SET error=? WHERE id=?',error,requestId);
+      return {error,status:503};
+    }
+    const id=crypto.randomUUID();
     const saved=this.ctx.storage.transactionSync(()=>{
       if(!this.addCourt(id,template.title))return false;
       this.ctx.storage.sql.exec('INSERT INTO generated_requests VALUES(?,?,?,?)',requestId,payload,id,JSON.stringify(template));

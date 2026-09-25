@@ -22,15 +22,8 @@ assert.equal((await call(npc,{...input,text:'different'},a)).status,409);
 assert.equal((await call(npc,{...input,requestId:crypto.randomUUID()},a)).status,409);
 const restored=await call(route,undefined,a);assert.equal(restored.data.view.version,1);assert.equal(restored.data.view.npcHistory.length,1);assert.equal(restored.data.view.npcHistory[0].question,input.text);
 assert.equal((await call(route,undefined,b)).status,404);
-const ids=new Set();
-for(let i=0;i<3;i++){
- const request={...config,requestId:crypto.randomUUID()};
- const result=await call('/api/court/cases/generate',request,a);assert.equal(result.status,201,JSON.stringify(result.data));
- ids.add(result.data.view.title);assert.equal(result.data.view.evidence.length,created.data.view.evidence.length+1);
- assert.ok(!('generatedCase' in result.data.view));assert.ok(!('correct' in result.data.view));
- if(i===0)assert.deepEqual((await call('/api/court/cases/generate',request,a)).data,result.data);
-}
-assert.equal(ids.size,3);
-// Different account has its own non-repetition history, never shares private saves.
-const other=await call('/api/court/cases/generate',{...config,requestId:crypto.randomUUID()},b);assert.equal(other.status,201);
-console.log('NPC local integration passed: auth, CSRF, ownership, Chinese, length, replay/projection, stale version, restore, unique evidence variations and private history.');
+const request={...config,requestId:crypto.randomUUID()};
+const generated=await call('/api/court/cases/generate',request,a);assert.equal(generated.status,503);assert.match(generated.data.error,/AI/);
+assert.equal((await call('/api/court/cases/generate',request,a)).status,409);
+assert.equal((await call('/api/court/sessions',undefined,a)).data.sessions.length,1);
+console.log('NPC local integration passed: auth, CSRF, ownership, Chinese, length, replay/projection, stale version, restore; AI-off generation fails closed and creates no fake case.');
