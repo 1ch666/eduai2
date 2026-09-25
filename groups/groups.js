@@ -10,7 +10,10 @@ function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefi
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 async function api(path,method='GET',body){
-  const r=await fetch(base+path,{method,credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},...(body?{body:JSON.stringify(body)}:{})});
+  const headers={Accept:'application/json'};
+  if(body) headers['Content-Type']='application/json';
+  if(method!=='GET'&&csrf) headers['X-CSRF-Token']=csrf;
+  const r=await fetch(base+path,{method,credentials:'include',headers,...(body?{body:JSON.stringify(body)}:{})});
   const p=await r.json();
   if(!r.ok)throw Error(p.error||'服務暫時無法使用');
   return p;
