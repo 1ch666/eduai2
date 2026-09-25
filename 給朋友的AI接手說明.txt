@@ -1,4 +1,106 @@
 EduAI2：給朋友與接手 AI 的現況、問題與續作指南
+【優先閱讀：2026-09-25 最新檢查點與 P0～P3 續作順序】
+
+本段優先於下方歷史盤點。原始碼基準 main be7f4b1；本次先保存交接進度，不發布未驗收的遊戲。下方 2026-09-24 的功能數量、排行／群組待辦及正式部署紀錄是歷史資料，不代表最新 main 或目前線上狀態；接手時先核對 git log、src/ 與部署管理者，不可照舊表重做。
+
+一、這次確實推進了什麼
+- be7f4b1 已含三款 CC0 Kenney Mini Characters FBX、貼圖、授權、完整中文對話字型、NpcUpgrade 場景接線工具、Unity 原生對話 UI、固定角色回覆、對話期間輸入隔離、點頭動畫與手機鍵盤橋接。詳見 court-game/NPC-IMPLEMENTATION.md。
+- 原 Editor 6000.3.24f1 的 NiceIO.dll 被 Windows App Control 封鎖；已讀到 CodeIntegrity 3077／3033 與錯誤 0x800711C7。沒有關閉防護、替換 DLL 或繞過安全政策。
+- 改用已安裝且 Unity.exe 簽章有效的官方 Unity 6000.6.2f1，在隔離副本成功執行 EduAI.Court.Editor.NpcUpgrade.Apply，程序 exit 0；日誌有 COURT_SCENE_VALIDATION_PASSED 與 NPC_UPGRADE_PASSED。表示該副本 C# 編譯與增量場景接線成功，不代表 WebGL／Play／手機驗收完成，也不代表舊 Editor 問題已修復。
+- 隔離副本由 Assets、Packages、ProjectSettings 複製建立，沒有沿用舊 Library。新版自動升級了部分 packages（含 ugui 2.6.0）；尚未將升級後的 scene、meta、材質、packages 或 ProjectSettings 搬回 repository。
+- repository court-game 仍維持 6000.3.24f1；原 Courtroom 尚未提交新模型接線。現有 play/Build/* 及線上版本未替換。不要混用新舊 Unity 的 Library 或單獨複製 NiceIO.dll。
+- 既有 JS 模板／觸控／NPC 橋接測試 15/15 通過是上一批證據；尚無新版 WebGL、Play 測試、Docker 重建或手機真機通過的證據。
+
+二、可重現的本機檢查點（朋友電腦沒有這些絕對路徑，須自行安裝官方 Editor 並建立副本）
+原倉庫：C:\Users\user\Documents\Codex\2026-09-01\new-chat\eduai2
+隔離副本：C:\Users\user\Documents\Codex\2026-09-01\new-chat\outputs\npc-unity62-check
+成功日誌：上述副本的 upgrade.log；日誌未提交，成功關鍵字及退出碼如上。
+官方 Editor：C:\Program Files\Unity\Hub\Editor\6000.6.2f1\Editor\Unity.exe
+可重跑參數（projectPath、logFile 替換成自己的絕對路徑）：
+-batchmode -nographics -quit -projectPath "隔離副本路徑" -buildTarget WebGL -executeMethod EduAI.Court.Editor.NpcUpgrade.Apply -logFile "日誌路徑"
+只複製 Assets／Packages／ProjectSettings 到新副本；不要把 Library、Temp、Logs、授權檔、憑證提交。若新版也被安全政策攔截，停止並找電腦管理者確認，不關閉 App Control／Defender、不修改封鎖政策。
+
+三、詳細優先順序（每項完成後記錄證據，再進下一項）
+
+【P0：先完成可建置、可回退的 Unity 新版；不碰正式後端】
+P0-1 官方 Editor 相容性與升級決策
+問題：6000.6.2f1 僅在副本通過接線，正式專案仍是舊版。
+位置：court-game/ProjectSettings/ProjectVersion.txt、Packages/manifest.json、packages-lock.json、Assets/Editor/。
+做法：先在副本執行現有 CourtSmokeTests.Run、CourtPlayTests.Run，檢查錯誤日誌；Play 測試由程式自行結束，不加 -quit。再比較新版自動生成的 package／settings diff；測試通過才一致性升級正式專案及文件，不盲目覆蓋整個資料夾。
+驗收：記錄 Editor 版本、退出碼、實際斷言結果，沒有遺失腳本、引用或編譯錯誤。若失敗，保留舊成品並交接真正錯誤。
+後端權限：不需要。資料風險：Unity 序列化／升版可能不可直接降版；保留 Git 基準，不刪使用者改動。
+
+P0-2 把已驗證的模型與對話接線提交
+位置：Assets/Editor/NpcUpgrade.cs、Assets/Scenes/Courtroom.unity、Assets/Art/KenneyMini/、Assets/Scripts/NPC/、Assets/Scripts/UI/NpcDialogueUI.cs、Assets/Plugins/NpcDialogue.jslib。
+做法：在選定版本重跑增量工具，檢查五位 NPC 的 CharacterModel、材質、縮放、碰撞器與對話字型引用；提交必要 scene／material／meta，不能只提交 C# 後說模型已上線。
+驗收：走近按 E／手機點人物能開對話；輸入 WASD、1234 不移動或誤選；關閉再開、快速換 NPC 無過期回覆；繼續調查仍可完成平板案及重玩。Hosted court 不混入平板案固定回覆。
+後端權限：不需要。資料風險：場景接線覆蓋；不要重建房間或覆蓋手工角色位置。
+
+P0-3 真正產出與發布 WebGL
+位置：Assets/Editor/CourtProjectBuilder.cs、Assets/WebGLTemplates/Court/、play/。
+做法：以 CourtProjectBuilder.BuildWebGL 建置；保持 Release、關閉 development/debug/profiler、Medium stripping、Strip Engine Code、Gzip + Decompression Fallback 與背景載入。成功後檢查 Build 輸出，才同步 play 成品。
+驗收：本機 HTTP 載入成功、0～100% 進度、按開始不重載、桌面 WASD／E／1～4／Pointer Lock fallback、手機搖桿與點選不回歸；測 /play/ 和 /court/ 嵌入。真機部分由使用者協助，不把桌面模擬稱真機通過。
+大小基準：data 1,296,767、wasm 4,982,411、framework 86,014、loader 47,867 bytes，四項合計 6,413,059。新完整中文字型／模型會增加下載；列出實際前後 bytes，不承諾更快。
+後端權限：本機不需要；只推 eduai2。Worker 正式部署另找後端管理者，不能為換遊戲順便部署朋友新增 migration。
+資料風險：替換線上靜態成品；驗證前不覆蓋旧 play，保留可回退 commit。
+
+【P1：核心體驗與真正 AI NPC，需分清前後端】
+P1-1 對話 UI／模型視覺驗收
+位置：NpcDialogueUI.cs、NpcActorMotion.cs、NpcUpgrade.cs、NpcDialogue.jslib。
+問題：程式可編譯不代表鏡頭、文字、動畫、手機鍵盤可用；sit 尚未完整接線、點頭不是口型。
+做法：補坐姿、朝向、避免穿桌、座位鏡頭；檢查長中文、捲動、旋轉螢幕、鍵盤擋住送出、取消與背景恢復。
+驗收：桌機與 iPhone／Android 分別記錄結果；保留文字替代輸入與純文字渲染。
+後端權限：不需要。資料風險：低；勿加入外部分析或上傳私人輸入。
+
+P1-2 真正 NPC AI 對話（需要後端管理者處理）
+問題：ScriptedNpcDialogue 是固定備用台詞，沒有 AI 呼叫。現有 court 程序 speaker API 不等於自由 NPC 聊天。
+位置：court-game/NPC-IMPLEMENTATION.md 接口提案；src/court.ts、court-rules.ts；Unity WorkerDialogueProvider 與網頁橋接。
+做法：管理者確認新增 NPC messages 端點；先實作 owner、CSRF、角色／階段、NPC 案件歸屬、version、requestId 冪等、長度與限流，才接 AI。只提供角色可知事實；不得改證物或案件事實，不能讓證人知道全案答案。
+Unity 只傳非秘密場次 ID／問題，同源網頁處理 session 與 CSRF；金鑰、cookie、token 不進 Unity／PlayerPrefs／前端永久儲存。
+驗收：未登入、跨帳號、重送、跳階段、逾時、無額度、惡意提示詞、切換 NPC 都有測試；明示 ai／scripted，失敗不偽裝成功。
+後端權限：需要正式 API／模型開關／Secret 管理者；不可自行部署或換 key。
+資料風險：私人對話、雲端存檔、模型費用；限免費已確認模型，日誌不記完整私人對話，保留舊資料。
+
+P1-3 Docker 與接手包同步
+位置：court-game/Dockerfile、Dockerfile.dockerignore、compose.yaml、docker/nginx.conf、.github/workflows/court-docker.yml。
+問題：白名單已補 auth-sync.js，但本批尚未重建映像。
+做法：遊戲 build 確定後再 build/run Docker，測 /play/、/court/、靜態依賴；記來源 commit、映像識別、成品校驗值與新手操作。
+驗收：容器不配置正式後端時明示 API 501／功能不可用；不能說容器已附登入或 AI。
+後端權限：本機靜態容器不需要；遠端發布依既有權限，不開付費 runner。
+資料風險：勿將 .env、憑證、正式資料或本機 Logs 打包。
+
+【P2：案件多樣性、雲端恢復與回饋】
+P2-1 不重複案件生成（需要後端管理者處理）
+位置：src/court.ts、court-rules.ts；NPC-IMPLEMENTATION.md 的 cases/generate 提案。
+問題：目前獨立遊戲仍是固定平板案；模型匯入不會自動變成新案件。
+做法：先定版本化 JSON schema，包含程序、人物、行為／審理年齡、固定事實、證物、時間線、角色知識與法規來源；伺服器驗證合法組合及事實一致性後保存。以近期案件 fingerprint＋相似度檢查降低重複，有限重試，失敗改核准範本；不能承諾永遠不重複或無限生成。
+驗收：不能只改姓名算新案；少年旁觀產品限制、強制法律協助、缺來源法條、矛盾證物、惡意輸入與額度耗盡均有測試。
+後端權限：需要；正式法律來源／生效／沿革須查官方資料。
+資料風險：AI 幻覺、法律誤導與成本；標示教育模擬、非法律意見。
+
+P2-2 雲端對話摘要、恢復與庭後回饋（需要後端管理者處理）
+位置：CourtRoom 儲存／court API、Unity provider、NpcDialogueUI.cs。
+問題：現況只保留每 NPC 最近 20 則記憶體訊息，刷新就消失；AI 自由評語不是客觀正確率。
+做法：伺服器保存有版本的場次摘要與已確認線索，持久化／migration 先由管理者審核。庭後分開程序、證據與論證，不以勝訴算答對；匯入／自由 AI 評語不計排名。
+驗收：刷新／斷線恢復、跨帳號拒絕、重送不重複寫入、舊版本可讀。
+後端權限：需要。資料風險：高，禁止 reset migration、刪 DO、清空資料。
+
+【P3：進階角色與效能改善，等 P0～P2 穩定再做】
+P3-1 完整多程序角色、發言／證物特寫與動畫
+位置：CourtPresentation.cs、NPC/、角色素材與 court 網頁整合。
+做法：依民事／刑事／少年合法角色配置人物與鏡頭，法官主持、當事人發聲、代理／辯護及旁觀單步各有 UI；不背景無限生成。素材只用授權清楚免費資源並更新 ASSET-LICENSES.md。
+驗收：每角色可完成適用案件，旁觀暫停真的停止生成；模型不要遮擋操作。
+後端權限：纯美術不需；程序／AI 規則需管理者。資料風險：模型授權與程序失真。
+P3-2 首載／中文字型及低階手機效能
+位置：字型、模型匯入設定、WebGL 模板、build 設定。
+做法：以實際下載量與記憶體分析決定字型／動畫裁減；動態任意中文不可直接換回僅靜態字集造成缺字。維持桌面控制與手機控制分流。
+驗收：比較冷啟動和快取啟動、下載 bytes、記憶體與掉幀，不只報本機 build 時間。
+後端權限：不需要。資料風險：低，但過度 stripping 可能使反射／字型／動畫失效。
+
+四、下一個 AI 的最短起手指令
+先 git status / git log，讀本段、court-game/AGENTS.md、STATUS.md、HANDOFF.md、NPC-IMPLEMENTATION.md、ASSET-LICENSES.md。不要重新做已提交模型／UI；從 P0-1 新版 Editor 隔離驗證繼續。逐項寫「已通過／部分／未測」，本機成功不等於部署。只推 origin 1ch666/eduai2，不 force push、不改權限、不付費。遇正式帳號、Session、DO、binding、Secret、AI 或推播部署問題，列「需要朋友／後端管理者處理」。先保住目前線上遊戲，再發布有證據的新版本。
+
+========== 以下為先前批次與歷史盤點；與上述衝突時以上述為準 ==========
 【最新 Unity NPC 原始碼批次：2026-09-25】
 先讀 court-game/NPC-IMPLEMENTATION.md、ASSET-LICENSES.md 與 STATUS.md 最新段落。基準 main c1dfe49，已保留朋友群組／排行變更；新增免費 Kenney 模型來源、原生對話 UI、固定 fallback、輸入隔離與增量接線工具。Unity 在編譯階段被 Windows 應用程式控制封鎖官方 NiceIO.dll（0x800711C7，exit 1），尚未接入 Courtroom、未產出或發布新 WebGL。15項 JS 模板／觸控／橋接測試通過，不等於 Unity 編譯通過。AI NPC、新案件生成、雲端對話與存檔仍需要後端管理者依接口提案接續；本批未更動正式後端、權限、Secret 或資料庫。不要把這批程式與模型檔誤認為線上已完成。
 
