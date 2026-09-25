@@ -115,10 +115,15 @@ export class Planner extends DurableObject<AppEnv> {
   updateSlot(id: string, userId: string, input: Partial<SlotInput>): { ok: true; slot: SlotRow } | { ok: false; error: string } {
     const existing = this.getSlot(id, userId);
     if (!existing) return { ok: false, error: '排程不存在' };
-    const u = { ...existing, ...input };
+    // Map camelCase input fields to the snake_case column names used by the DB.
+    const title      = input.title      ?? existing.title;
+    const subject    = input.subject    ?? existing.subject;
+    const start_iso  = input.startIso   ?? existing.start_iso;
+    const end_iso    = input.endIso     ?? existing.end_iso;
+    const recurrence = input.recurrence ?? existing.recurrence;
     this.ctx.storage.sql.exec(
       'UPDATE slots SET title=?,subject=?,start_iso=?,end_iso=?,recurrence=?,exam_date=?,note=? WHERE id=? AND user_id=?',
-      u.title, u.subject, u.start_iso, u.end_iso, u.recurrence,
+      title, subject, start_iso, end_iso, recurrence,
       'examDate' in input ? (input.examDate ?? null) : existing.exam_date,
       'note' in input ? (input.note ?? null) : existing.note, id, userId);
     return { ok: true, slot: this.getSlot(id, userId)! };

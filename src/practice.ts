@@ -125,10 +125,11 @@ export class Practice extends DurableObject<AppEnv> {
 
 // ── HTTP handlers ────────────────────────────────────────────────────────────
 
-/** Strip correct answer before sending to client. */
+/** Strip correct answer and explanation before sending to client.
+ *  Explanation is only sent after the user has answered (in the answer response). */
 function clientQuestion(q: typeof QUESTIONS[0]) {
-  const { correct, ...safe } = q;
-  void correct;
+  const { correct, explanation, ...safe } = q;
+  void correct; void explanation;
   return safe;
 }
 
@@ -143,7 +144,7 @@ export async function handlePractice(
 
   // GET /api/practice/questions — server picks a question, issues a one-time token
   if (pathname === '/api/practice/questions' && request.method === 'GET') {
-    if (!practice.allow('questions', 60)) return respond({ error: '取題太頻繁，請稍候' }, 429);
+    if (!await practice.allow('questions', 60)) return respond({ error: '取題太頻繁，請稍候' }, 429);
 
     const params = new URL(request.url).searchParams;
     const subjectParam = params.get('subject') as Subject | null;
@@ -172,7 +173,7 @@ export async function handlePractice(
   // POST /api/practice/answer — score server-side, record weakness
   if (pathname === '/api/practice/answer' && request.method === 'POST') {
     if (!trustedOrigin || !csrfTokenMatches(request, session)) return respond({ error: '請重新整理頁面後再試' }, 403);
-    if (!practice.allow('answer', 120)) return respond({ error: '答題太頻繁，請稍候' }, 429);
+    if (!await practice.allow('answer', 120)) return respond({ error: '答題太頻繁，請稍候' }, 429);
 
     const body = await readJsonObject(request, 512, respond, '答題資料過長');
     if (body.error) return body.error;

@@ -80,6 +80,10 @@ $('image-input').addEventListener('change',async e=>{
   run(async()=>{
     status('正在壓縮與處理圖片…');
     const blob=await processImage(file);
+    if(blob.size>MAX_BYTES){
+      status(`圖片壓縮後仍超過 2 MB（${(blob.size/1024/1024).toFixed(1)} MB），請先裁切後再試`,true);
+      return;
+    }
     const url=URL.createObjectURL(blob);
     $('preview-img').src=url;
     $('preview-img').hidden=false;

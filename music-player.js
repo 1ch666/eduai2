@@ -76,11 +76,15 @@ export function initMusicPlayer() {
   injectStyle();
   buildWidget();
 
+  // On GitHub Pages the site is served under /eduai2/; on the Worker it's at root.
+  const musicBase = location.hostname.endsWith('github.io') ? '/eduai2' : '';
+
   const audio = new Audio();
   audio.loop = false;
   let state = loadState();
   let trackIdx = Math.min(Number(state.trackIdx) || 0, TRACKS.length - 1);
   let panelOpen = false;
+  let errorStreak = 0; // consecutive load errors; stops infinite skip loop
 
   const $id = id => document.getElementById(id);
   const titleEl   = $id('mp-title');
@@ -101,8 +105,9 @@ export function initMusicPlayer() {
     creditsList.appendChild(li);
   });
 
-  // Restore volume
-  audio.volume = Math.min(1, Math.max(0, Number(state.volume) ?? 0.5));
+  // Restore volume (Number(undefined) is NaN; ?? does not catch NaN, so use isFinite check)
+  const savedVol = Number(state.volume);
+  audio.volume = Number.isFinite(savedVol) ? Math.min(1, Math.max(0, savedVol)) : 0.5;
   volInput.value = audio.volume;
   audio.muted = Boolean(state.muted);
   muteBtn.textContent = audio.muted ? '🔇' : '🔊';
@@ -110,7 +115,7 @@ export function initMusicPlayer() {
   function loadTrack(idx, autoplay = false) {
     trackIdx = ((idx % TRACKS.length) + TRACKS.length) % TRACKS.length;
     const t = TRACKS[trackIdx];
-    audio.src = t.file;
+    audio.src = musicBase + t.file;
     titleEl.textContent = t.title;
     artistEl.textContent = t.artist;
     playBtn.textContent = '▶';
@@ -127,11 +132,17 @@ export function initMusicPlayer() {
     }
   }
 
-  audio.addEventListener('play',  () => { playBtn.textContent = '⏸'; });
+  audio.addEventListener('play',  () => { errorStreak = 0; playBtn.textContent = '⏸'; });
   audio.addEventListener('pause', () => { playBtn.textContent = '▶'; });
-  audio.addEventListener('ended', () => loadTrack(trackIdx + 1, true));
+  audio.addEventListener('ended', () => { errorStreak = 0; loadTrack(trackIdx + 1, true); });
   audio.addEventListener('error', () => {
-    // File not found — skip to next after a short delay
+    errorStreak++;
+    if (errorStreak >= TRACKS.length) {
+      // Every track failed (audio files not available); stop silently.
+      playBtn.textContent = '▶';
+      titleEl.textContent = '音訊檔案尚未提供';
+      return;
+    }
     setTimeout(() => loadTrack(trackIdx + 1, !audio.paused), 1200);
   });
 
