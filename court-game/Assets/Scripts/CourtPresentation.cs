@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Scripting;
+using System.Runtime.InteropServices;
 
 namespace EduAI.Court
 {
@@ -9,11 +10,26 @@ namespace EduAI.Court
     public sealed class CourtPresentation : MonoBehaviour
     {
         public static bool IsHosted { get; private set; }
+        public static string LastPanelRequest { get; private set; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] private static extern void CourtHostPanel(string panel);
+#endif
+        public static void OpenPanel(string panel)
+        {
+            if (!IsHosted || (panel != "evidence" && panel != "actions")) return;
+            LastPanelRequest = panel;
+            FirstPersonController.Active?.ResetTouchInput();
+            FirstPersonController.Active?.Capture(false);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            CourtHostPanel(panel);
+#endif
+        }
         [System.Serializable] private class ViewRequest { public string mode; public string role; public string procedure; }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
             IsHosted = false;
+            LastPanelRequest = null;
             new GameObject("CourtPresentation").AddComponent<CourtPresentation>();
         }
         [Preserve]

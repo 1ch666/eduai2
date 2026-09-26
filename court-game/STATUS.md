@@ -1,3 +1,8 @@
+【2026-09-26 雲端盒子修正】
+法官前CourtButton與被告前EvidenceInteractable已接本案程序／證物網頁dialog。PlayerInteractor在hosted模式允許這兩類物件，保留距離及遮擋，不執行本機平板案UnityEvent或證物文字。CourtHostPanel只發同源面板請求，不改伺服器資料；court/game-panels.js必須隨court.js部署。
+Unity6000.6.2f1 Play通過及WebGL建置return code0；play成品已同步。21項單元測試通過；未把此結果等同手機或完整瀏覽器驗收。data15,282,002 / wasm5,835,099 / framework83,190 / loader48,540，另touch5,172。Docker完成狀態以本批Actions為準。正式Worker由使用者部署。
+NPC模型由只選事實ID改為根據facts生成有引用ID的短reply；引用／格式檢查不能保證語意無幻覺。生成案件證詞依標題補充篩選；未知親見明示。新增教育部辭典精確查詢但未建立向量索引。詳見根目錄接手說明與rag/README.md；正式模型及真機品質尚待測試。
+
 【2026-09-26 入口漏接修正：使用者一直玩到固定平板案】
 根因已確認：首頁開始遊玩仍連/play/，CourtSession.cs及ScriptedNpcDialogue.cs是固定平板故事；之前只有/court/後端抽題改動，不能宣稱/play/已接模型。
 主要入口改為Worker同源/court/?game=1；公開/play/頂層也導到此處。登入、建立雲端案件後自動載入Unity並選走動視角，NPC透過原有同源橋接使用場次API。iframe ?court=1不導向；?local=1保留明確標示的無AI固定練習；本機Docker不强制導向外網。

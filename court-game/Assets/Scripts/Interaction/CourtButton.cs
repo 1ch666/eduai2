@@ -10,8 +10,8 @@ namespace EduAI.Court
         private MaterialPropertyBlock highlight;
         public UnityEvent OnPressed => onPressed;
         public void Configure(Renderer targetRenderer) { buttonRenderer = targetRenderer; }
-        public string GetInteractionText() => "開庭";
-        public void Interact() { onPressed.Invoke(); }
+        public string GetInteractionText() => CourtPresentation.IsHosted ? "開啟本案程序" : "開庭";
+        public void Interact() { if (CourtPresentation.IsHosted) { CourtPresentation.OpenPanel("actions"); return; } onPressed.Invoke(); }
         private void Awake() { if (!buttonRenderer) buttonRenderer = GetComponentInChildren<Renderer>(); }
         public void SetFocused(bool focused)
         {

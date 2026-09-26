@@ -1,3 +1,10 @@
+【2026-09-26 盒子互動及NPC回覆修正；優先於下方同日待辦】
+1. PlayerInteractor hosted模式允許CourtButton/EvidenceInteractable；仍保留3公尺、最近碰撞及遮擋。法官前盒子透過CourtPresentation.OpenPanel與CourtHostPanel開本案程序，被告前證物盒開本案證物，不觸發舊平板案。court/game-panels.js 驗證同源及iframe來源，以dialog暫放既有頁面控制項，關閉還原；沿用版本、CSRF與owner驗證，不直接提交動作。必要時退出全螢幕才能顯示父頁面板，返回後可再按全螢幕。
+2. src/court-npc.ts 的Witness除了ID也辨識證詞標題，避免generated-*漏掉；沒個人見聞資料時說明缺漏及案件摘要，不假造親見。模型現在可依facts生成自然reply，要求已知factIds、長度及純文字驗證，不只是選ID貼文字。這些檢查不能證明語意完全正確，不把生成回覆當裁判或遊戲指令；仍需正式模型品質驗收。免費額度及失敗降級沿用，不自動購買。
+3. 雲端NPC已接辭典精確詞義查詢，明示教育部來源，不冒充AI生成。UI顯示最近五則防止字典長文超過Unity橋接限制，雲端完整歷史保留。辭典>12,000字時不進NPC面板，不任意切半。
+驗證：Unity6000.6.2f1真正Play通過、Release WebGL建置return code0，21項JS/TS測試、tsc及frontend check通過。測試模型為mock，未實際消耗正式AI額度；手機真機、瀏覽器完整互動及模型語意品質仍待驗收。新版play/Build已同步。data15,282,002 / wasm5,835,099 / framework83,190 / loader48,540；四項合計21,248,831，另touch5,172，較前版含touch減511bytes，不宣稱明顯加速。
+正式Cloudflare仍由使用者手動部署，必須一起更新Worker、court/game-panels.js及play/Build；只推Pages不會更新Worker網站。沒有改正式Secret、權限、schema或migration。Docker須跑本批Court Docker handoff，成功前不算完成。
+
 【2026-09-26 教育部辭典：完整詞條語料與精確查詢】
 rag/moe-revised/ 使用教育部重編國語辭典修訂本 2015_20260625 官方 XLSX：163,920 列保留為 161,194 个精確詞目。每詞一筆、多音 readings、完整原欄位 raw，不以固定字數切段；256 個 gzip 只作儲存分區。manifest 有官方下載位置、原 ZIP SHA256 和各檔校驗值。official-usage.pdf 是完整官方授權說明，必須隨資料保留；禁止改寫釋義或轉簡體。沒有下載字圖包，字圖代碼不自行猜字。
 scripts/import-moe-dictionary.py 可從官方 ZIP 重建；src/dictionary.ts 精確提取「民主是什麼」等詞義查詢，僅讀一個分區。/api/ai/ask 命中時直接回傳完整辭典原文／版本／來源，不消耗模型推論；沒命中走原模型流程。不是完整向量RAG：只提供 dictionaryEmbeddingText，尚未產生向量、沒有 embedding 供應商、沒有近似語意檢索。資料包不會自動令 NPC 變聰明，也不是法律依據。

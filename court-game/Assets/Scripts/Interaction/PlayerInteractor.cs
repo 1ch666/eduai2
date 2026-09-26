@@ -11,6 +11,7 @@ namespace EduAI.Court
         [SerializeField] private LayerMask layers = ~0;
         private IInteractable target;
         private MonoBehaviour targetComponent;
+        public static bool AllowedInCurrentMode(MonoBehaviour item) => !CourtPresentation.IsHosted || item is NPCInteractable || item is EvidenceInteractable || item is CourtButton;
         public void Configure(Camera camera, InteractionUI hud, ChoiceSystem choiceSystem)
         { viewCamera = camera; ui = hud; choices = choiceSystem; }
         public void TouchInteract(string payload)
@@ -23,7 +24,7 @@ namespace EduAI.Court
             var ray = viewCamera.ViewportPointToRay(new Vector3(position.x, position.y, 0));
             if (Physics.Raycast(ray, out var hit, distance, layers, QueryTriggerInteraction.Ignore))
                 foreach (var candidate in hit.collider.GetComponentsInParent<MonoBehaviour>())
-                    if (candidate is IInteractable item && candidate.isActiveAndEnabled && (!CourtPresentation.IsHosted||candidate is NPCInteractable))
+                    if (candidate is IInteractable item && candidate.isActiveAndEnabled && AllowedInCurrentMode(candidate))
                     { item.Interact(); return; }
             if (ui) ui.ShowMessage("再靠近角色或物件，然後輕點它。", 3);
         }
@@ -41,7 +42,7 @@ namespace EduAI.Court
                 if (Physics.Raycast(ray, out RaycastHit hit, distance, layers, QueryTriggerInteraction.Ignore))
                 {
                     foreach (MonoBehaviour candidate in hit.collider.GetComponentsInParent<MonoBehaviour>())
-                        if (candidate is IInteractable interactable && candidate.isActiveAndEnabled && (!CourtPresentation.IsHosted||candidate is NPCInteractable))
+                        if (candidate is IInteractable interactable && candidate.isActiveAndEnabled && AllowedInCurrentMode(candidate))
                         { next = interactable; component = candidate; break; }
                 }
             }

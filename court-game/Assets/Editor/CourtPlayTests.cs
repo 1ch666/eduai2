@@ -118,9 +118,11 @@ namespace EduAI.Court.Editor
             Require(!button.GetComponent<Renderer>().HasPropertyBlock(), "Highlight cleared");
             button.Interact();
             var choices = UnityEngine.Object.FindFirstObjectByType<ChoiceSystem>();
-            Require(choices.IsOpen, "Persistent button event opens choices in Play");
-            choices.Choose(3);
-            Require(!choices.IsOpen, "Choice closes in Play");
+            Require(!choices.IsOpen && CourtPresentation.LastPanelRequest == "actions", "Hosted court button requests server panel, never local tablet choices");
+            var cloudEvidence = UnityEngine.Object.FindFirstObjectByType<EvidenceInteractable>();
+            Require(PlayerInteractor.AllowedInCurrentMode(cloudEvidence) && PlayerInteractor.AllowedInCurrentMode(button), "Hosted ray and touch allow both boxes");
+            cloudEvidence.Interact();
+            Require(CourtPresentation.LastPanelRequest == "evidence" && !NpcDialogueUI.IsOpen, "Hosted evidence uses current case panel, not legacy tablet evidence");
         }
         private static void Teleport(CharacterController controller, Vector3 position)
         {

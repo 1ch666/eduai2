@@ -9,7 +9,7 @@ namespace EduAI.Court
         public string GetInteractionText() => "查看證物";
         public void Interact()
         {
-            if(CourtPresentation.IsHosted)return;
+            if(CourtPresentation.IsHosted){CourtPresentation.OpenPanel("evidence");return;}
             if (session) session.ReviewEvidence();
             FindFirstObjectByType<NpcDialogueUI>()?.OpenEvidence(this);
         }

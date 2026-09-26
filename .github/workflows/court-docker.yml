@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --test court-game/tools/test-template.mjs court-game/tools/test-touch.mjs
+          node --test court-game/tools/test-template.mjs court-game/tools/test-touch.mjs court-game/tools/test-game-panels.mjs
           docker compose -f court-game/compose.yaml config --quiet
           docker compose -f court-game/docker/compose.image.yaml config --quiet
           docker build -f court-game/Dockerfile --build-arg SOURCE_REVISION="$GITHUB_SHA" -t eduai-court:preview .
@@ -30,7 +30,7 @@ jobs:
           cmp play/index.html /tmp/court.html
           curl --fail http://127.0.0.1:8080/play/ -o /tmp/court-play.html
           cmp play/index.html /tmp/court-play.html
-          for file in index.html court.css court.js; do
+          for file in index.html court.css court.js game-panels.js; do
             curl --fail "http://127.0.0.1:8080/court/$file" -o /tmp/court-preview
             cmp "court/$file" /tmp/court-preview
           done
