@@ -1,4 +1,5 @@
 【2026-09-26 雲端盒子修正】
+Docker實際build/run已通過：來源aa14b22，https://github.com/1ch666/eduai2/actions/runs/36230056252 。新增game-panels.js有HTTP比對；artifact保留1天。容器不含正式後端。
 法官前CourtButton與被告前EvidenceInteractable已接本案程序／證物網頁dialog。PlayerInteractor在hosted模式允許這兩類物件，保留距離及遮擋，不執行本機平板案UnityEvent或證物文字。CourtHostPanel只發同源面板請求，不改伺服器資料；court/game-panels.js必須隨court.js部署。
 Unity6000.6.2f1 Play通過及WebGL建置return code0；play成品已同步。21項單元測試通過；未把此結果等同手機或完整瀏覽器驗收。data15,282,002 / wasm5,835,099 / framework83,190 / loader48,540，另touch5,172。Docker完成狀態以本批Actions為準。正式Worker由使用者部署。
 NPC模型由只選事實ID改為根據facts生成有引用ID的短reply；引用／格式檢查不能保證語意無幻覺。生成案件證詞依標題補充篩選；未知親見明示。新增教育部辭典精確查詢但未建立向量索引。詳見根目錄接手說明與rag/README.md；正式模型及真機品質尚待測試。
