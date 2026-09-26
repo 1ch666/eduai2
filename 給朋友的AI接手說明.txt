@@ -1,3 +1,11 @@
+【2026-09-26 教育部辭典：完整詞條語料與精確查詢】
+rag/moe-revised/ 使用教育部重編國語辭典修訂本 2015_20260625 官方 XLSX：163,920 列保留為 161,194 个精確詞目。每詞一筆、多音 readings、完整原欄位 raw，不以固定字數切段；256 個 gzip 只作儲存分區。manifest 有官方下載位置、原 ZIP SHA256 和各檔校驗值。official-usage.pdf 是完整官方授權說明，必須隨資料保留；禁止改寫釋義或轉簡體。沒有下載字圖包，字圖代碼不自行猜字。
+scripts/import-moe-dictionary.py 可從官方 ZIP 重建；src/dictionary.ts 精確提取「民主是什麼」等詞義查詢，僅讀一個分區。/api/ai/ask 命中時直接回傳完整辭典原文／版本／來源，不消耗模型推論；沒命中走原模型流程。不是完整向量RAG：只提供 dictionaryEmbeddingText，尚未產生向量、沒有 embedding 供應商、沒有近似語意檢索。資料包不會自動令 NPC 變聰明，也不是法律依據。
+已驗證全部分區 SHA256、原始欄位保留、詞目唯一性、完整釋義、問法判斷、精確命中和缺檔降級：3項測試通過；tsc、build:assets 通過。未正式部署 Worker，未修改資料庫、Secret、權限或付費服務。遊戲 Docker 位元組沒有變動，本批沒有重建遊戲映像。
+P0 尚待：使用者回報 NPC「你看到了甚麼」無法回答；src/court-npc.ts 只選事實ID，Witness 只依 evidence.id 的 witness/accounts 篩選，AI 新案件 generated-* ID 被漏掉。修正前需明確區分證人亲見、轉述和未知，不可把所有證物強塞成親眼所見。
+P0 尚待：法官前方盒子在 hosted 模式不能互動；PlayerInteractor.cs 刻意只允許 NPCInteractable，CourtButton 原本觸發本機平板案。不能單純解除限制導致雲端場次跑錯本機案例；應橋接合法伺服器程序動作，保留CSRF、owner、版本及重送保護，再重新Unity建置驗證。
+上面兩項本批僅查明原因，未修好。完整NPC自然對話、雲端案件內字典工具及Unity盒子橋接仍待完成。勿把主站辭典查詢說成遊戲已修復。
+
 【2026-09-26 入口漏接修正：使用者一直玩到固定平板案】
 根因已確認：首頁開始遊玩仍連/play/，CourtSession.cs及ScriptedNpcDialogue.cs是固定平板故事；之前只有/court/後端抽題改動，不能宣稱/play/已接模型。
 主要入口改為Worker同源/court/?game=1；公開/play/頂層也導到此處。登入、建立雲端案件後自動載入Unity並選走動視角，NPC透過原有同源橋接使用場次API。iframe ?court=1不導向；?local=1保留明確標示的無AI固定練習；本機Docker不强制導向外網。

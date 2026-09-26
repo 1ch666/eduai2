@@ -5,6 +5,7 @@ import { networkKeyFor, readJsonObject, type Responder } from "./http";
 import { messageRoom } from "./messages";
 import { resolveSession } from "./session";
 import type { AppEnv } from "./env";
+import { lookupDictionary, dictionaryAnswer } from './dictionary';
 
 const MAX_BODY_BYTES = 16_384;
 const UPSTREAM_TIMEOUT_MS = 50_000;
@@ -61,7 +62,6 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   }
   if (url.pathname !== "/api/ai/ask") return respond({ error: "找不到 API" }, 404);
   if (request.method !== "POST") return respond({ error: "此端點只接受 POST" }, 405);
-  if (!env.OLLAMA_API_KEY) return respond({ error: "Ollama 服務尚未完成設定" }, 503);
 
   const body = await readJsonObject(request, MAX_BODY_BYTES, respond, "請求內容過長");
   if (body.error) return body.error;
@@ -119,6 +119,9 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   }
 
   let upstream: Response;
+  const dictionary = await lookupDictionary(env, candidate.question);
+  if (dictionary) return respond({ answer: dictionaryAnswer(dictionary), provider: 'MOE dictionary', mode, source: dictionary.source_url, sourceVersion: dictionary.version });
+  if (!env.OLLAMA_API_KEY) return respond({ error: "Ollama 服務尚未完成設定" }, 503);
   try {
     upstream = await fetch("https://ollama.com/api/chat", {
       method: "POST",
