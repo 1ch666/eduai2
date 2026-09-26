@@ -1,3 +1,8 @@
+【2026-09-26 首頁公民助教空答案修復】
+src/ai.ts /api/ai/ask 是另一條路徑，之前 NPC 修復不會更新它。「Ollama 沒有傳回答案」表示上游成功HTTP且JSON可解析，但 message.content 為空，不足以認定免費額度用完。gpt-oss 改 think:low（官方 https://docs.ollama.com/capabilities/thinking ），公民回答 num_predict 由700調為2048、舊court模式由300調為1024；不自動重試、不購買或更換供應商。此調整增加單次最大token預算，原限流保留，不保證免費額度永遠足夠。
+回覆實際串流讀取限制64KiB，不只相信Content-Length；區分 OUTPUT_TRUNCATED、EMPTY_CONTENT、TIMEOUT、NETWORK、RESPONSE_FORMAT、RESPONSE_TOO_LARGE、INVALID_ENCODING、PROVIDER_AUTH、MODEL_NOT_FOUND、QUOTA、UPSTREAM。thinking絕不充當answer或記入日誌；日誌只有請求ID、代碼及既有HTTP狀態。未改登入、資料庫、正式Secrets或部署設定。
+scripts/test-tutor.mjs 的2項測試（正常回覆與9種失敗）及tsc通過，模型／限流為mock，不是正式供應商成功證明。需使用者部署最新Worker後實測；Unity與靜態遊戲未變，本批不需重建遊戲Docker。上一批NPC Docker dd931fa 已成功：https://github.com/1ch666/eduai2/actions/runs/36230703886 。
+
 【2026-09-26 NPC 重複制式回答修復；本節優先，下方為歷次紀錄】
 現象：每次提問都回角色第一筆事實，畫面只顯示「連線逾時或回覆格式不符」。已確認程式把不同模型錯誤合併，且沒有傳入對話歷史；不能僅憑截圖認定正式服務是額度耗盡。
 1. src/court-npc.ts 移除 Ollama Cloud 不支援的 format:json。官方依據：https://docs.ollama.com/capabilities/structured-outputs 。仍以提示要求 JSON，伺服器驗證欄位、已知 factIds、長度與文字；接受完整 JSON code fence，不從任意文字猜取 JSON。gpt-oss 使用 think:low，其他模型 think:false；num_predict 1024，單次15秒，無自動重試或付費替代。正式模型相容性仍須實測，不能宣稱這是正式環境唯一原因。

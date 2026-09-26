@@ -1,7 +1,7 @@
 // Ollama-backed tutor. Two prompts share one endpoint: the civics study tutor
 // used by the website, and the in-character courtroom NPC used by the Unity
 // build. The API key stays in Worker secrets and never reaches a client.
-import { networkKeyFor, readJsonObject, type Responder } from "./http";
+import { networkKeyFor, readJsonObject, readTextWithLimit, type Responder } from "./http";
 import { messageRoom } from "./messages";
 import { resolveSession } from "./session";
 import type { AppEnv } from "./env";
@@ -122,6 +122,10 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   const dictionary = await lookupDictionary(env, candidate.question);
   if (dictionary) return respond({ answer: dictionaryAnswer(dictionary), provider: 'MOE dictionary', mode, source: dictionary.source_url, sourceVersion: dictionary.version });
   if (!env.OLLAMA_API_KEY) return respond({ error: "Ollama 服務尚未完成設定" }, 503);
+  const failed = (code: string, error: string, status = 502) => {
+    console.warn(JSON.stringify({ event: 'tutor_provider_failure', requestId: candidate.requestId, code }));
+    return respond({ error: `${error} [${code}]`, code }, status);
+  };
   try {
     upstream = await fetch("https://ollama.com/api/chat", {
       method: "POST",
@@ -133,33 +137,47 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
       body: JSON.stringify({
         model,
         stream: false,
-        think: false,
+        think: model.startsWith('gpt-oss') ? 'low' : false,
         messages: [
           { role: "system", content: systemPrompt },
           ...candidate.history,
           { role: "user", content: candidate.question.trim() }
         ],
-        options: { temperature: 0.2, num_predict: mode === "court" ? 300 : 700 }
+        options: { temperature: 0.2, num_predict: mode === "court" ? 1024 : 2048 }
       }),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
     });
-  } catch {
-    return respond({ error: "Ollama 目前無法連線，請稍後再試" }, 502);
+  } catch (error) {
+    return error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)
+      ? failed('TIMEOUT', 'Ollama 回答逾時，請稍後再試')
+      : failed('NETWORK', 'Ollama 目前無法連線，請稍後再試');
   }
   if (!upstream.ok) {
     console.error(JSON.stringify({ message: "ollama upstream failed", status: upstream.status, requestId: candidate.requestId }));
-    if (upstream.status === 429) return respond({ error: "免費 Ollama 額度暫時已達上限，請稍後再試" }, 429);
-    return respond({ error: "Ollama 暫時無法回答" }, 502);
+    await upstream.body?.cancel();
+    if (upstream.status === 429) return failed('QUOTA', 'Ollama 額度或請求速率暫時受限，請稍後再試', 429);
+    if ([401,403].includes(upstream.status)) return failed('PROVIDER_AUTH', 'Ollama 授權失敗，請管理者確認服務金鑰');
+    if (upstream.status === 404) return failed('MODEL_NOT_FOUND', 'Ollama 找不到指定模型，請管理者確認模型設定');
+    return failed('UPSTREAM', 'Ollama 暫時無法回答');
   }
   const responseLength = Number(upstream.headers.get("content-length") || 0);
-  if (responseLength > 1_000_000) return respond({ error: "Ollama 回應資料異常" }, 502);
+  if (responseLength > 65_536) {
+    await upstream.body?.cancel();
+    return failed('RESPONSE_TOO_LARGE', 'Ollama 回應資料過大');
+  }
   let result: unknown;
   try {
-    result = await upstream.json();
-  } catch {
-    return respond({ error: "Ollama 回應格式錯誤" }, 502);
+    const raw = await readTextWithLimit(upstream.body, 65_536);
+    if (raw.tooLarge) return failed('RESPONSE_TOO_LARGE', 'Ollama 回應資料過大');
+    if (raw.invalidEncoding) return failed('INVALID_ENCODING', 'Ollama 回應文字編碼錯誤');
+    result = JSON.parse(raw.text);
+  } catch (error) {
+    if (error instanceof Error && ['TimeoutError','AbortError'].includes(error.name)) return failed('TIMEOUT', 'Ollama 回答逾時，請稍後再試');
+    return failed('RESPONSE_FORMAT', 'Ollama 回應格式錯誤');
   }
+  if ((result as { done_reason?: unknown })?.done_reason === 'length') return failed('OUTPUT_TRUNCATED', 'Ollama 尚未完成回答就達到輸出上限，請縮短問題後再試');
   const answer = (result as { message?: { content?: unknown } })?.message?.content;
-  if (typeof answer !== "string" || !answer.trim()) return respond({ error: "Ollama 沒有傳回答案" }, 502);
+  // Never substitute private reasoning (message.thinking) for an answer.
+  if (typeof answer !== "string" || !answer.trim()) return failed('EMPTY_CONTENT', 'Ollama 未產生最終答案，請稍後再試');
   return respond({ answer: answer.trim().slice(0, 5000), provider: "Ollama", model, mode });
 }
