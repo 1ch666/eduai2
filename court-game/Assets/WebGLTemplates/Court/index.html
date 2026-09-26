@@ -50,7 +50,25 @@
   </script>
 </head>
 <body>
-  <header><span>模擬法庭 · 教學原型</span><span id="input-mode" role="status"></span><a href="https://1ch666.github.io/eduai2/">返回學堂</a></header>
+  <header><span>模擬法庭 · 教學原型</span><span id="input-mode" role="status"></span><button id="fullscreen" type="button">全螢幕</button><a href="https://1ch666.github.io/eduai2/">返回學堂</a></header>
+  <script data-fullscreen>
+    const fullButton=document.getElementById('fullscreen');
+    fullButton.onclick=async()=>{
+      try{
+        if(document.fullscreenElement)await document.exitFullscreen();
+        else if(window.parent!==window&&window.parent.document.fullscreenElement)await window.parent.document.exitFullscreen();
+        else if(document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();
+        else {document.body.classList.toggle('expanded-game');fullButton.textContent=document.body.classList.contains('expanded-game')?'還原畫面':'展開畫面';}
+      }catch{fullButton.textContent='無法全螢幕，請再試';}
+    };
+    document.addEventListener('fullscreenchange',()=>{fullButton.textContent=document.fullscreenElement?'退出全螢幕':'全螢幕';});
+    if(!document.documentElement.requestFullscreen)fullButton.textContent='展開畫面';
+  </script>
+  <style>
+    #fullscreen{font:inherit;padding:6px 10px;min-height:36px;color:inherit;background:transparent;border:1px solid #899596;cursor:pointer}
+    .expanded-game header{position:fixed;top:0;left:0;right:0;z-index:70}
+    .expanded-game main{position:fixed;inset:44px 0 0;height:auto!important;max-width:none!important}
+  </style>
   <main>
     <canvas id="game" width="1280" height="720" tabindex="0" aria-label="3D 法庭；WASD 移動、滑鼠轉向、E 互動、1 到 4 作答"></canvas>
     <div id="touch-ui" hidden>

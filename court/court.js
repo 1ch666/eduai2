@@ -24,7 +24,7 @@ window.addEventListener('message',async e=>{
   let mode='history',notice='';
   if(operation==='message'){
    const p=await api(`/api/court/sessions/${id}/npcs/${npcId}/messages`,{requestId,version:view.version,text});mode=p.reply.mode;
-   if(mode!=='ai')notice='AI 暫時無法回覆，以下為案件參考資料。';
+   if(mode!=='ai')notice=({RATE_LIMIT:'本網站的 AI 使用頻率或場次上限已達，非供應商額度判定。',AI_DISABLED:'管理者已停用法庭 AI。',NOT_CONFIGURED:'後端尚未設定 AI 金鑰。',QUOTA:'AI 供應商回報 429：額度或頻率限制，無法僅憑此確認額度耗盡。',UPSTREAM:'AI 供應商回應失敗，需檢查模型或授權設定。',TIMEOUT_OR_FORMAT:'AI 連線逾時或回覆格式不符。'}[p.reply.errorCode]||'AI 暫時無法回覆。')+' 以下為案件參考資料。';
   }
   const p=await api('/api/court/sessions/'+id);
   if(view?.id!==id||account?.id!==owner)return;
@@ -97,6 +97,9 @@ $('speech-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await act('s
 $('first-recovery-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/first-recovery',{password:f.get('password')});e.target.elements.password.value='';$('recovery').hidden=false;$('recovery').textContent=`請保存首次復原碼（僅顯示一次）：\n${p.recoveryCode}`;hasRecoveryCode=true;$('first-recovery-section').hidden=true;status('復原碼已產生，請立即妥善保存。');});};
 $('back').onclick=()=>{pause();stopVoice(true);$('hearing').hidden=true;$('setup').hidden=false;$('scene').removeAttribute('src');$('scene').hidden=true;void run(sessions);};
 $('show-scene').onclick=()=>{$('scene').hidden=false;if(!$('scene').getAttribute('src'))$('scene').src='../play/?court=1';};
+const fullscreenButton=node('button','全螢幕');fullscreenButton.type='button';$('show-scene').after(fullscreenButton);
+fullscreenButton.onclick=async()=>{if($('scene').hidden){status('請先載入 3D 場景。');return;}try{if(document.fullscreenElement)await document.exitFullscreen();else if($('scene').requestFullscreen)await $('scene').requestFullscreen();else status('此瀏覽器不支援全螢幕，請使用遊戲右上角的展開畫面。');}catch{status('瀏覽器未允許全螢幕，請使用遊戲右上角的展開畫面。');}};
+document.addEventListener('fullscreenchange',()=>{fullscreenButton.textContent=document.fullscreenElement?'退出全螢幕':'全螢幕';});
 $('seat').onclick=()=>scene('seat');$('overview').onclick=()=>scene('overview');$('walk').onclick=()=>scene('walk');
 $('ask-guide').onclick=()=>run(async()=>{const id=view.id,version=view.version;$('guidance').textContent='正在取得引導…';const p=await api(`/api/court/sessions/${id}/dialogue`,{});if(view.id===id&&view.version===version){const modeLabel=p.mode==='scripted'?'固定台詞（AI 暫不可用）':p.mode==='ai-dialogue'?`AI 對話（${p.speaker}）`:'AI 程序引導';$('guidance').textContent=`${modeLabel}：${p.text}`;}});
 $('read-guide').onclick=()=>{if(!('speechSynthesis'in window)){status('此瀏覽器不支援朗讀。');return;}stopVoice(true);speechSynthesis.cancel();const u=new SpeechSynthesisUtterance($('guidance').textContent);u.lang='zh-TW';speechSynthesis.speak(u);};
