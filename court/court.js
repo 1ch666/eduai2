@@ -1,5 +1,6 @@
 import '../auth-sync.js';
 import { installGamePanels } from './game-panels.js';
+import { npcNotice } from './npc-status.js';
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
@@ -26,16 +27,15 @@ window.addEventListener('message',async e=>{
   let mode='history',notice='';
   if(operation==='message'){
    const p=await api(`/api/court/sessions/${id}/npcs/${npcId}/messages`,{requestId,version:view.version,text});mode=p.reply.mode;
-   if(p.reply.errorCode==='DICTIONARY')notice='教育部辭典原文，不消耗 AI 推論額度；不是本案事實或法律意見。';
-   else if(mode!=='ai')notice=({RATE_LIMIT:'本網站的 AI 使用頻率或場次上限已達，非供應商額度判定。',AI_DISABLED:'管理者已停用法庭 AI。',NOT_CONFIGURED:'後端尚未設定 AI 金鑰。',QUOTA:'AI 供應商回報 429：額度或頻率限制，無法僅憑此確認額度耗盡。',UPSTREAM:'AI 供應商回應失敗，需檢查模型或授權設定。',TIMEOUT_OR_FORMAT:'AI 連線逾時或回覆格式不符。'}[p.reply.errorCode]||'AI 暫時無法回覆。')+' 以下為案件參考資料。';
-   else notice='AI 依角色資料回答，仍須核對證物；不是裁判結果。';
+   notice=npcNotice(p.reply);
   }
   const p=await api('/api/court/sessions/'+id);
   if(view?.id!==id||account?.id!==owner)return;
   view=p.view;render();
   // Display a bounded recent window; the complete history remains on the server.
   const history=(view.npcHistory||[]).filter(r=>r.npcId===npcId).slice(-5);
-  reply({mode,notice,name:view.npcs?.find(n=>n.id===npcId)?.name||npcId,historyText:history.map(r=>`你：${r.question}\n${r.errorCode==='DICTIONARY'?'教育部辭典':r.mode==='ai'?'角色':'案件參考資料'}：${r.text}`).join('\n\n')||'可直接提問，系統會自動連接 AI。'});
+  if(operation==='history'&&history.length)notice=npcNotice(history.at(-1));
+  reply({mode,notice,name:view.npcs?.find(n=>n.id===npcId)?.name||npcId,historyText:history.map(r=>`你：${r.question}\n${r.errorCode==='DICTIONARY'?'教育部辭典':r.mode==='ai'?'角色':'系統提示'}：${r.text}`).join('\n\n')||'可直接提問，系統會自動連接 AI。'});
  }catch{reply({error:'對話未完成。請關閉再開啟以恢復紀錄；不會自動重送或清除進度。'});}
  finally{npcBusy=false;}
 });

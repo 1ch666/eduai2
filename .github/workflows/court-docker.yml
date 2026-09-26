@@ -30,7 +30,7 @@ jobs:
           cmp play/index.html /tmp/court.html
           curl --fail http://127.0.0.1:8080/play/ -o /tmp/court-play.html
           cmp play/index.html /tmp/court-play.html
-          for file in index.html court.css court.js game-panels.js; do
+          for file in index.html court.css court.js game-panels.js npc-status.js; do
             curl --fail "http://127.0.0.1:8080/court/$file" -o /tmp/court-preview
             cmp "court/$file" /tmp/court-preview
           done

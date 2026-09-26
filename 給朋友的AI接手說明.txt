@@ -1,3 +1,11 @@
+【2026-09-26 NPC 重複制式回答修復；本節優先，下方為歷次紀錄】
+現象：每次提問都回角色第一筆事實，畫面只顯示「連線逾時或回覆格式不符」。已確認程式把不同模型錯誤合併，且沒有傳入對話歷史；不能僅憑截圖認定正式服務是額度耗盡。
+1. src/court-npc.ts 移除 Ollama Cloud 不支援的 format:json。官方依據：https://docs.ollama.com/capabilities/structured-outputs 。仍以提示要求 JSON，伺服器驗證欄位、已知 factIds、長度與文字；接受完整 JSON code fence，不從任意文字猜取 JSON。gpt-oss 使用 think:low，其他模型 think:false；num_predict 1024，單次15秒，無自動重試或付費替代。正式模型相容性仍須實測，不能宣稱這是正式環境唯一原因。
+2. src/court.ts 從同場次既有 npc_requests 取得同 NPC 最近4輪對話；只將成功 AI 回答作上下文，失敗提示不當角色事實。既有 owner、CSRF、版本、冪等與限流不變，沒有新增表或 migration。問候與不完整短句可自然澄清，不能新增案件事實或代替法院裁判；格式驗證不代表語意完全正確。
+3. 失敗不再重複第一筆事實，改明示「未取得 AI 回覆，沒有新增角色證詞」。court/npc-status.js 與 court/court.js 區分額度、授權、模型不存在、網路、15秒逾時、空答案、截斷、外層JSON、內容JSON及欄位驗證等錯誤；thinking 不當答案。日誌只含 requestId、錯誤代碼、HTTP狀態及耗時，不記金鑰、完整問題或供應商原文。舊 TIMEOUT_OR_FORMAT 紀錄無法事後細分，保留原存檔；部署後請送新問題，原場次／帳號預算不會重設。
+驗證：8項 NPC 單元／mock 測試、tsc、build:assets、frontend check 通過。本機 Worker 關閉 AI 的 API 整合通過：跨帳號／CSRF拒絕、長度、版本、重送、中文存檔／恢復與題庫不重複。未有本機 Ollama 金鑰，尚未驗證真實供應商或正式手機回覆；不得把 mock 成功說成線上已恢復。
+發布：本批需同步更新 Worker 與 court 靜態資源，由使用者手動部署 Cloudflare。未改正式金鑰、權限、資料、schema或付費方案；Unity二進位與操作不變。court-docker.yml 增加 npc-status.js 資源一致性檢查；本批 Docker 執行結果請查 GitHub Actions 對應來源 commit。案件生成及程序對話是不同模型路徑，本批未改，不應宣稱已一起修復。後續先看新 NPC 錯誤代碼再診斷正式模型，不用增加辭典掩蓋連線失敗。
+
 【2026-09-26 盒子互動及NPC回覆修正；優先於下方同日待辦】
 1. PlayerInteractor hosted模式允許CourtButton/EvidenceInteractable；仍保留3公尺、最近碰撞及遮擋。法官前盒子透過CourtPresentation.OpenPanel與CourtHostPanel開本案程序，被告前證物盒開本案證物，不觸發舊平板案。court/game-panels.js 驗證同源及iframe來源，以dialog暫放既有頁面控制項，關閉還原；沿用版本、CSRF與owner驗證，不直接提交動作。必要時退出全螢幕才能顯示父頁面板，返回後可再按全螢幕。
 2. src/court-npc.ts 的Witness除了ID也辨識證詞標題，避免generated-*漏掉；沒個人見聞資料時說明缺漏及案件摘要，不假造親見。模型現在可依facts生成自然reply，要求已知factIds、長度及純文字驗證，不只是選ID貼文字。這些檢查不能證明語意完全正確，不把生成回覆當裁判或遊戲指令；仍需正式模型品質驗收。免費額度及失敗降級沿用，不自動購買。

@@ -2,7 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
-import { NPC_IDS, npcKnowledge, npcResponse, validNpcInput, type NpcId, type NpcInput, type NpcReply } from './court-npc';
+import { NPC_IDS, npcKnowledge, npcHistory, npcResponse, validNpcInput, type NpcId, type NpcInput, type NpcReply } from './court-npc';
 import { generatedCandidates, generateModelCase, randomLibraryCase, similarCase, GENERATION_VERSION } from './court-generation';
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, ROLE_DESCRIPTIONS, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 
@@ -42,7 +42,8 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
     if(!previous&&count>=40)return {error:'此場次已達40次對話上限，進度仍保留',status:429};
     if(!previous)this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',a.requestId,payload,Date.now());
-    const reply=await npcResponse(this.env,s,id,a,allowAI&&!previous&&count<12);
+    const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),id);
+    const reply=await npcResponse(this.env,s,id,a,allowAI&&!previous&&count<12,history);
     const current=this.read();
     if(!current||current.owner!==owner||current.version!==a.version)return {error:'場次已改變，未保存過期回覆；請重新讀取',status:409};
     reply.version=current.version+1;

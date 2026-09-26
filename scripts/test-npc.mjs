@@ -2,10 +2,47 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { CASES,newCourt } from '../src/court-rules.ts';
+import { npcNotice } from '../court/npc-status.js';
 const bundle=await build({entryPoints:['src/court-npc.ts'],bundle:true,platform:'node',format:'esm',write:false});
-const {validNpcInput,npcKnowledge,renderNpcSelection,renderNpcDialogue,npcResponse}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const {validNpcInput,npcKnowledge,npcHistory,renderNpcSelection,renderNpcDialogue,npcResponse}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const state=newCourt('test','owner',{caseId:CASES[0].id,role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'});
 const input={requestId:crypto.randomUUID(),version:0,text:'你知道什麼？'};
+test('history stays within role, bounded, and does not train on fallback replies',()=>{
+ const row=(id,mode='ai')=>({payload:JSON.stringify({npcId:id,text:'一台二手相機'}),result:JSON.stringify({npcId:id,mode,text:'請確認是哪項交易爭議。'})});
+ const h=npcHistory([row('Judge'),row('Lawyer','scripted'),row('Lawyer')],'Lawyer');
+ assert.equal(h.length,2);assert.equal(h[0].answer,'');assert.equal(h[1].question,'一台二手相機');
+ assert.equal(npcHistory(Array.from({length:10},()=>row('Lawyer')),'Lawyer').length,4);
+});
+test('cloud request is compatible, has conversation context, and accepts fenced JSON greetings',async()=>{
+ const old=globalThis.fetch;
+ try{
+  globalThis.fetch=async(_url,options)=>{
+   const body=JSON.parse(options.body);assert.equal(body.format,undefined);assert.equal(body.think,'low');
+   const data=JSON.parse(body.messages[1].content);assert.equal(data.history[0].question,'一台二手相機');
+   return Response.json({message:{content:'```json\n{"reply":"你好，你想詢問這筆交易的哪個部分？","factIds":[],"uncertain":true}\n```'}});
+  };
+  const r=await npcResponse({OLLAMA_API_KEY:'local-test'},state,'Lawyer',{...input,text:'嗨'},true,[{question:'一台二手相機',answer:''}]);
+  assert.equal(r.mode,'ai');assert.ok(r.text.startsWith('你好'));
+ }finally{globalThis.fetch=old;}
+});
+test('failure classes are distinct and logs contain no questions, secrets or raw provider text',async()=>{
+ const old=globalThis.fetch,oldWarn=console.warn,logs=[];console.warn=line=>logs.push(line);
+ const scenarios=[
+  ['TIMEOUT',()=>{throw new DOMException('private response','TimeoutError');}],
+  ['NETWORK',()=>{throw new TypeError('private response');}],
+  ['PROVIDER_AUTH',()=>new Response('secret',{status:401})],
+  ['MODEL_NOT_FOUND',()=>new Response('secret',{status:404})],
+  ['ENVELOPE_JSON',()=>new Response('secret')],
+  ['EMPTY_CONTENT',()=>Response.json({message:{content:'',thinking:'private reasoning'}})],
+  ['OUTPUT_TRUNCATED',()=>Response.json({done_reason:'length',message:{content:'{unfinished'}})],
+  ['CONTENT_JSON',()=>Response.json({message:{content:'not json'}})],
+  ['CONTENT_SCHEMA',()=>Response.json({message:{content:'{"reply":"無引用","uncertain":false,"factIds":[]}'}})],
+ ];
+ try{for(const [code,fn] of scenarios){globalThis.fetch=async()=>fn();const r=await npcResponse({OLLAMA_API_KEY:'secret'},state,'Lawyer',input,true);
+  assert.equal(r.errorCode,code);assert.equal(r.mode,'scripted');assert.ok(r.text.includes('沒有新增角色證詞'));assert.ok(npcNotice(r).includes(code));
+ }}finally{globalThis.fetch=old;console.warn=oldWarn;}
+ for(const log of logs)assert.ok(!/private|secret|你知道|thinking/.test(log));
+});
 test('generated evidence IDs do not hide labelled witness statements; unknown sight is explicit',()=>{
  const generated={...CASES[0],evidence:[{id:'generated-0',title:'證人陳述',text:'證人只見到交接，沒有看到拆開包裹。'}]};
  assert.ok(npcKnowledge({...state,generatedCase:generated},'Witness').facts[0].text.includes('沒有看到拆開包裹'));
