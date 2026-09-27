@@ -1,6 +1,7 @@
 import { CASES, type CaseTemplate } from './court-rules';
 import type { AppEnv } from './env';
 import { readTextWithLimit } from './http';
+import { parseCourtNarrativeDraft } from './court-draft';
 
 // Versioned, reviewed teaching building blocks. Never accept model-authored law,
 // answers or facts. Variations change the evidence limitation, not just names.
@@ -35,23 +36,14 @@ export function randomLibraryCase(caseId:string,history:CaseTemplate[]):CaseTemp
  return selected;
 }
 
-const clean=(v:unknown,max:number):v is string=>typeof v==='string'&&v.trim().length>=4&&v.length<=max&&!/[<>]|https?:|第[零一二三四五六七八九十百千\d]+條|判處|判決有罪/.test(v);
 export function validateGenerated(value:unknown,base:CaseTemplate):CaseTemplate|null{
- if(!value||typeof value!=='object'||Array.isArray(value))return null;
- const v=value as Record<string,unknown>;
- if(Object.keys(v).some(k=>!['title','summary','facts','evidence'].includes(k))||!clean(v.title,60)||!clean(v.summary,260)||!Array.isArray(v.facts)||v.facts.length<3||v.facts.length>6||!v.facts.every(f=>clean(f,220))||!Array.isArray(v.evidence)||v.evidence.length<2||v.evidence.length>4)return null;
- const evidence:CaseTemplate['evidence']=[];
- for(const [i,item] of v.evidence.entries()){
-  if(!item||typeof item!=='object'||Array.isArray(item))return null;
-  const e=item as Record<string,unknown>;
-  if(Object.keys(e).some(k=>!['title','text'].includes(k))||!clean(e.title,60)||!clean(e.text,300))return null;
-  evidence.push({id:'generated-'+i,title:e.title,text:e.text});
- }
+ const v=parseCourtNarrativeDraft(value);if(!v)return null;
+ const evidence=v.evidence.map((e,i)=>({id:'generated-'+i,...e}));
  // Assessment tests reasoning, not a model-invented verdict. Procedure, ages,
  // legal assistance and legal sources remain controlled by the existing server.
  const answers=['只憑一方陳述直接作結論','先釐清資料來源與限制，再比較雙方說法','以角色外貌判斷可信度','略過有矛盾的資料'];
  for(let i=answers.length-1;i>0;i--){const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);[answers[i],answers[j]]=[answers[j],answers[i]];}
- return {...structuredClone(base),id:'ai-'+crypto.randomUUID(),title:'[AI虛構] '+v.title,summary:v.summary,facts:v.facts as string[],evidence,
+ return {...structuredClone(base),id:'ai-'+crypto.randomUUID(),title:'[AI虛構] '+v.title,summary:v.summary,facts:v.facts,evidence,
  question:'面對這些尚待核對的資料，哪一種調查方式較適當？',answers,correct:answers.indexOf('先釐清資料來源與限制，再比較雙方說法'),explanation:'這是 AI 生成的虛構練習，不是裁判或法律意見。應核對來源、區分事實與推測並聽取雙方說明；本題不判斷誰勝訴。'};
 }
 function grams(t:CaseTemplate){const text=[...t.facts,...t.evidence.map(e=>e.text)].join('').normalize('NFKC').toLowerCase().replace(/[^\p{L}]/gu,'');return new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)));}
