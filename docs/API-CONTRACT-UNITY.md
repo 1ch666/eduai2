@@ -1,6 +1,8 @@
 # Court Client Protocol v1
 
-Status: implementation contract, not a deployed API. Baseline API remains v0 at `/api/court/*`. No v1 capability may be advertised until its server endpoints, Unity adapter and integration tests exist. `court/protocol.js` is the executable JSON validation contract; `court/client-state.js` is the browser-side reference reducer. C# DTO parity and runtime integration are pending.
+Status: implementation contract, not a deployed API. Baseline API remains v0 at `/api/court/*`. No v1 capability may be advertised until its server endpoints, Unity adapter and integration tests exist. `court/protocol.js` is the executable JSON validation contract; `court/client-state.js` is the browser-side reference reducer. Unity typed DTOs and reducer now exist in Assets/Scripts/Networking/DTO and Core. Shared fixture: Assets/Editor/Fixtures/court-v1.json. Strict raw-wire ingestion and runtime integration are pending.
+
+Unity's JsonUtility ignores unknown fields and defaults missing scalar fields. Therefore CourtProjectionValidator validates typed projections only; it is NOT a replacement for strict JSON validation. There is deliberately no SendMessage entry point accepting v1 JSON yet. Before enabling one, implement a bounded strict wire gate (including unknown/missing fields and invalid numeric types), test negative-fixture parity, and keep the exact origin/source/request checks. Do not wire unvalidated JsonUtility.FromJson output directly into this store.
 
 ## Transport and authority
 

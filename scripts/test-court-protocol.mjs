@@ -1,10 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {parseSnapshot,parseEvent,parseMutation,MAX_PROTOCOL_BYTES} from '../court/protocol.js';
 import {CourtClientState} from '../court/client-state.js';
 const sessionId='10000000-0000-4000-8000-000000000000';
 const fixture=(version=0)=>({apiVersion:1,requestId:crypto.randomUUID(),caseId:'sale',sessionId,stateVersion:version,eventId:crypto.randomUUID(),eventSequence:version,timestamp:'2026-09-26T00:00:00.000Z',state:{title:'虛構測試',procedure:'civil',roleId:'judge',stageId:'opening',stageLabel:'開庭',completed:false,allowedActions:[{actionId:'acknowledge',label:'確認',category:'procedure',enabled:true,reasonDisabled:'',requiredTarget:'none'}],npcs:[],evidence:[],feedback:''}});
 const raw=JSON.stringify;
+test('Unity Editor and browser share the same nested public fixture',async()=>{
+ const s=parseSnapshot(await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8'));
+ assert.ok(s);assert.equal(s.state.evidence[0].metadata[0].value,'測試資料');
+ for(const kind of ['image','document','chat','timeline','audioTranscript','objectPhoto','mapDiagram','syntheticRecord','cctvStill']){
+  s.state.evidence[0].type=kind;assert.ok(parseSnapshot(raw(s)));
+ }
+});
 const eventOf=s=>{const {state,...envelope}=s;return {...envelope,kind:'stage_changed',speaker:'法官',roleId:'judge',stageId:state.stageId,text:'確認程序',evidenceIds:[],citationIds:[],snapshot:s};};
 test('strict DTO rejects unknown fields, missing fields, unsafe values and oversized UTF8',()=>{
  const good=fixture();assert.ok(parseSnapshot(raw(good)));

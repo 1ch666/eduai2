@@ -147,5 +147,10 @@ Server projection/event → Web shell authenticated transport → validated Brow
 ### P0b／P0c進度（2026-09-26）
 
 docs/API-CONTRACT-UNITY.md 已建立v1契約；court/protocol.js 已提供嚴格JSON projection／mutation／event驗證，court/client-state.js 提供單一snapshot參考store。5項Node測試通過，涵蓋過期／重複／同版衝突、換場次／登出、畸形欄位、事件缺口與回放store隔離。初次測試發現事件fixture多帶state，已修正；不能放寬validator掩蓋。
-這些模組尚未接管court.js或Unity，沒有新增後端v1端點、事件儲存、正式資料表或新WebGL。C# DTO、Unity reducer、transport request correlation／retry、C# parity fixtures仍待完成。矩陣保留未遷移標記，不以JS單元測試當完整重播或遊戲驗收。
-下一批：實作Unity DTO／state測試與共享fixtures，再後端事件與可見投影；伺服器尚未發布v1前不開新client能力。
+這些模組尚未接管court.js或Unity，沒有新增後端v1端點、事件儲存、正式資料表或新WebGL。矩陣保留未遷移標記，不以JS單元測試當完整重播或遊戲驗收。
+
+### Unity C# 狀態基礎（2026-09-27）
+
+新增 Networking/DTO/CourtSnapshot.cs（公開 DTO 與型別驗證）、Core/CourtClientState.cs（快照／事件 reducer），以及 Editor/CourtProtocolTests.cs。輸入／輸出深複製；拒絕舊版本、同版衝突、錯場次、舊登入世代與不連續事件。事件缺口保留目前快照，需 transport 主動補讀；不由 client 推算程序。
+Editor/Fixtures/court-v1.json 由 Node 與 Unity 共用，含巢狀中文、NPC、證物 metadata；不含私人資料，不打包進 player。Node 6 項通過；Unity 6000.6.2f1 真正編譯及自訂 Editor 斷言通過、退出碼 0。詳見 TESTING.md。不是完整 NUnit／PlayMode 或正式網路驗收。
+重要：JsonUtility 忽略未知欄位，缺少 scalar 時會補預設值；型別驗證不能代替嚴格 wire JSON 驗證。尚未接入網路或 SendMessage，不可宣稱已封鎖所有原始 payload。下一步須完成有大小／深度限制的 C# wire gate、跨語言負例、request correlation／timeout／retry，再接後端原子事件與角色投影。伺服器尚未發布 v1 前不開新 client 能力。

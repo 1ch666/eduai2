@@ -1,0 +1,22 @@
+{
+  "apiVersion": 1,
+  "requestId": "20000000-0000-4000-8000-000000000000",
+  "caseId": "sale",
+  "sessionId": "10000000-0000-4000-8000-000000000000",
+  "stateVersion": 0,
+  "eventId": "30000000-0000-4000-8000-000000000000",
+  "eventSequence": 0,
+  "timestamp": "2026-09-26T00:00:00.000Z",
+  "state": {
+    "title": "虛構契約測試",
+    "procedure": "civil",
+    "roleId": "judge",
+    "stageId": "opening",
+    "stageLabel": "開庭",
+    "completed": false,
+    "allowedActions": [{"actionId":"acknowledge","label":"確認","category":"procedure","enabled":true,"reasonDisabled":"","requiredTarget":"none"}],
+    "npcs": [{"npcId":"Witness","roleId":"witness","displayName":"證人","seatId":"witness-seat","pose":"sitting","emotion":"neutral","speakingState":"silent","visible":true,"interactable":true,"requestState":"idle"}],
+    "evidence": [{"evidenceId":"receipt","title":"虛構收據","type":"document","text":"測試文字，不是真實案件。","metadata":[{"name":"來源","value":"測試資料"}],"sourceRole":"claimant","admittedStatus":"notConsidered","presentationState":"available","factReferences":[],"assetId":""}],
+    "feedback": ""
+  }
+}
