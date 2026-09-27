@@ -50,9 +50,9 @@ circuit control. Daily windows are UTC. This counts inference attempts, not mone
 or a guarantee of Ollama's free quota. No billing/paid feature is activated.
 
 NPC and case generation adopted this wrapper in the release recorded below.
-The subsequent tutor/photo candidate adds durable reservations and adoption;
+The subsequent tutor/photo release 0e7ad2c adds durable reservations and adoption;
 see STUDY-AI-ADMISSION.md for its compatibility limits and separate release
-evidence. Do not infer candidate deployment from the earlier release records.
+evidence (Worker d4bd7403-7914-469c-91d2-3c14a9955098, CI 36348143950).
 Availability capability responses are still configuration-based, not live quota
 health; full cost accounting and retention gates remain incomplete.
 

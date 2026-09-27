@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+目前發布：0e7ad2c / Worker d4bd7403-7914-469c-91d2-3c14a9955098；CI 36348143950 的 checks/local-api 通過，298 項本機快速測試、真實 workerd 預約 RPC、部署乾跑皆通過。公民助教與照片文字講解加入共同模型額度管控、每使用者持久化去重；保留原成功格式、字典、登入／CSRF／限流，不保存完整問答。重送現在明示 409，不會再次消耗模型；舊 UUID 紀錄上限 4,096，達限回 503，仍須新版可過期 ticket 才能安全清理。詳見 docs/STUDY-AI-ADMISSION.md。公開狀態 200、匿名私人端點 401 不等於正式 AI 已實測。未改 Unity／靜態資源／Secrets／README。下列較早版本為歷史記錄，不是最新部署。
+
 最新發布：8945286 程序對話持久化去重已部署為 e37d0a79-a856-4378-a40c-bb1ac466e2d4；CI 36343636660 fast/local-api 通過。保留既有台詞格式、登入／CSRF／限流與備援；新增相容資料表，不搬移舊資料。42 項聚焦、243 項快速測試通過；正式公開端點 200、匿名場次與對話 401，未呼叫正式模型。詳見 docs/STAGE-DIALOGUE-DEDUP.md。沒有修改 Unity 或使用者既有 README。以下為歷史發布紀錄。
 
 最新發布：72097b6 照片文字講解介面已部署為 84455261-9668-49a6-a963-331457defd3f，CI 36342849873 成功。維持文字講解（不是 OCR/Vision）、登入與限流，統一受限回應讀取及取消。photo/status 200 且 ocrAvailable:false，匿名 photo/explain 401；未呼叫正式模型。無資料遷移或靜態遊戲變動。以下發布記錄是歷史證據。
@@ -27,7 +29,7 @@
 | 法庭 | src/court-rules.ts、src/court.ts、court/、court-game/ | v1 漸進接入，既有 v0 路由保留 | test-court、journal、protocol、check-court-v1-api | 正式 WebGL 存在；完整角色／程序空間／真機仍未完成 |
 | NPC | src/court-npc.ts、src/court-cast.ts、court/npc-action.js、Unity NPC/ | 保留角色投影、單次請求與明示 fallback | test-npc、npc-action、check-npc-recovery-api | 真實 AI 品質、語義洩漏不是 mocked provider 測試能證明 |
 | Replay | src/court-journal.ts、court/replay*.js、Unity Replay/ | append-only public event + snapshot；舊場次 checkpoint | test-court-replay*、check-court-v1-api | 不改正式案件；舊場次無完整早期事件就明示不完整 |
-| AI fallback | src/ai.ts、src/court-npc.ts、src/court-generation.ts | 保留無 AI 固定內容與案例庫 | test-tutor、test-generation、npc-recovery | 四級 availability/provider/budget 統一基礎尚未完成 |
+| AI fallback | src/ai.ts、src/court-npc.ts、src/court-generation.ts、src/providers/ | 保留無 AI 固定內容與案例庫；全部正式 Ollama 入口納入共同預算 | test-tutor、test-generation、npc-recovery、study-attempts、check-admission-runtime | 四級 availability、完整成本記錄與可過期 study ticket 尚未完成；不把模型錯誤偽装成功 |
 | 照片／筆記／留言 | src/photo.ts、src/messages.ts、photo/、index.html | 保留現有能力與資料 | check-api 留言 round-trip | 照片不應宣稱已有真正 OCR/Vision；首頁筆記／留言不因重構移除 |
 | 通知／音樂 | src/push.ts、sw.js、music-player.js | 保留現行入口，不以重構刪除 | 尚無全面真實 delivery／播放驗收 | Push subscription 不等於已完成 server delivery；需逐項現況查核 |
 

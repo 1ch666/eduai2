@@ -4,7 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-8945286 / Worker e37d0a79-a856-4378-a40c-bb1ac466e2d4. Later tests do not imply
+0e7ad2c / Worker d4bd7403-7914-469c-91d2-3c14a9955098 (study admission).
+CI 36348143950 passed; release evidence in STUDY-AI-ADMISSION.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -22,9 +23,9 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 10 threat model | SECURITY-THREAT-MODEL.md created with likelihood/impact/mitigation/residual/test | Keep source/tests current; document actual mitigations as gaps close; model is not security proof |
 | 11 observability | telemetry.ts + http-trace schema, safe boundary logs | Authenticated pseudonymous context, retention, model/token/latency/fallback/cost metrics |
 | 12 tracing | Fresh HTTP trace ID, no trusted caller spoofing | API → DO → orchestration → provider/validator/retrieval/rerank spans; real propagation evidence |
-| 13 backpressure | Timeouts/cancellation in adapter; NPC request dedup | Global bounded concurrency/queue, circuit breaker, durable dedup and explicit safe retry policy |
+| 13 backpressure | Governed production Ollama routes; durable concurrency/queue/circuit, timeout and dedup; real workerd tests | Authenticated production behavior and outage verification; versioned study tickets replace finite legacy tombstones |
 | 14 providers | Three typed interfaces; tutor/NPC/generation/stage dialogue/photo adapter deployed; photo CI 36342849873 passed; vendor HTTP isolated in adapter | Integrate embedding/rerank validators with future adapters; complete composition/governance and real-provider semantic quality evidence |
-| 15 costs | Local route/user limits and kill switch; unknown token counts remain null | Durable user/session/daily budgets, quota state, accounting/reservations and global shutdown tests; never auto-buy |
+| 15 costs | Shared durable account/user/scope daily attempt budgets and shutdown flag; unknown tokens remain null; tutor/photo adoption deployed | Live quota/availability and accounting surfaces, retention upgrade, authenticated production verification; never auto-buy |
 | 16 availability | Existing scripted fallback and provider error codes | Formal FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/NO_AI states with truthful backend capability response and outage tests |
 | 17 migration | Existing additive wrangler tags, journal checkpoint tests | Versioned migration plan/dry-run/rollback/compatibility test for each redesign; MIGRATION.md is historical repo move, not complete DB plan |
 | 18 backup | No complete backup/restore implementation or drill established by this audit | Account/progress/court state/event/experiment export, protected archives, isolated restore and verification |
@@ -133,12 +134,14 @@ probes returned 200/200/401 with request IDs. No assets or migrations changed.
 These probes do not verify authenticated production inference, live quota,
 tutor/photo admission, recovery or the remaining goal gates.
 
-Next candidate: tutor/photo now use per-owner persisted reservations and the
+Released source 0e7ad2c: tutor/photo now use per-owner persisted reservations and the
 shared governed provider. Local fast gate passed 298 tests; real workerd Learner
 RPC passed concurrent dedup/conflict/owner isolation; dry run passed. See
 STUDY-AI-ADMISSION.md: finite 4,096-entry legacy tombstones, no answer cache,
 versioned expiring-ticket retention still needed, and live availability is still
-configuration-based. Do not treat this as completing all cost/recovery gates.
+configuration-based. CI 36348143950 passed; Worker
+d4bd7403-7914-469c-91d2-3c14a9955098 deployed with anonymous probes passing.
+Do not treat this as completing all cost/recovery gates.
 
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid

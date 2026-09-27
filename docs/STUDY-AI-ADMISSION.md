@@ -86,7 +86,16 @@ result, timeout/late receipt, guest identity, auth/CSRF and privacy projections.
 eight concurrent reservations, one grant, payload conflict and owner isolation.
 No live model call or production data mutation was used for these tests.
 
-Wrangler dry run passed: 450.82 KiB / gzip 103.30 KiB. Remote CI/deployment must
-be recorded separately after confirmation. Capability/status endpoints still
+Wrangler dry run passed: 450.82 KiB / gzip 103.30 KiB. Source
+`0e7ad2c8760aa7d726e276d0895bc0c54298ab05` passed remote CI 36348143950
+(`checks` and `local-api`). Actual `deploy --keep-vars --strict` exited 0:
+Worker **d4bd7403-7914-469c-91d2-3c14a9955098**, existing
+https://civic-law-lab-212.yichengc869.workers.dev. No static assets changed.
+Post-deploy capabilities, court/cases, ai/status and photo/status returned 200;
+anonymous court/sessions and POST photo/explain returned 401. All had server
+X-Request-Id. These checks did not create production reservations or call Ollama;
+they do not prove live provider health or authenticated inference success.
+
+Capability/status endpoints still
 report configuration rather than live quota; truthful availability, versioned
 tickets/retention, full tracing and broader goal gates remain incomplete.
