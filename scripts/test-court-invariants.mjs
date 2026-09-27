@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CASES,rolesFor,newCourt,transition,allowedActions,PROCEDURAL_REQUESTS} from '../src/court-rules.ts';
+import {CASES,rolesFor,newCourtAt,reduceCourt,allowedActions,PROCEDURAL_REQUESTS} from '../src/court-rules.ts';
+const timestamp='2026-09-28T00:00:00.000Z';
+const newCourt=(id,owner,config)=>newCourtAt(id,owner,config,timestamp);
+const transition=(state,action)=>reduceCourt(state,action,timestamp);
 const config=(t,role)=>({caseId:t.id,role,claimantAge:20,claimantHearingAge:20,
   respondentAge:t.procedure==='juvenile'?15:20,respondentHearingAge:t.procedure==='juvenile'?15:20,
   claimantAid:role==='claimantCounsel'?'private':'none',respondentAid:['respondentCounsel','assistant'].includes(role)?'private':t.mandatory?'appointed':'none'});
-const comparable=s=>{const copy=structuredClone(s);delete copy.updatedAt;return copy;};
 
 test('seeded mixed action sequences preserve version, stage, evidence, roles and rejection atomicity',()=>{
   const stages=new Set([0]),acceptedTypes=new Set();let accepted=0,rejected=0;
@@ -39,9 +41,8 @@ test('seeded mixed action sequences preserve version, stage, evidence, roles and
         if(role==='judge')assert.ok(PROCEDURAL_REQUESTS.every(r=>result.rulings.includes(r.id)));
       }
       if(result.completed){assert.equal(result.stage,5);assert.deepEqual(allowedActions(result),[]);}
-      // Same state + command produces identical domain state; wall-clock metadata
-      // is intentionally excluded. This is not HTTP idempotency or a clock test.
-      assert.deepEqual(comparable(transition(old,action)),comparable(result));
+      // Exact repeatability, including timestamps; no metadata is discarded.
+      assert.deepEqual(transition(old,action),result);
       assert.throws(()=>transition(result,action),'a stale reapplication must not count again');
       state=result;
     }

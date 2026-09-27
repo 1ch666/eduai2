@@ -1,4 +1,4 @@
-// Pure rules shared by tests and the authoritative court service.
+// Deterministic rules plus legacy clock adapters for the court service.
 import type {CaseGraph} from './case-graph';
 // This is a bounded teaching simulation, NOT a jurisdiction/eligibility calculator.
 export const RULE_VERSION = 'tw-teaching-2026-09-24';
@@ -107,8 +107,19 @@ export const PROCEDURAL_REQUESTS = [
 export type CourtAction = { requestId: string; version: number; type: string; text?: string; evidenceId?: string; answer?: number; rulingId?:string; decision?:string };
 export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string; generatedCase?:CaseTemplate; generationVersion?:string; privateGraph?:CaseGraph };
 export function newCourt(id:string, owner:string, config:CourtConfig): CourtState {
+  return newCourtAt(id,owner,config,new Date().toISOString());
+}
+function requireCourtTimestamp(timestamp:string):void {
+  if(typeof timestamp!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(timestamp)||
+    !Number.isFinite(Date.parse(timestamp))||new Date(timestamp).toISOString()!==timestamp)
+    throw new Error('場次時間格式錯誤');
+}
+// Server-selected time is explicit: offline validation/reconstruction never
+// reads a live clock. These functions are not public client authority APIs.
+export function newCourtAt(id:string, owner:string, config:CourtConfig, timestamp:string): CourtState {
+  requireCourtTimestamp(timestamp);
   const error = validateConfig(config); if (error) throw new Error(error);
-  return { id,owner,config,stage:0,version:0,reviewed:[],statements:[],attempts:0,completed:false,feedback:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),ruleVersion:RULE_VERSION };
+  return { id,owner,config:structuredClone(config),stage:0,version:0,reviewed:[],statements:[],attempts:0,completed:false,feedback:'',createdAt:timestamp,updatedAt:timestamp,ruleVersion:RULE_VERSION };
 }
 export function allowedActions(s:CourtState): string[] {
   if(s.completed) return [];
@@ -116,6 +127,10 @@ export function allowedActions(s:CourtState): string[] {
   return s.stage === 0 ? ['acknowledge'] : s.stage === 1 || s.stage === 3 ? ['speak'] : s.stage === 2 ? ['review',...(s.config.role==='judge'?['rule']:[]),'closeEvidence'] : ['answer'];
 }
 export function transition(s:CourtState, a:CourtAction): CourtState {
+  return reduceCourt(s,a,new Date().toISOString());
+}
+export function reduceCourt(s:CourtState, a:CourtAction, timestamp:string): CourtState {
+  requireCourtTimestamp(timestamp);
   // Never emit a version that cannot be represented exactly by JSON clients.
   // Reject corrupt/exhausted persisted state rather than repairing it silently.
   if(!Number.isSafeInteger(s.version) || s.version<0 || s.version>=Number.MAX_SAFE_INTEGER) throw new Error('場次版本超出安全範圍，請聯絡管理者');
@@ -149,7 +164,7 @@ export function transition(s:CourtState, a:CourtAction): CourtState {
     n.attempts++; n.feedback=t.explanation;
     if(a.answer===t.correct){n.stage=5;n.completed=true;} else n.feedback='再想一想。'+t.explanation;
   }
-  n.version++;n.updatedAt=new Date().toISOString();return n;
+  n.version++;n.updatedAt=timestamp;return n;
 }
 export function courtView(s:CourtState) {
   const t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;

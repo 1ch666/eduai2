@@ -1,4 +1,4 @@
-import {CASES, PROCEDURAL_REQUESTS, allowedActions, newCourt, rolesFor, transition,
+import {CASES, PROCEDURAL_REQUESTS, allowedActions, newCourtAt, rolesFor, reduceCourt,
   type CaseTemplate, type CourtAction, type CourtConfig} from './court-rules';
 
 export type ReachabilityResult = {ok: true; checkedRoles: number} |
@@ -31,12 +31,13 @@ export function checkCaseReachability(template: CaseTemplate, baseId: string): R
         respondentAge:age, respondentHearingAge:age,
         claimantAid:role === 'claimantCounsel' ? 'private' : 'none',
         respondentAid:['respondentCounsel','assistant'].includes(role) ? 'private' : base.mandatory ? 'appointed' : 'none'};
-      let state = newCourt('validation-only', 'validation-only', config);
+      const timestamp='2000-01-01T00:00:00.000Z';
+      let state = newCourtAt('validation-only', 'validation-only', config, timestamp);
       state.generatedCase = template;
       let count = 0;
       const act = (type: string, extra: Partial<CourtAction> = {}) => {
         if (++count > 32) throw Error('bound');
-        state = transition(state, {...extra, type, version:state.version, requestId:'validation-'+count});
+        state = reduceCourt(state, {...extra, type, version:state.version, requestId:'validation-'+count}, timestamp);
       };
       if (role === 'observer') {
         for (let i = 0; i < 5; i++) act('step');

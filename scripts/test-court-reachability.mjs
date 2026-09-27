@@ -24,3 +24,13 @@ test('rejects duplicate evidence, invalid answer keys and legal policy changes',
   assert.equal(check({...base,...delta},base.id).code,'TEMPLATE_POLICY');
  assert.equal(check(base,'unknown').code,'TEMPLATE_POLICY');
 });
+
+test('reachability validation never reads a wall clock',()=>{
+ const NativeDate=globalThis.Date;
+ globalThis.Date=class extends NativeDate{
+  constructor(...args){if(!args.length)throw Error('wall clock read');super(...args);}
+  static now(){throw Error('wall clock read');}
+ };
+ try{for(const template of CASES)assert.deepEqual(check(template,template.id),{ok:true,checkedRoles:rolesFor(template.procedure).length});}
+ finally{globalThis.Date=NativeDate;}
+});
