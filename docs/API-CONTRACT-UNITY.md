@@ -5,8 +5,9 @@
 The historical rollout notes below describe successive implementation stages, not
 the current deployment inventory. The existing v1 snapshot/action/outcome routes,
 web action panel and read-only Unity HUD are already implemented. The following
-NPC extension is tested locally but is not yet deployed; see
-`docs/NPC-CAST-PROGRESS.md` for exact evidence and remaining integration work.
+NPC extension is deployed as Worker version `1bc7b347-0e1c-40c3-b42f-10188edee6f1`;
+see `docs/RELEASE-NPC-V1-2026-09-27.md` and `docs/NPC-CAST-PROGRESS.md` for exact
+evidence and remaining integration work. Deployment is not full Unity/mobile E2E.
 
 `POST /api/court/v1/sessions/{id}/actions` accepts the existing mutation envelope
 with `actionId: "npc.ask"`, an allowed public NPC `targetId`, and 1–400 UTF-16 units
