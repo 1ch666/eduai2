@@ -4,6 +4,8 @@ import {build} from 'esbuild';
 import {CASES} from '../src/court-rules.ts';
 const b=await build({entryPoints:['src/court-generation.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {validateGenerated,similarCase,generateModelCase,randomLibraryCase}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
+const adapter=await build({entryPoints:['src/providers/ollama.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const {createOllamaProvider}=await import('data:text/javascript;base64,'+Buffer.from(adapter.outputFiles[0].text).toString('base64'));
 const draft={title:'虛構修理爭議',summary:'甲方送修的器材返還後無法啟動，雙方對保管經過有不同說法。',facts:['甲方交付器材進行檢測。','乙方表示交還時曾試機。','交還後甲方表示無法啟動，原因待查。'],evidence:[{title:'收件檢測單',text:'單上有簽收記錄，但沒有完整檢測結果。'},{title:'返還對話紀錄',text:'双方確認已交還器材，沒有提到當時是否能啟動。'}]};
 test('library cycles without repeats and preserves answer and legal config',()=>{
  for(const base of CASES){const history=[];
@@ -29,9 +31,11 @@ test('calls model once, parses bounded JSON and fails closed without AI',async()
  try{
   globalThis.fetch=async(url,init)=>{calls++;const body=JSON.parse(init.body);assert.equal(body.think,false);assert.equal(body.format,'json');assert.equal(body.options.num_predict,1600);assert.equal(init.redirect,'error');return Response.json({message:{content:JSON.stringify(draft)}});};
   await assert.rejects(generateModelCase({},CASES[0],[]));assert.equal(calls,0);
-  const env={OLLAMA_API_KEY:'mock-not-real'};assert.ok(await generateModelCase(env,CASES[0],[]));assert.equal(calls,1);
-  globalThis.fetch=async()=>Response.json({message:{content:'{"correct":0}'}});await assert.rejects(generateModelCase(env,CASES[0],[]));
-  globalThis.fetch=async()=>new Response('',{status:429});await assert.rejects(generateModelCase(env,CASES[0],[]),/額度/);
+  const env={OLLAMA_API_KEY:'mock-not-real'},provider=()=>createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:'test',thinking:false});
+  await assert.rejects(generateModelCase(env,CASES[0],[]));assert.equal(calls,0,'raw provider must not be constructed implicitly');
+  assert.ok(await generateModelCase(env,CASES[0],[],provider()));assert.equal(calls,1);
+  globalThis.fetch=async()=>Response.json({message:{content:'{"correct":0}'}});await assert.rejects(generateModelCase(env,CASES[0],[],provider()));
+  globalThis.fetch=async()=>new Response('',{status:429});await assert.rejects(generateModelCase(env,CASES[0],[],provider()),/額度/);
  }finally{globalThis.fetch=original;}
 });
 

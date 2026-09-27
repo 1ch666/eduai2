@@ -145,6 +145,72 @@ test('stage admission identity is bound to persisted timestamp before async I/O'
   assert.equal(JSON.stringify(captured).includes('owner'),false);
  }finally{Date.now=clock;db.close();}
 });
+
+test('both NPC routes persist truthful admission fallback once without inference or duplicate scoring',async()=>{
+ for(const legacy of [false,true])for(const code of ['BUDGET','DISABLED','EXISTING']){
+  let admits=0;const env={...stageEnv,AI_ADMISSION:{getByName(){return {async admit(){admits++;return {code,start:false};}};}}};
+  const {room,db,id,ctx}=setup(config,env),original=globalThis.fetch;let calls=0;
+  globalThis.fetch=async()=>{calls++;throw Error('raw inference forbidden');};
+  try{
+   const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};
+   const invoke=r=>legacy?r.npc('owner','Witness',{requestId:m.requestId,version:0,text:m.text},true):r.npcV1('owner',m,true);
+   const first=await invoke(room),next=await invoke(new CourtRoom(ctx,env));assert.deepEqual(next,first);
+   const reply=room.get('owner').view.npcHistory[0];
+   assert.equal(reply.mode,'scripted');assert.equal(reply.errorCode,'ADMISSION_DENIED');
+   assert.equal(calls,0);assert.equal(admits,1);assert.equal(room.get('owner').view.version,1);
+   assert.equal(room.events('owner',-1).events.length,2);
+  }finally{globalThis.fetch=original;db.close();}
+ }
+});
+
+test('stage and NPC share user/session budget keys but not attempt identity',async()=>{
+ const requests=[];const port=stageEnv.AI_ADMISSION.getByName('ollama-account-v1');
+ const env={...stageEnv,AI_ADMISSION:{getByName(){return {...port,async admit(r){requests.push(r);return port.admit(r);}};}}};
+ const {room,db,id}=setup(config,env),original=globalThis.fetch;
+ globalThis.fetch=async(_url,options)=>Response.json({message:{content:JSON.stringify(JSON.parse(options.body).options.num_predict===250?
+  {text:'請依序說明。'}:{reply:'你好，可以一起核對資料。',factIds:[],uncertain:true})}});
+ try{
+  assert.equal((await room.stageDialogue('owner',0,true)).cached.mode,'ai-dialogue');
+  await room.npcV1('owner',{...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'},true);
+  assert.equal(requests.length,2);assert.equal(requests[0].userKey,requests[1].userKey);
+  assert.equal(requests[0].sessionKey,requests[1].sessionKey);assert.notEqual(requests[0].id,requests[1].id);
+  assert.equal(JSON.stringify(requests).includes('owner'),false);
+ }finally{globalThis.fetch=original;db.close();}
+});
+
+test('generation rejection preserves randomized library, request recovery and quota reservation',async()=>{
+ const {db,ctx}=setup();let admits=0,calls=0;const original=globalThis.fetch;
+ const env={...stageEnv,AI_ADMISSION:{getByName(){return {async admit(){admits++;return {code:'BUDGET',start:false};}};}}};
+ globalThis.fetch=async()=>{calls++;throw Error('raw inference forbidden');};
+ try{
+  const learner=new Learner(ctx,env),requestId=crypto.randomUUID();
+  const first=await learner.generate(requestId,config,'owner');
+  assert.ok(first.template.title.startsWith('[題庫]'));assert.equal(first.template.procedure,'civil');
+  assert.deepEqual(await new Learner(ctx,env).generate(requestId,config,'owner'),first);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM generation_attempts').get().n,1);
+  assert.equal(admits,1);assert.equal(calls,0);
+  learner.removeCourt(first.id);
+  assert.equal((await learner.generate(requestId,config,'owner')).status,409);assert.equal(admits,1);
+ }finally{globalThis.fetch=original;db.close();}
+});
+
+test('generation admits once after durable reservation and fences concurrent/restarted duplicate',async()=>{
+ const {db,ctx}=setup(),entered=gate(),release=gate(),requests=[];
+ const port=stageEnv.AI_ADMISSION.getByName('ollama-account-v1');
+ const env={...stageEnv,AI_ADMISSION:{getByName(){return {...port,async admit(r){
+  assert.equal(db.prepare('SELECT count(*) AS n FROM generation_attempts').get().n,1);
+  requests.push(r);entered.resolve();await release.promise;return port.admit(r);
+ }};}}};
+ const original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;return new Response('quota',{status:429});};
+ try{
+  const learner=new Learner(ctx,env),id=crypto.randomUUID(),first=learner.generate(id,config,'owner');
+  await entered.promise;
+  assert.equal((await new Learner(ctx,env).generate(id,config,'owner')).status,409);assert.equal(calls,0);
+  release.resolve();const result=await first;assert.ok(result.template.title.startsWith('[題庫]'));
+  assert.deepEqual(await learner.generate(id,config,'owner'),result);assert.equal(calls,1);assert.equal(requests.length,1);
+ }finally{release.resolve();globalThis.fetch=original;db.close();}
+});
 test('future private state and nested metadata never escape legacy view or v1 journal',()=>{
  const {room,db}=setup();
  try{
@@ -260,7 +326,7 @@ test('all six templates bind graphs to the actual generated evidence IDs',()=>{
  }
 });
 test('private graph is omitted from AI request context and v1 action results',async()=>{
- const {room,db,id}=setup(config,{OLLAMA_API_KEY:'synthetic-test-key' },false);
+ const {room,db,id}=setup(config,stageEnv,false);
  const original=globalThis.fetch;let calls=0;
  globalThis.fetch=async(_url,options)=>{
   calls++;assert.ok(!options.body.includes('PRIVATE_TIMELINE_CANARY'));assert.ok(!options.body.includes('privateGraph'));
@@ -553,12 +619,12 @@ test('v1 NPC transactional failure preserves reservation but no partial state or
  }finally{db.close();}
 });
 test('v1 concurrent retries and outcome reads call configured provider once',async()=>{
- const {room,db,id}=setup(config,{OLLAMA_API_KEY:'synthetic-test-key'});
- const original=globalThis.fetch;let calls=0,resolveProvider;
- globalThis.fetch=()=>{calls++;return new Promise(resolve=>{resolveProvider=resolve;});};
+ const {room,db,id}=setup(config,stageEnv);
+ const original=globalThis.fetch;let calls=0,resolveProvider;const entered=gate();
+ globalThis.fetch=()=>{calls++;return new Promise(resolve=>{resolveProvider=resolve;entered.resolve();});};
  try{
   const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};
-  const first=room.npcV1('owner',m,true);await new Promise(resolve=>setImmediate(resolve));
+  const first=room.npcV1('owner',m,true);await entered.promise;
   assert.equal(calls,1);assert.equal((await room.npcV1('owner',m,true)).status,202);assert.equal(room.outcomeV1('owner',m.requestId).status,202);
   resolveProvider(Response.json({message:{content:JSON.stringify({reply:'你好，可以一起核對本案資料。',factIds:[],uncertain:true})}}));
   const event=await first;assert.ok(parseEvent(JSON.stringify(event)));assert.match(event.text,/你好/);

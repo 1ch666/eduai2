@@ -83,3 +83,31 @@ sleep/deadline timers with one abortable delay and carries typed timeout causes
 instead of guessing from Date.now. The deadline regression now freezes wall time
 to assert that a real elapsed timeout is still classified as TIMEOUT. No test
 assertions were relaxed to accept the wrong outcome.
+
+## NPC and generation adoption (next candidate)
+
+Both legacy `CourtRoom.npc` and `npcV1` now pass the original timestamp committed
+with their reservation into `npcResponse`. The default NPC composition uses the
+same governed provider/account as stage dialogue; absent timestamp or binding
+fails closed, not to a raw Ollama adapter. Dictionary lookup and explicit local
+AI/rate guards remain before inference. Prewritten failures stay `mode:scripted`
+with ADMISSION_DENIED / ADMISSION_UNAVAILABLE; cached outcomes are not reissued.
+Stage and NPC use identical hashed user/court budget keys, distinct attempt IDs.
+
+`Learner.generate` receives the owner from the already-authenticated Worker route,
+never from request JSON. It commits generation_attempts.created before requesting
+the governed provider, and uses a stable per-owner `case-generation` budget scope
+(no new court exists yet). Existing 10/day local attempt guard, cooldown, request
+dedup, narrative validator, similarity check and randomized library fallback remain.
+The internal helper no longer constructs a raw vendor adapter implicitly; it
+requires an explicit server-selected provider. Older internal callers without an
+owner retain library fallback. Deleting a court does not refund the attempt or
+permit its request ID to be reissued.
+
+This batch requires no new migration/config/Secrets changes beyond released v9.
+Focused tests cover granted/denied calls, same-account budget identity, concurrent
+generation/restart, lost replies, deletion and library recovery. Tutor and photo
+remain unadopted, so the kill switch/cap is still NOT all-platform governance.
+Rollback to the prior stage-only runtime would bypass NPC/generation admission;
+prefer disabling court AI and forward-fixing without clearing any ledger.
+Production evidence for this candidate must be added only after CI/deploy.

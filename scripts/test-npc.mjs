@@ -4,9 +4,25 @@ import { build } from 'esbuild';
 import { CASES,newCourt } from '../src/court-rules.ts';
 import { npcNotice } from '../court/npc-status.js';
 const bundle=await build({entryPoints:['src/court-npc.ts'],bundle:true,platform:'node',format:'esm',write:false});
-const {validNpcInput,npcKnowledge,npcHistory,renderNpcSelection,renderNpcDialogue,npcResponse}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const {validNpcInput,npcKnowledge,npcHistory,renderNpcSelection,renderNpcDialogue,npcResponse:runNpcResponse}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+// Synthetic grant for adapter/domain tests; persistence/dedup uses separate DO tests.
+const admission={getByName(){return {async admit(){return {code:'ACCEPTED',phase:'running',start:true,deadline:Date.now()+60000};},
+ async finish(){return {code:'SETTLED',start:false};},async cancel(){return {code:'SETTLED',start:false};}};}};
+const npcResponse=(env,s,id,a,allow,history=[],provider)=>runNpcResponse({...env,AI_ADMISSION:admission},s,id,a,allow,history,provider,Date.now());
 const state=newCourt('test','owner',{caseId:CASES[0].id,role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'});
 const input={requestId:crypto.randomUUID(),version:0,text:'你知道什麼？'};
+
+test('missing persisted issuance or coordinator cannot silently construct raw NPC inference',async()=>{
+ const original=globalThis.fetch,oldWarn=console.warn;let calls=0;
+ globalThis.fetch=async()=>{calls++;throw Error('must not fetch');};console.warn=()=>{};
+ try{
+  for(const issuedAt of [undefined,Date.now()]){
+   const reply=await runNpcResponse({OLLAMA_API_KEY:'fake'},state,'Witness',input,true,[],undefined,issuedAt);
+   assert.equal(reply.mode,'scripted');assert.equal(reply.errorCode,'ADMISSION_UNAVAILABLE');
+  }
+  assert.equal(calls,0);
+ }finally{globalThis.fetch=original;console.warn=oldWarn;}
+});
 test('history stays within role, bounded, and does not train on fallback replies',()=>{
  const row=(id,mode='ai')=>({payload:JSON.stringify({npcId:id,text:'一台二手相機'}),result:JSON.stringify({npcId:id,mode,text:'請確認是哪項交易爭議。'})});
  const h=npcHistory([row('Judge'),row('Lawyer','scripted'),row('Lawyer')],'Lawyer');

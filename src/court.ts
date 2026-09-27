@@ -126,12 +126,13 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
     if(count>=40)return {error:'此場次對話上限已達',status:409};
     const a={requestId:m.requestId,version:m.expectedStateVersion,text:m.text};
+    const issuedAt=Date.now();
     this.ctx.storage.transactionSync(()=>{
-      this.ctx.storage.sql.exec('INSERT INTO court_v1_npc_pending VALUES(?,?,?,?,NULL)',m.requestId,m.idempotencyKey,payload,Date.now());
-      this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',m.requestId,JSON.stringify({npcId:m.targetId,...a}),Date.now());
+      this.ctx.storage.sql.exec('INSERT INTO court_v1_npc_pending VALUES(?,?,?,?,NULL)',m.requestId,m.idempotencyKey,payload,issuedAt);
+      this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',m.requestId,JSON.stringify({npcId:m.targetId,...a}),issuedAt);
     });
     const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),m.targetId);
-    const reply=await npcResponse(this.env,s,m.targetId,a,allowAI&&count<12,history);
+    const reply=await npcResponse(this.env,s,m.targetId,a,allowAI&&count<12,history,undefined,issuedAt);
     const current=this.read();if(!current||current.owner!==owner)return {error:'場次不存在',status:404};
     const reservation=this.ctx.storage.sql.exec<{result:string|null;created:number}>('SELECT result,created FROM court_v1_npc_pending WHERE request_id=?',m.requestId).toArray()[0];
     if(!reservation)return {error:'請求紀錄不存在',status:409};
@@ -193,9 +194,10 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(s.version!==a.version||!canConverse(s))return {error:'目前場次版本／角色／階段不允許交談',status:409};
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
     if(!previous&&count>=40)return {error:'此場次已達40次對話上限，進度仍保留',status:429};
-    if(!previous)this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',a.requestId,payload,Date.now());
+    const issuedAt=previous?.created??Date.now();
+    if(!previous)this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',a.requestId,payload,issuedAt);
     const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),id);
-    const reply=await npcResponse(this.env,s,id,a,allowAI&&!previous&&count<12,history);
+    const reply=await npcResponse(this.env,s,id,a,allowAI&&!previous&&count<12,history,undefined,issuedAt);
     const current=this.read();
     if(!current||current.owner!==owner||current.version!==a.version)return {error:'場次已改變，未保存過期回覆；請重新讀取',status:409};
     reply.version=current.version+1;
@@ -290,7 +292,7 @@ export class Learner extends DurableObject<AppEnv>{
       this.ctx.storage.sql.exec('DELETE FROM courts WHERE id=?',id);
     });return {ok:true};
   }
-  async generate(requestId:string,config:CourtConfig){
+  async generate(requestId:string,config:CourtConfig,owner?:string){
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
     if(previous)return previous.payload===payload?{id:previous.room,template:JSON.parse(previous.body) as ReturnType<typeof generatedCandidates>[number]}:{error:'請求識別已使用',status:409};
@@ -299,13 +301,19 @@ export class Learner extends DurableObject<AppEnv>{
     const withinBudget=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND (error IS NULL OR error!='SKIP')",Date.now()-86400000).one().n<10;
     const coolingDown=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND error IS NOT NULL AND error!='SKIP'",Date.now()-300000).one().n>0;
     if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM courts').one().n>=100)return {error:'場次上限已達',status:409};
-    this.ctx.storage.sql.exec('INSERT INTO generation_attempts VALUES(?,?,?,NULL)',requestId,payload,Date.now());
+    const issuedAt=Date.now();
+    this.ctx.storage.sql.exec('INSERT INTO generation_attempts VALUES(?,?,?,NULL)',requestId,payload,issuedAt);
     const readHistory=()=>this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM generated_requests ORDER BY rowid').toArray().map(r=>JSON.parse(r.body) as ReturnType<typeof generatedCandidates>[number]);
     let template:ReturnType<typeof generatedCandidates>[number];
     const skipAI=!withinBudget||coolingDown||this.env.COURT_AI_ENABLED==='false'||!this.env.OLLAMA_API_KEY;
     try{
       if(skipAI)throw Error('AI 暫停嘗試，改用題庫。');
-      template=await generateModelCase(this.env,CASES.find(t=>t.id===config.caseId)!,readHistory());
+      // Owner comes from the authenticated route, not a JSON/client field.
+      // Older internal callers without it retain library fallback, never raw AI.
+      if(!owner)throw Error('AI 准入身分缺失，改用題庫。');
+      const provider=await createGovernedOllamaProvider(this.env,{kind:'case-generation',owner,
+        sessionId:'case-generation',requestKey:requestId,issuedAt},false);
+      template=await generateModelCase(this.env,CASES.find(t=>t.id===config.caseId)!,readHistory(),provider);
       // Re-read after provider I/O: concurrent generation may have saved a match.
       if([...CASES,...readHistory()].some(t=>similarCase(template,t)))throw Error('生成內容與已有案件過於相似，已拒絕保存；請重新生成。');
     }catch(e){
@@ -393,7 +401,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     if(path.endsWith('/generate')){
       if(typeof b.requestId!=='string'||!/^[0-9a-f-]{36}$/.test(b.requestId))return respond({error:'缺少請求識別'},400);
       if(!await learner.allow('generate',4))return respond({error:'生成太頻繁'},429);
-      const proposal=await learner.generate(b.requestId,config);
+      const proposal=await learner.generate(b.requestId,config,session.user.id);
       if('error' in proposal)return respond({error:proposal.error},proposal.status);
       const result=await env.COURT_ROOM.getByName(proposal.id).init(proposal.id,session.user.id,config,proposal.template);
       return respond(result,'status' in result?result.status:201);

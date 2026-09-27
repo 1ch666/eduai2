@@ -120,6 +120,12 @@ updated static assets. Public capabilities/cases200 and anonymous sessions401
 probes passed with request IDs. Other inference paths, live authenticated
 admission verification and the broader remaining production gates remain open.
 
+NPC/generation candidate now reuses the same governed account coordinator and
+original persisted issuance timestamps. Legacy/v1 NPC, generation recovery and
+random library fallback retain their existing contracts. Tutor/photo adoption
+and truthful live availability remain open; see AI-ADMISSION-ROLLOUT.md. No new
+schema migration or source prompt/semantic research in this batch.
+
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
    order with bounded deterministic checks, then integrate before commit without
