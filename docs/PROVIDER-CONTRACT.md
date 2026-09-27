@@ -1,5 +1,25 @@
 # Server provider contract v1
 
+## Photo text explanation (2026-09-28, locally verified)
+
+`handlePhoto` now accepts an optional server-only LLMProvider; its public route,
+session/CSRF/origin checks, per-user limit and input validation are preserved.
+Only confirmed question text is sent, never image fields, client model choices
+or session credentials. This is not OCR/Vision. Default Ollama transport retains
+thinking:false, temperature 0.2, 700 tokens and 30 seconds. Request cancellation
+is forwarded. The envelope cap is intentionally tightened from 1,000,000 bytes
+to 65,536; truncated model output is now rejected instead of shown as complete.
+Success retains `{explanation}` and the existing 2,000-character display cap;
+quota remains 429, other model failures 502 with sanitized messages. No retries.
+
+Four actual-handler test groups cover authorization/input rejection, an alternate
+provider, default adapter wire compatibility, oversize/truncated output and error
+sanitization. Account/learner RPCs are test doubles, not production calls. Full
+local fast gate and TypeScript passed. No storage/schema/Secret/static/Unity
+change. CI/deployment pending; rollback requires no data conversion. Remaining:
+durable photo request dedup/budgets and unified availability (status currently
+indicates configuration, not provider health). No live model quality claim.
+
 ## Stage dialogue extraction (2026-09-28, deployed)
 
 `src/court-dialogue.ts` now takes an `LLMProvider` and an explicit public-view

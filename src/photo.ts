@@ -4,6 +4,8 @@
 import { readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
 import type { AppEnv } from './env';
+import type { LLMProvider } from './providers/contracts';
+import { createOllamaProvider } from './providers/ollama';
 
 const EXPLAIN_SYSTEM_PROMPT = [
   '你是「公民法律研究室」的題目講解助教。',
@@ -21,6 +23,7 @@ export async function handlePhoto(
   env: AppEnv,
   respond: Responder,
   trustedOrigin?: string,
+  provider?: LLMProvider,
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
 
@@ -45,7 +48,7 @@ export async function handlePhoto(
   const learner = env.LEARNER.getByName(session.user.id);
   if (!await learner.allow('photo_explain', 8)) return respond({ error: '操作太頻繁，請稍候' }, 429);
 
-  if (!env.OLLAMA_API_KEY) return respond({ error: 'AI 講解服務尚未設定，請稍後再試' }, 503);
+  if (!provider && !env.OLLAMA_API_KEY) return respond({ error: 'AI 講解服務尚未設定，請稍後再試' }, 503);
 
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
     return respond({ error: '只接受 JSON' }, 415);
@@ -68,42 +71,21 @@ export async function handlePhoto(
 
   const questionText = b.text.trim();
 
-  let upstream: Response;
-  try {
-    upstream = await fetch('https://ollama.com/api/chat', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.OLLAMA_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: env.OLLAMA_MODEL || 'gpt-oss:20b',
-        stream: false,
-        think: false,
-        messages: [
-          { role: 'system', content: EXPLAIN_SYSTEM_PROMPT },
-          { role: 'user', content: `題目文字：\n${questionText}` },
-        ],
-        options: { temperature: 0.2, num_predict: 700 },
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch {
-    return respond({ error: 'AI 服務目前無法連線，請稍後再試' }, 502);
+  // Server-only composition; callers cannot choose credentials/model via JSON.
+  const engine=provider??createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:env.OLLAMA_MODEL||'gpt-oss:20b',thinking:false});
+  const result=await engine.generate({output:'text',temperature:.2,maxOutputTokens:700,
+    messages:[{role:'system',content:EXPLAIN_SYSTEM_PROMPT},{role:'user',content:`題目文字：\n${questionText}`}]},
+    {timeoutMs:30000,maxResponseBytes:65536,signal:request.signal})
+    .catch(()=>({ok:false as const,code:'NETWORK' as const}));
+  if(!result.ok){
+    if(result.code==='QUOTA')return respond({error:'AI 額度暫時已達上限，請稍後再試'},429);
+    if(['TIMEOUT','NETWORK','CANCELLED'].includes(result.code))return respond({error:'AI 服務目前無法連線，請稍後再試'},502);
+    if(result.code==='EMPTY_CONTENT')return respond({error:'AI 未傳回答案'},502);
+    if(result.code==='RESPONSE_FORMAT')return respond({error:'AI 回應解析失敗'},502);
+    if(['RESPONSE_TOO_LARGE','INVALID_ENCODING','OUTPUT_TRUNCATED'].includes(result.code))return respond({error:'AI 回應格式錯誤'},502);
+    return respond({error:'AI 服務暫時無法回答'},502);
   }
-
-  if (!upstream.ok) {
-    if (upstream.status === 429) return respond({ error: 'AI 額度暫時已達上限，請稍後再試' }, 429);
-    return respond({ error: 'AI 服務暫時無法回答' }, 502);
-  }
-
-  const upstreamRaw = await readTextWithLimit(upstream.body, 1_000_000);
-  if (upstreamRaw.tooLarge || upstreamRaw.invalidEncoding) return respond({ error: 'AI 回應格式錯誤' }, 502);
-
-  let result: unknown;
-  try { result = JSON.parse(upstreamRaw.text); } catch { return respond({ error: 'AI 回應解析失敗' }, 502); }
-
-  const answer = (result as { message?: { content?: unknown } })?.message?.content;
+  const answer=result.value.text;
   if (typeof answer !== 'string' || !answer.trim()) return respond({ error: 'AI 未傳回答案' }, 502);
 
   return respond({ explanation: answer.trim().slice(0, 2000) });
