@@ -115,6 +115,9 @@ export function allowedActions(s:CourtState): string[] {
   return s.stage === 0 ? ['acknowledge'] : s.stage === 1 || s.stage === 3 ? ['speak'] : s.stage === 2 ? ['review',...(s.config.role==='judge'?['rule']:[]),'closeEvidence'] : ['answer'];
 }
 export function transition(s:CourtState, a:CourtAction): CourtState {
+  // Never emit a version that cannot be represented exactly by JSON clients.
+  // Reject corrupt/exhausted persisted state rather than repairing it silently.
+  if(!Number.isSafeInteger(s.version) || s.version<0 || s.version>=Number.MAX_SAFE_INTEGER) throw new Error('場次版本超出安全範圍，請聯絡管理者');
   if(a.version !== s.version) throw new Error('版本已變更，請重新讀取場次');
   if(!allowedActions(s).includes(a.type)) throw new Error('目前階段不允許此動作');
   const n = structuredClone(s), t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;
@@ -140,6 +143,7 @@ export function transition(s:CourtState, a:CourtAction): CourtState {
     else n.feedback='請重新考慮：'+ruling.reason;
   }
   if(a.type === 'answer') {
+    if(!Number.isSafeInteger(n.attempts) || n.attempts<0 || n.attempts>=Number.MAX_SAFE_INTEGER) throw new Error('作答次數超出安全範圍，請聯絡管理者');
     if(!Number.isInteger(a.answer) || a.answer!<0 || a.answer!>=t.answers.length) throw new Error('答案格式錯誤');
     n.attempts++; n.feedback=t.explanation;
     if(a.answer===t.correct){n.stage=5;n.completed=true;} else n.feedback='再想一想。'+t.explanation;
