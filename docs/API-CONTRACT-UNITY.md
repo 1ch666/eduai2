@@ -89,8 +89,18 @@ and explicit onSnapshot/onClear/onStatus callbacks. It cannot fetch APIs or read
 credentials. Actions stay disabled until both a valid snapshot and correlated result
 arrive. `scripts/test-court-unity-receiver.mjs` includes a paired shell/frame/transport
 test with mocked HTTP and message delivery. Runtime Unity callback wiring, iframe
-ready handshake and lost-message watchdog remain pending; this source is not imported
+ready handshake remain pending; this source is not imported
 by the production play page and is not a completed Unity integration.
+
+The frame now has a 20-second delivery watchdog (bounded configurable timeout).
+Expiry clears only the pending delivery marker, keeps the last view read-only and
+reports timeout; it never creates a second mutation. Explicit `recover` asks the
+shell for its persisted outcome, while `retry` retains the shell's original IDs.
+Late results from the expired sequence are rejected. Clear/rebind cancels timers;
+even an already queued old timeout cannot change a new binding. Delivery exceptions
+produce a sanitized unavailable status. Tests inject a deterministic clock and cover
+lost results, late results, recovery without a second action, timer disposal and
+postMessage exceptions; actual browser background suspension remains unverified.
 
 Evidence: `node --test scripts/test-court-unity-bridge.mjs` tests the real transport
 with mocked HTTP/window delivery: origin/source/channel/shape/sequence rejection,

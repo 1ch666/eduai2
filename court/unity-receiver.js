@@ -9,12 +9,16 @@ const statuses=new Set('accepted duplicate stale malformed conflict gap needs-sn
 export class CourtUnityReceiver {
  #parent; #origin; #channel=''; #context=null; #sequence=0; #pending=0; #ready=false;
  #state=new CourtClientState(); #onSnapshot; #onClear; #onStatus; #validReply=false;
- constructor({parent,origin,onSnapshot,onClear,onStatus}){
+ #timer=null; #schedule; #cancel; #timeout;
+ constructor({parent,origin,onSnapshot,onClear,onStatus,timeoutMs=20000,schedule=setTimeout,cancel=clearTimeout}){
   if(!parent||typeof parent.postMessage!=='function'||new URL(origin).origin!==origin||!/^https?:/.test(origin)||[onSnapshot,onClear,onStatus].some(x=>typeof x!=='function'))throw new TypeError('Invalid receiver');
   this.#parent=parent;this.#origin=origin;this.#onSnapshot=onSnapshot;this.#onClear=onClear;this.#onStatus=onStatus;
+  if(!Number.isFinite(timeoutMs)||timeoutMs<1||timeoutMs>120000||typeof schedule!=='function'||typeof cancel!=='function')throw new TypeError('Invalid deadline');
+  this.#timeout=timeoutMs;this.#schedule=schedule;this.#cancel=cancel;
  }
  get canAct(){return this.#ready&&!this.#pending&&!!this.#state.snapshot;}
- clear(){this.#channel='';this.#context=null;this.#sequence=0;this.#pending=0;this.#ready=false;this.#state.clear();this.#onClear();}
+ #stopTimer(){if(this.#timer!==null)this.#cancel(this.#timer);this.#timer=null;}
+ clear(){this.#stopTimer();this.#channel='';this.#context=null;this.#sequence=0;this.#pending=0;this.#ready=false;this.#validReply=false;this.#state.clear();this.#onClear();}
  receive(event){
   if(event.source!==this.#parent||event.origin!==this.#origin)return 'wrong-source';
   const m=event.data;if(!m||m.apiVersion!==1)return 'malformed';
@@ -34,7 +38,7 @@ export class CourtUnityReceiver {
    return result;
   }
   if(m.type==='court-v1-result'&&exact(m,[...base,'sequence','status','canAct'])&&statuses.has(m.status)&&typeof m.canAct==='boolean'){
-   this.#pending=0;this.#ready=m.canAct&&this.#validReply;this.#onStatus(m.status,this.canAct);return m.status;
+   this.#stopTimer();this.#pending=0;this.#ready=m.canAct&&this.#validReply;this.#onStatus(m.status,this.canAct);return m.status;
   }
   return 'malformed';
  }
@@ -47,7 +51,16 @@ export class CourtUnityReceiver {
   if(!parseMutation(JSON.stringify({apiVersion:1,requestId:this.#channel,idempotencyKey:this.#channel,...this.#context,expectedStateVersion,actionId,targetId,text})))return 'malformed';
   if(this.#sequence>=Number.MAX_SAFE_INTEGER)return 'rebind-required';
   this.#pending=++this.#sequence;this.#ready=false;this.#validReply=false;
-  this.#parent.postMessage({type:'court-v1-command',apiVersion:1,channel:this.#channel,sequence:this.#sequence,expectedStateVersion,actionId,targetId,text},this.#origin);
+  const sequence=this.#sequence,channel=this.#channel;
+  this.#timer=this.#schedule(()=>{
+   if(this.#channel!==channel||this.#pending!==sequence)return;
+   this.#timer=null;this.#pending=0;this.#ready=false;this.#validReply=false;
+   // Delivery timeout is indeterminate. Never resend an action automatically.
+   // Keep state read-only; the user may ask the shell for its recorded outcome.
+   this.#onStatus('timeout',false);
+  },this.#timeout);
+  try{this.#parent.postMessage({type:'court-v1-command',apiVersion:1,channel:this.#channel,sequence,expectedStateVersion,actionId,targetId,text},this.#origin);}
+  catch{this.#stopTimer();this.#pending=0;this.#onStatus('unavailable',false);return 'unavailable';}
   return 'sent';
  }
 }
