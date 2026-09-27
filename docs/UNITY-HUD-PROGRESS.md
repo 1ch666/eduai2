@@ -1,17 +1,25 @@
-# Unity 公開狀態接線（實作中，未發布成品）
+# Unity 公開狀態接線（實作中）
+
+## 2026-09-27 最新建置證據
+
+官方 Unity 6000.6.2f1 在正常使用者執行環境完成 Release WebGL，exit 0、COURT_SCENE_VALIDATION_PASSED。先前受限環境無法連接 Licensing Client；本次不重新授權、不改安全設定即可編譯。下方 exit 198 僅為歷史紀錄。
+
+play/ 已同步本次新成品及模板：data 15,290,096、wasm 5,848,203、framework 83,191、loader 48,540 bytes；四項合計 21,270,030，另 touch 5,172。較上一版四項增加 21,199 bytes。Gzip 完整性、WASM magic、Unity data header 通過；不代表實測載入更快。
+
+HUD JS 橋接 3 項新測試通過；模板／觸控／面板 13 項通過；前一批通訊／恢復／重播等 58 項通過。Worker dry run 通過。尚未完成本批真實瀏覽器及手機 HUD 驗收；Unity build 不等於完整遊戲通過。部署與 Docker 結果須另記錄，不以本段代表已發布。
 
 ## 實際寫入
 
 - court/snapshot-relay.js：父頁使用 CourtTransport 的 GET 快照路徑，驗證目前帳號／場次／iframe；每個 iframe 握手建立新 channel，換場次拒收舊回覆。render 後同步新版狀態，並行刷新合併。
 - court/unity-hud.js：新模板啟動後才載入，檢查同源父視窗、精確訊息欄位、channel、嚴格快照格式與版本，再送至固定 CourtRuntimeState GameObject；沒有 API 呼叫或動態函數名稱。
 - CourtRuntimeState.cs：使用 CourtClientState + CourtWire，呈現案件標題、階段、可用動作數、同步失敗提示。字型沿用場景現有字型，不增加素材。UI 不攔截既有操作；不本機判分或推進階段。
-- 新模板與 court.js 已接線，但 play/ 仍是上一份成品，未手動讓舊二進位呼叫不存在的方法。
+- 新模板與 court.js 已接線，play/ 現已同步含 CourtRuntimeState 的新成品。
 
 ## 邊界與剩餘工作
 
 這是雲端 Unity 的唯讀狀態接線，不是整個遷移完成：NPC、動態按鈕、證物視覺與座位 mapping 尚需透過統一 store/presenter 接管。舊遊客平板原型仍存在，不能宣稱已完全移除 client 權威。
 
-新 WebGL 尚未建置／部署，未更新 Docker。整批完成後再執行使用者指定的集中驗收，包含重新載入、斷線、過期回覆、換帳號、手機 HUD 排版及原鍵鼠／觸控功能保留。
+新 WebGL 已建置，部署／Docker 結果另記。使用者已改為邊開發邊測試；持續驗收重新載入、斷線、過期回覆、換帳號、手機 HUD 排版及原鍵鼠／觸控功能保留。
 
 本批不修改後端、Secrets、資料庫或權限。
 

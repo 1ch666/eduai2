@@ -1,4 +1,7 @@
-【2026-09-27 重構實作批次，未發布成品】
+【2026-09-27 HUD 成品建置完成，發布另記】
+官方 Unity 6000.6.2f1 正常使用者環境 Release WebGL exit 0、場景驗證通過；不需重新授權。play/ 已同步。四項下載 21,270,030 bytes（另 touch 5,172），較前版增加 21,199 bytes；詳見 docs/UNITY-HUD-PROGRESS.md。新增 HUD 橋接3項與模板／觸控／面板13項測試通過；真實瀏覽器／手機與 Docker 尚待本批驗證。使用者最新要求改為邊開發邊測試並推送。
+
+【歷史：2026-09-27 重構實作批次，當時未發布成品】
 已新增 Core/CourtRuntimeState.cs 與新 WebGL 模板握手，從 court/snapshot-relay.js 接收經驗證的 v1 公開快照，使用 CourtClientState 管理並顯示狀態 HUD。詳見 docs/UNITY-HUD-PROGRESS.md。
 play/ 仍為下方既有成品；沒有新 WebGL 或 Docker，不能稱已上線。使用者要求先實作完再集中驗收，目前僅必要語法／編譯檢查，完整手機／瀏覽器驗收未完成。最新授權允許代理部署既有 Cloudflare，不再要求一律使用者手動部署，但不得更動付費方案、Secrets 或成員權限。
 
