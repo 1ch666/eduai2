@@ -35,6 +35,11 @@
 .learning-page #question-text { font-size: clamp(20px, 2.5vw, 26px); line-height: 1.65; max-width: 44em; }
 .learning-page #choices { display: grid; gap: 12px; margin-top: 28px; }
 .learning-page #choices button { justify-content: start; text-align: left; min-height: 62px; padding: 16px 20px; font-size: 16px; }
+.learning-page #choices button[aria-pressed="true"] { border: 2px solid #3d4e57; background: #e4e9e5; }
+.learning-page #choices button:disabled { opacity: 1; cursor: default; }
+.learning-page #choices button.answer-correct { background: #244d3b; color: #fff; border: 2px solid #244d3b; }
+.learning-page #choices button.answer-wrong { background: #773c32; color: #fff; border: 2px solid #773c32; }
+.learning-page #confirm-answer { margin-top: 20px; }
 .learning-page #result-verdict { padding: 16px 20px; font-size: 20px; font-weight: 700; }
 .learning-page #result-verdict.correct { background: #244d3b; color: #fff; }
 .learning-page #result-verdict.wrong { background: #773c32; color: #fff; }

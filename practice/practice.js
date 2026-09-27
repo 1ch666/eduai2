@@ -4,6 +4,7 @@ const onPages=location.hostname.endsWith('github.io');
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const base=onPages?WORKER:'';
 let account=null,csrf='',busy=false,currentToken=null;
+let selectedAnswer=null,currentQuestion=null,submitted=false,resultAvailable=false;
 const subjectLabels={law:'法律',civics:'公民',economics:'經濟'};
 const statusLabels={insufficient:'資料不足',reinforce:'優先補強',review:'複習',consolidate:'鞏固'};
 
@@ -17,7 +18,20 @@ async function api(path,body){
   if(!r.ok)throw Error(p.error||'服務暫時無法使用');
   return p;
 }
-async function run(fn){if(busy)return;busy=true;try{await fn();}catch(e){status(e.message);}finally{busy=false;}}
+async function run(fn){
+  if(busy)return;
+  busy=true;
+  $('practice-area').setAttribute('aria-busy','true');
+  syncConfirm();
+  try{await fn();}catch(e){status(e.message);}finally{
+    busy=false;
+    $('practice-area').setAttribute('aria-busy','false');
+    syncConfirm();
+  }
+}
+function syncConfirm(){
+  $('confirm-answer').disabled=busy||submitted||selectedAnswer===null||!currentToken;
+}
 
 async function loadSession(){
   const p=await window.EduAuth.session();
@@ -40,6 +54,7 @@ async function fetchQuestion(concept=null){
 }
 
 function showQuestion(q){
+  currentQuestion=q;selectedAnswer=null;submitted=false;resultAvailable=false;
   $('question-section').hidden=false;
   $('result-section').hidden=true;
   $('weakness-section').hidden=true;
@@ -48,22 +63,54 @@ function showQuestion(q){
   $('choices').replaceChildren(...q.answers.map((a,i)=>{
     const b=document.createElement('button');
     b.type='button';b.textContent=`${i+1}. ${a}`;
-    b.addEventListener('click',()=>run(()=>submitAnswer(i)));
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',()=>{
+      if(busy||submitted)return;
+      selectedAnswer=i;
+      [...$('choices').children].forEach((choice,index)=>choice.setAttribute('aria-pressed',String(index===i)));
+      syncConfirm();
+    });
     return b;
   }));
   status('');
+  $('confirm-answer').hidden=false;
+  $('answer-help').textContent='先選擇一個答案，再按確認。送出前可以更改。';
+  syncConfirm();
+  $('question-text').focus();
 }
 
 async function submitAnswer(answer){
-  if(!currentToken)return;
-  const p=await api('/api/practice/answer',{questionToken:currentToken,answer});
+  if(!currentToken||submitted||!Number.isInteger(answer))return;
+  // The existing endpoint consumes a one-use token. Never automatically retry
+  // a mutation with an unknown outcome after a lost response.
+  submitted=true;
+  [...$('choices').children].forEach(choice=>{choice.disabled=true;});
+  $('answer-help').textContent='正在確認答案…';
+  let p;
+  try{
+    p=await api('/api/practice/answer',{questionToken:currentToken,answer});
+  }catch(e){
+    currentToken=null;
+    $('confirm-answer').hidden=true;
+    $('answer-help').textContent='未能確認判分結果，這次答案可能已記錄。為避免重複送出，請按「開始答題」取得另一題，或查看「我的弱點」。';
+    throw e;
+  }
   currentToken=null;
-  $('question-section').hidden=true;
+  $('confirm-answer').hidden=true;
+  $('answer-help').textContent='已送出。下方保留你的選擇與伺服器提供的正確答案。';
+  [...$('choices').children].forEach((choice,index)=>{
+    const correct=index===p.correctIndex;
+    const chosen=index===answer;
+    choice.className=correct?'answer-correct':chosen?'answer-wrong':'';
+    choice.textContent=`${index+1}. ${currentQuestion.answers[index]}${correct?' — ✓ 正確答案':''}${chosen?'（你的選擇）':''}`;
+  });
   $('result-section').hidden=false;
+  resultAvailable=true;
   $('result-verdict').textContent=p.correct?'✓ 正確！':'✗ 答錯了（正解為選項 '+(p.correctIndex+1)+'）';
   $('result-verdict').className=p.correct?'correct':'wrong';
   $('result-explanation').textContent='解析：'+p.explanation;
   $('result-source').textContent='來源：'+p.source;
+  $('result-verdict').focus();
   if(!p.correct&&p.weakness&&p.weakness.status==='reinforce'){
     await loadReinforceGuide(p.weakness.concept);
   } else {
@@ -137,7 +184,14 @@ async function loadWeakness(){
 $('get-question').onclick=()=>run(()=>fetchQuestion());
 $('next-question').onclick=()=>run(()=>fetchQuestion());
 $('show-weakness').onclick=()=>run(loadWeakness);
-$('close-weakness').onclick=()=>{$('weakness-section').hidden=true;};
+$('close-weakness').onclick=()=>{
+  $('weakness-section').hidden=true;
+  if(currentQuestion){
+    $('question-section').hidden=false;
+    $('result-section').hidden=!resultAvailable;
+  }
+};
+$('confirm-answer').onclick=()=>run(()=>submitAnswer(selectedAnswer));
 $('account-toggle').onclick=()=>{$('account').hidden=!$('account').hidden;};
 
 await run(loadSession);

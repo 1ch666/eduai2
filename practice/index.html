@@ -22,12 +22,14 @@
 
   <section id="question-section" hidden>
     <p id="question-meta"></p>
-    <p id="question-text"></p>
-    <div id="choices"></div>
+    <p id="question-text" tabindex="-1"></p>
+    <p id="answer-help">先選擇一個答案，再按確認。送出前可以更改。</p>
+    <div id="choices" role="group" aria-labelledby="question-text" aria-describedby="answer-help"></div>
+    <button id="confirm-answer" class="action-primary" type="button" disabled>確認答案</button>
   </section>
 
   <section id="result-section" hidden>
-    <p id="result-verdict"></p>
+    <p id="result-verdict" tabindex="-1"></p>
     <p id="result-explanation"></p>
     <p id="result-source"></p>
     <div id="reinforce-guide" hidden>
