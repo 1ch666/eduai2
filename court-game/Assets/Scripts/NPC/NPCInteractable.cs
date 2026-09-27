@@ -19,6 +19,19 @@ namespace EduAI.Court
         {
             if (!CourtPresentation.IsHosted) return;
             bool visible = synchronized && projection != null && projection.npcId == name && projection.visible;
+            Core.CourtSeatLayout.Seat seat = null;
+            // Unsupported spatial mappings fail closed; never guess a role
+            // from the scene object's legacy name or move to world origin.
+            if (visible) visible = Core.CourtSeatLayout.Ensure().TryResolve(projection.seatId, projection.roleId, out seat);
+            if (visible && (Vector3.Distance(transform.position, seat.AnimationAnchor.position) > .001f ||
+                Quaternion.Angle(transform.rotation, seat.AnimationAnchor.rotation) > .01f))
+            {
+                // Closeups retain camera state relative to the player. Finish
+                // that interaction before moving the target to another seat.
+                FindFirstObjectByType<NpcDialogueUI>()?.CloseFor(this);
+                transform.SetPositionAndRotation(seat.AnimationAnchor.position, seat.AnimationAnchor.rotation);
+                Physics.SyncTransforms();
+            }
             publicInteractionAllowed = visible && projection.interactable && projection.requestState != "pending";
             publicDisplayName = visible ? projection.displayName : null;
             if (publicRenderers == null)

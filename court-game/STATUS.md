@@ -1,3 +1,6 @@
+【2026-09-27 NPC 座位映射：原始碼／Play 通過，成品建置中】
+新增 CourtSeatLayout 七個公開 seatId 與五種空間錨點，NPC 依伺服器 roleId/seatId 移位，未知或不相容映射停止互動；不改 guest 操作。Unity 6000.6.2f1 真實編譯、Scene／Play exit 0，新測試涵蓋換位關閉特寫及非法映射。Release WebGL 隔離建置中（outputs/npc-seat-map-build.log），尚未替換 play 或正式部署；完整玩家座位鏡頭、動畫、所有程序席位仍未完成，詳見 docs/UNITY-SEAT-MAPPING.md。
+
 【2026-09-27 NPC 公開投影：正式發布與 Docker 更新】
 本批最終來源 b795d7b，Worker fb5f45a5-c47b-44b9-b0d4-b9f9de590772 已上線，Pages 36326307030、Docker 36326330321 均 success。補正初次同步漏更新 loader，完整四檔與 Unity 輸出逐位元組一致；新增 check-build 的 wasmFileSize 配對檢查，錯配確實失敗、修正後通過。正式遊戲仍需手機／全角色／真實 AI 驗收，不能稱完整重構完成；詳細雜湊與驗證界線見 docs/UNITY-NPC-PROJECTION.md。
 

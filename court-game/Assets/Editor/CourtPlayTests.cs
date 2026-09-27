@@ -134,6 +134,12 @@ namespace EduAI.Court.Editor
             var snapshot = Networking.CourtWire.Snapshot(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(witness.CanInteract && witness.DisplayName == "證人", "Public NPC projection enables matching actor");
+            var layout = Core.CourtSeatLayout.Active;
+            Require(layout && layout.TryResolve("witness-seat", "witness", out _), "Public seat resolves by explicit server role and seat");
+            Require(!layout.TryResolve("judge-seat", "witness", out _) && !layout.TryResolve("unknown-seat", "witness", out _), "No guessed or unsupported seat mapping");
+            layout.TryResolve("witness-seat", "witness", out var witnessSeat);
+            Require(witnessSeat.CameraAnchor && witnessSeat.StandAnchor && witnessSeat.InteractionAnchor && witnessSeat.AccessibilityAnchor && witnessSeat.AnimationAnchor, "Every mapped seat has five spatial anchors");
+            Require(Vector3.Distance(witness.transform.position, witnessSeat.AnimationAnchor.position) < .001f, "Actor uses server-selected seat position");
             Require(!GameObject.Find("Judge").GetComponent<NPCInteractable>().CanInteract, "Unlisted NPC stays disabled");
             dialogue.Open(witness); Require(NpcDialogueUI.IsOpen, "Visible NPC can open dialogue");
             snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
@@ -152,6 +158,16 @@ namespace EduAI.Court.Editor
             Require(rendered, "Model renderers restored after temporary hiding");
             runtime.MarkUnavailable(); Require(!witness.CanInteract, "Unavailable sync blocks NPC");
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot)); Require(witness.CanInteract, "Same validated snapshot restores availability");
+            dialogue.Open(witness);
+            snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
+            snapshot.state.npcs[0].seatId = "counsel-seat"; snapshot.state.npcs[0].roleId = "counsel";
+            runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
+            Require(witness.CanInteract && !NpcDialogueUI.IsOpen && witness.transform.position.x == -3, "Changed public role mapping moves actor and safely closes old closeup");
+            var mappedPosition = witness.transform.position;
+            snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
+            snapshot.state.npcs[0].seatId = "unknown-seat";
+            runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
+            Require(!witness.CanInteract && witness.transform.position == mappedPosition, "Unknown seat disables actor without relocating to origin");
             runtime.ClearState(); Require(!witness.CanInteract, "Clearing session disables old actor");
         }
         private static void Teleport(CharacterController controller, Vector3 position)
