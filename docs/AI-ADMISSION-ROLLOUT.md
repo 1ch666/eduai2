@@ -1,6 +1,16 @@
 # AI admission: staged rollout and recovery
 
-## Stage dialogue adoption (2026-09-28, candidate until deployment recorded)
+## Stage dialogue adoption (2026-09-28)
+
+Released runtime source `208925aab162a5580d2b61b199a49bcc42a2d382` (handler
+adoption ac97a84 plus timer fix), CI **36346556730** passed checks/local-api.
+Wrangler 4.136.3 dry run and actual `deploy --keep-vars --strict` succeeded;
+Worker version **f2ee1d91-51fd-4cd7-97c1-517dccd6a725** at the existing
+`https://civic-law-lab-212.yichengc869.workers.dev`. No static assets changed.
+Post-deploy read-only probes: capabilities 200, court/cases 200, anonymous
+court/sessions 401, each with X-Request-Id. These probes do not execute an
+authenticated inference or prove complete cost governance. Previous runtime
+e37d0a79-a856-4378-a40c-bb1ac466e2d4 lacks this control; heed rollback below.
 
 The first production handler wired to governed inference is
 `CourtRoom.stageDialogue`. Existing `court_dialogue_attempts.created` is persisted

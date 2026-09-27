@@ -114,6 +114,12 @@ hashes. All other inference endpoints still require adoption. Full fast checks
 and Wrangler 4.136.3 dry run passed locally; deployment/CI evidence is tracked in
 AI-ADMISSION-ROLLOUT.md. Do not infer all-platform cost control from this stage.
 
+Released stage admission: source 208925a, CI 36346556730 checks/local-api passed,
+Worker f2ee1d91-51fd-4cd7-97c1-517dccd6a725. Additive v9 deploy succeeded, no
+updated static assets. Public capabilities/cases200 and anonymous sessions401
+probes passed with request IDs. Other inference paths, live authenticated
+admission verification and the broader remaining production gates remain open.
+
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
    order with bounded deterministic checks, then integrate before commit without
