@@ -43,9 +43,51 @@ additions/reordering, replacement/deletion/duplicates, malformed baseline inputs
 missing Git objects and a real disposable Git repository with a multi-commit change.
 The repository is synthetic, local and removed after the test; no live data used.
 
-Content file hashing, artifact custody, verification that referenced source commits
-and artifacts exist, experiment-run persistence/export/restore, and actual research
+Artifact custody, experiment-run persistence/export/restore, and actual research
 registrations remain unfinished. No inference, new paid service, Worker endpoint,
 production data access or UI/Unity changes are part of this increment.
+
+## Offline artifact verification
+
+Add a sidecar matching `contracts/experiment-artifacts-v1.schema.json`. It binds
+the existing runId to a result file, retrieval configuration file and exactly the
+non-null version references used by that run. The v1 run/registry shapes are unchanged.
+Paths are relative to an explicitly selected artifact directory; no URLs, absolute
+paths, traversal, device names, symlinks or junctions. Artifacts are read as data,
+never executed or downloaded. No key or credential is needed.
+
+Command (five explicit positional arguments):
+
+```text
+node scripts/verify-experiment-artifacts.mjs run.json registry.json artifacts.json ARTIFACT_DIRECTORY SOURCE_REPOSITORY
+```
+
+The source repository is operator-selected, not taken from the manifest. The tool
+checks the exact 40-character source commit exists locally; it does not fetch missing
+history. It verifies every referenced registry digest plus resultSha256 and the raw
+retrieval configuration digest. The configuration must be JSON containing matching
+strategy/topK; extra actual configuration parameters are covered by that digest.
+Registry content hashes are SHA-256 over exact file bytes, not parsed/reformatted JSON.
+For hosted models, an artifact can be a pinned model specification; matching that
+file does not prove a vendor served immutable weights.
+
+Limits: 1 MiB per metadata/configuration JSON and 64 MiB per other artifact,
+at most seven version files plus result and configuration. Larger research corpora
+need a separate reviewed manifest/chunked verification format; do not silently omit
+or truncate them. Normal read errors, malformed metadata, missing commits and hash
+mismatches return a fixed failure code, not raw file contents or Git stderr.
+
+Use a trusted, quiescent artifact directory. Path checks and before/after file
+metadata detect common replacements, but this is not a sandbox against a malicious
+local process racing filesystem operations. Metadata is a parsed offline document,
+not an arbitrary untrusted JavaScript object. Verification is read-only and does not
+freeze files afterward; custody and immutable storage are separate responsibilities.
+
+Tests: `node --test scripts/test-experiment-artifacts.mjs` creates local synthetic
+files and a real Git commit, verifies hashes, rejects substitutions/missing artifacts,
+wrong run references, traversal and symlink/junction paths, and checks configuration
+consistency/size bounds. These tests are automatically included by fast CI.
+This proves artifact integrity and commit existence, not actual execution, a clean
+historical working tree, result quality, semantic correctness or full reproducibility.
 
 CI context reference: https://docs.github.com/en/actions/reference/workflows-and-actions/contexts

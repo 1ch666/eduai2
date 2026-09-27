@@ -32,8 +32,8 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 19 CI | fast-checks two jobs, actual API harness; separate game Docker | Lint/format and migration gates, backend restore/container checks; heavy evaluation separate; update pinned action runtimes deliberately |
 | 20 features | Existing practice/planner/groups/rankings/progress/auth/court preserved | Real DO tests for remaining features; no content expansion required here |
 | 21 analytics | Existing learning features are not a general anonymous event layer | Versioned anonymous event contract, bounded retention and all specified event kinds with privacy tests |
-| 22 reproduction | experiment-run schema/relationship validator | Real artifacts/commit verification, run persistence/export/restore; no fabricated research values |
-| 23 registry | v1 schema plus append-only identity validator and Git-baseline CI check; real registry intentionally empty | CI execution evidence for new gate, content artifact verification and real values supplied by research owner; see RESEARCH-REGISTRY.md |
+| 22 reproduction | experiment-run schema/relationship validator plus offline bounded artifact hashing and exact local Git commit existence checks | Actual execution provenance, artifact custody and run persistence/export/restore; no fabricated research values |
+| 23 registry | v1 schema plus append-only identity validator and Git-baseline CI check; CI 36355000990 passed; real registry intentionally empty | Real values supplied by research owner and protected artifact custody; see RESEARCH-REGISTRY.md |
 | 24 security gate | Partial evidence across sections 8–10 | Every required security boundary tested; semantic leakage remains separate Claude evidence |
 | 25 production gate | Existing deployment, basic probes, CI and trace logs | Restore, governance, degraded modes and incident drill; HTTP 200 is not AI health |
 | 26 engineering gate | Typed modules, journal, race and schema tests | Complete migration/restore/contracts/architecture evidence across whole scope |

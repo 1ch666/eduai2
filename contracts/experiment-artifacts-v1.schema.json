@@ -1,0 +1,21 @@
+{
+  "$schema":"http://json-schema.org/draft-07/schema#",
+  "$id":"urn:eduai:experiment:artifacts:v1",
+  "type":"object","additionalProperties":false,
+  "required":["schemaVersion","runId","result","retrievalConfig","versions"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "runId":{"type":"string","pattern":"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "result":{"$ref":"#/definitions/path"},
+    "retrievalConfig":{"$ref":"#/definitions/path"},
+    "versions":{"type":"array","minItems":2,"maxItems":7,"items":{
+      "type":"object","additionalProperties":false,"required":["kind","version","path"],
+      "properties":{
+        "kind":{"enum":["dataset","model","prompt","embedding","retrieval","reranker","benchmark"]},
+        "version":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$"},
+        "path":{"$ref":"#/definitions/path"}
+      }
+    }}
+  },
+  "definitions":{"path":{"type":"string","minLength":1,"maxLength":240,"pattern":"^[A-Za-z0-9_-][A-Za-z0-9_./-]*$"}}
+}
