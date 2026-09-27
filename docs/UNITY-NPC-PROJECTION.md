@@ -20,6 +20,14 @@
 
 ## 建置與待完成
 
-Release WebGL 已在同一隔離副本開始建置，日誌 `outputs/npc-public-projection-build.log`；目前尚未確認成功、未替換 `play/`、未部署、未重建本批 Docker。必須先取得 exit 0、核對成品、實際瀏覽器驗證再發布。
+Release WebGL 已在同一隔離副本成功建置，日誌 `outputs/npc-public-projection-build.log` 顯示 PlayerBuildInfo success=true、批次 return code 0。成品已同步 `play/Build/`；本批尚未確認正式 Worker／Pages 發布，Docker 也尚未重建，勿沿用前批發布紀錄宣稱完成。
+
+實際 `check-build.mjs` 通過 Gzip 解壓、Unity data header 與 WASM magic 檢查。下載 bytes：data 15,289,841、wasm 5,848,923、framework 83,191、loader 48,540；四項合計 21,270,495，另 touch 5,172，總計 21,275,667。比前一版同口徑 21,274,242 增加 1,425 bytes。這不是首載時間測量，不能宣稱加速。
+
+SHA-256：data `6ac65e1429568112525140510d965322f037a497aa80d0531c2dfb9623f8eb42`；wasm `23246adca56ed71f8db23e69f206c4cd45bfd2717c9fc0d03739619db61996ca`。模板 index.html 與上一版雜湊一致。
+
+本機真實瀏覽器（Codex 內嵌 Chromium，127.0.0.1:8792）恢復既有民事法官測試場次：自動初始化到 100%、開始遊戲、座位切走動、Pointer Lock fallback、W 前進、E 開啟原告 NPC、恢復上次對話、中文輸入及送出均實測。玩家法官未重複顯示 NPC；原告標題使用伺服器公開名稱。請求走 v1 actions，workerd 記錄一次 POST 200，場次由版本 3 變 4，對話保持開啟並重新可輸入。測試明確關閉 AI，上畫面顯示 AI_DISABLED／未新增角色證詞，不代表真實模型成功。截圖保存於工作區外層 `outputs/npc-public-projection-webgl.png`。
+
+同批重跑模板、觸控、法庭面板、protocol、transport、NPC action、pending recovery 及 recovery UI 共 48 項 Node 測試，48/48 通過。瀏覽器驗證未涵蓋實際網路中斷時角色隱藏／恢復、所有角色、手機或 Chrome／Edge 獨立瀏覽器。
 
 這不是完整 NPC presenter 完成：seatId 的實體座位綁定、姿態／情緒動畫、speakingState 表現、完整角色私有資料隔離仍待後續。只支援現有場景的固定 NPC ID，未知伺服器角色不會自動生成模型；不得用這批顯示閘門代替伺服器資訊隔離。手機真機、WebGL 斷線時角色隱藏／恢復、全角色流程仍未驗收。
