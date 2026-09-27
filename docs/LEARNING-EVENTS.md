@@ -47,8 +47,8 @@ clock is rejected; state is not silently reset. A null event is an explicit prun
 tick. Invalid incoming events can still return a pruned state; the host must persist
 that maintenance atomically, while reporting the rejection.
 
-Current retention is a PURE REDUCER POLICY, not a deployed deletion scheduler.
-Before collecting: integrate the transactional adapter, expiry alarms even when
+Current retention has a transactional alarm scheduler, but no deployed collector.
+Before collecting: integrate a dedicated DO host, expiry alarms even when
 idle, opt-out/withdrawal erasure, bounded export, access controls, and backup/log
 retention. Disabling the reducer does not erase existing persisted data; there is
 currently no production store. Never advertise guaranteed expiry until the host and
@@ -109,3 +109,36 @@ erasure and schema/scope isolation. These are not workerd/alarm/production tests
 No production constructor imports this adapter; no tables were created in production.
 Future integration requires an additive migration and rollback plan that preserves
 withdrawal guards. Never install this into a shared database with unrelated scopes.
+
+## Transactional alarm scheduler (not deployed)
+
+`src/learning-event-scheduler.ts` wraps the existing store in an asynchronous
+SQLite storage transaction. SQL changes and setAlarm/deleteAlarm commit together;
+failure rolls back both. Earliest retained event determines the next wakeup.
+Default-off requests still maintain an existing expiry alarm. Alarm handling prunes
+without needing a new user request, is idempotent, and propagates storage failures.
+Withdrawal cancels the alarm atomically with erasure and the durable tombstone.
+Explicit initialization repairs scheduling and prunes overdue rows after recovery.
+There is no per-request blockConcurrencyWhile or external I/O in the transaction.
+
+This is an internal scheduler, not a new production DO binding or public endpoint.
+The enclosing DO must implement alarm(), supply trusted scope/catalog/time, own
+its single alarm exclusively, and arrange authenticated consent. Do not schedule
+from its constructor ahead of an already pending alarm. Never mount it in a
+shared production CourtRoom; only the local test subclass uses CourtRoom to reuse
+the isolated fixture. No production exports or configuration changed.
+
+2026-09-28 local evidence: 10 focused tests, TypeScript, full fast gate (358 tests),
+and `check-admission-runtime.mjs` against local workerd passed. Node SQLite covers
+restart, earliest expiry, duplicate ticks, failed append/prune/withdrawal scheduling
+and late requests. Actual workerd confirms SQL+alarm rollback after an injected
+failure, explicit-clock expiry and withdrawal. This drill calls expiry directly:
+it does NOT prove wall-clock alarm delivery, automatic retry or eviction wakeup.
+Those, durable catalog bootstrapping, operational monitoring after exhausted
+retries, consent/producer integration and production verification remain required.
+
+Platform references checked before implementation:
+https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/
+https://developers.cloudflare.com/durable-objects/api/alarms/
+Finite platform retries do not guarantee deletion during an indefinite outage;
+do not promise exact-time erasure or backup removal from these tests.

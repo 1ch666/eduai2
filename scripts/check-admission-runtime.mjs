@@ -9,6 +9,9 @@ async function call(op,request,targetRoom=room){
  assert.equal(r.status,200);return r.json();
 }
 const results=await Promise.all(Array.from({length:8},()=>call('admit',identity('one'))));
+assert.deepEqual(await call('learning-expiry-drill',identity('unused'),crypto.randomUUID()),
+ {accepted:'ACCEPTED',scheduled:true,rolledBack:true,expired:true,withdrawn:'WITHDRAWN',alarmCleared:true});
+console.log('Local workerd learning expiry passed: SQL/alarm atomic rollback, retention and withdrawal. Timer delivery is not exercised by this explicit-clock drill.');
 assert.deepEqual(await call('private-journal-drill',identity('unused'),crypto.randomUUID()),{matches:true,rolledBack:true,after:[0,0,0,0]});
 console.log('Local workerd private journal passed: reconstruction, persisted delete trigger and rollback atomicity.');
 const status=await call('inspect',identity('not-used'));
