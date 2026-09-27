@@ -1,12 +1,22 @@
 // LOCAL TEST HARNESS ONLY. Never deploy this unauthenticated test dispatcher.
 export {AIAdmission} from '../../src/providers/admission-coordinator';
-export {Learner} from '../../src/court';
-import type {Learner} from '../../src/court';
+export {Learner,CourtRoom} from '../../src/court';
+import type {Learner,CourtRoom} from '../../src/court';
 import type {AIAdmission} from '../../src/providers/admission-coordinator';
 import {createAdmittedProvider} from '../../src/providers/admitted';
-export default {async fetch(request:Request,env:{ADMISSION:DurableObjectNamespace<AIAdmission>;LEARNER:DurableObjectNamespace<Learner>}){
+export default {async fetch(request:Request,env:{ADMISSION:DurableObjectNamespace<AIAdmission>;LEARNER:DurableObjectNamespace<Learner>;COURT:DurableObjectNamespace<CourtRoom>}){
   if(request.method==='GET')return Response.json({fixture:'admission-local-only'});
   const body=await request.json() as {room:string;op:string;request:Parameters<AIAdmission['admit']>[0]};
+  if(body.op==='stage-cycle'){
+    const court=env.COURT.getByName(body.room);
+    await court.init(body.room,'fixture-owner',{caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,
+      respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'});
+    const before=await court.get('fixture-owner');
+    const replies=await Promise.all(Array.from({length:8},()=>court.stageDialogue('fixture-owner',0,false)));
+    const denied=await court.stageDialogue('not-owner',0,false);
+    const after=await court.get('fixture-owner');
+    return Response.json({replies,denied,stateUnchanged:JSON.stringify(before)===JSON.stringify(after)});
+  }
   const room=env.ADMISSION.getByName(body.room);
   if(body.op==='inspect')return Response.json(await room.inspect());
   if(body.op==='study-reserve')return Response.json(await env.LEARNER.getByName(body.room)

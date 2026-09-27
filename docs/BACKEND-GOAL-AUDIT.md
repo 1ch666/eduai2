@@ -48,7 +48,9 @@ Released 78cd1e2 adds response-level FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/
 NO_AI schema and actual tutor/photo/legacy NPC source mapping. RAG_ONLY is reserved,
 not emitted by dictionary lookup. Stage/generation/v1 projections and health
 freshness remain incomplete. See AI-OUTCOME.md for compatibility and rollback;
-deployment evidence is separate from local tests.
+deployment evidence is separate from local tests. Stage outcome persistence now
+has a candidate integration with old-row compatibility and expiry/restart races;
+case-generation provenance, v1 public projection and health freshness remain open.
 
 `d529d07` adds explicit-time initialization/reduction with legacy clock adapters;
 reachability no longer reads wall time, and seeded invariant tests compare full

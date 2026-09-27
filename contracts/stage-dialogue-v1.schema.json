@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:eduai:stage-dialogue:v1",
+  "title": "Saved legacy stage dialogue; outcome absent only for historical rows",
+  "type": "object", "additionalProperties": false,
+  "required": ["text", "mode", "speaker", "version"],
+  "properties": {
+    "text": {"type": "string", "minLength": 1, "maxLength": 12000},
+    "mode": {"enum": ["scripted", "ai-dialogue"]},
+    "speaker": {"type": "string", "minLength": 1, "maxLength": 80},
+    "version": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "aiOutcome": {"type":"object", "$ref": "urn:eduai:ai-outcome:v1", "properties": {"feature": {"const": "stage-dialogue"}}}
+  },
+  "allOf": [
+    {"if": {"properties": {"mode": {"const": "scripted"}}},
+     "then": {"properties": {"aiOutcome": {"type":"object", "properties": {"mode": {"const": "SCRIPTED_AI_FALLBACK"}}}}},
+     "else": {"properties": {"aiOutcome": {"type":"object", "properties": {"mode": {"const": "FULL"}}}}}}
+  ]
+}

@@ -17,6 +17,7 @@ const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_A
 }}};
 const gate=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const stageResponse=()=>Response.json({message:{content:JSON.stringify({text:'測試公開程序台詞'})}});
+const stageFallback=room=>({...room.get('owner').view.turn,aiOutcome:{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false}});
 test('stage dialogue concurrent tabs and lost response share one durable provider attempt',async()=>{
  const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;const entered=gate();
  globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;entered.resolve();});};
@@ -29,7 +30,8 @@ test('stage dialogue concurrent tabs and lost response share one durable provide
   const restarted=new CourtRoom(ctx,stageEnv);
   assert.equal((await restarted.stageDialogue('owner',0,true)).status,409);
   release(stageResponse());const result=await first;
-  assert.equal(result.cached.mode,'ai-dialogue');
+  assert.equal(result.cached.mode,'ai-dialogue');assert.equal(result.cached.aiOutcome.mode,'FULL');
+  assert.equal(result.cached.aiOutcome.feature,'stage-dialogue');
   assert.deepEqual(await restarted.stageDialogue('owner',0,true),result);
   assert.equal(calls,1);assert.equal(db.prepare('SELECT count(*) AS n FROM court_dialogue_attempts').get().n,1);
   assert.equal(db.prepare('SELECT body FROM state').get().body,before);
@@ -40,7 +42,7 @@ test('stage dialogue expired reservation seals fallback across restart and fence
  const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;const entered=gate();
  globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;entered.resolve();});};
  try{
-  const fallback=room.get('owner').view.turn;
+  const fallback=stageFallback(room);
   const first=room.stageDialogue('owner',0,true);
   await entered.promise;
   db.prepare('UPDATE court_dialogue_attempts SET created=?').run(Date.now()-21000);
@@ -56,7 +58,7 @@ test('stage dialogue late provider without recovery cannot win after its deadlin
  const start=clock();let release;Date.now=()=>start;const entered=gate();
  globalThis.fetch=()=>new Promise(resolve=>{release=resolve;entered.resolve();});
  try{
-  const fallback=room.get('owner').view.turn,first=room.stageDialogue('owner',0,true);
+  const fallback=stageFallback(room),first=room.stageDialogue('owner',0,true);
   await entered.promise;
   Date.now=()=>start+21000;release(stageResponse());assert.deepEqual(await first,{cached:fallback});
  }finally{Date.now=clock;globalThis.fetch=original;db.close();}
@@ -91,7 +93,7 @@ test('stage dialogue disabled, no key, admission denied and provider failure cac
   const {room,db}=setup(config,env);const original=globalThis.fetch;let calls=0;
   globalThis.fetch=async()=>{calls++;return new Response('quota',{status:429});};
   try{
-   const expected={cached:room.get('owner').view.turn};
+   const expected={cached:stageFallback(room)};
    assert.deepEqual(await room.stageDialogue('owner',0,allowed),expected);
    assert.deepEqual(await room.stageDialogue('owner',0,allowed),expected);
    assert.equal(calls,expectedCalls);assert.equal(db.prepare('SELECT count(*) AS n FROM court_dialogue_attempts').get().n,expectedCalls);
@@ -122,7 +124,7 @@ test('stage admission failure cannot bypass to raw provider; fallback remains du
   const {room,db,ctx}=setup(config,env),original=globalThis.fetch;let calls=0;
   globalThis.fetch=async()=>{calls++;throw Error('must not call provider');};
   try{
-   const expected={cached:room.get('owner').view.turn};
+   const expected={cached:stageFallback(room)};
    assert.deepEqual(await room.stageDialogue('owner',0,true),expected);
    assert.deepEqual(await new CourtRoom(ctx,env).stageDialogue('owner',0,true),expected);
    assert.equal(calls,0);assert.equal(admits,behavior==='missing'?0:1);

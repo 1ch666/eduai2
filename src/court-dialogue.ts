@@ -1,5 +1,15 @@
 import {ROLE_DESCRIPTIONS} from './court-rules';
 import type {LLMProvider} from './providers/contracts';
+import type {AiOutcome} from './ai-outcome';
+
+// Historical persisted turns may lack outcome metadata; do not rewrite them.
+export interface SavedStageDialogue {
+  text:string;
+  mode:string;
+  speaker:string;
+  version:number;
+  aiOutcome?:AiOutcome;
+}
 
 // Public projection only. No state/owner/storage capability is passed to a model.
 export interface StageDialogueInput {

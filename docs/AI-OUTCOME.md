@@ -31,8 +31,14 @@ and registry versions through its own contract before using the retrieval source
   SCRIPTED_AI_FALLBACK; exact dictionary NO_AI/dictionary. New legacy NPC replies
   persist the field with their existing JSON result. Existing records may lack it;
   absence means unknown historical metadata, never infer a new successful call.
+- Stage dialogue now saves aiOutcome together with the turn in the existing
+  dialogue JSON row. Late model results cannot replace already sealed scripted
+  outcomes; version/deletion fences still apply. Historical rows are returned
+  byte-for-byte in their original JSON shape, without invented outcome metadata.
+  `contracts/stage-dialogue-v1.schema.json` permits historical absence and checks
+  consistency of mode, source and feature when metadata is present.
 - NPC v1 snapshot/event projection still uses its existing mode DTO and does not
-  yet expose this field. Stage dialogue and case generation also remain to adopt
+  yet expose this field. Case generation also remains to adopt
   the contract. Do not claim full platform coverage.
 - Capability/status GETs retain **account admission eligibility**, not outcome.
   READY can coexist with failed inference; there is no synthetic health probe or
@@ -77,3 +83,14 @@ Unity artifact checks passed; Wrangler dry-run exit 0, 454.85 KiB / gzip
   authenticated NPC write was performed; such success is not claimed.
 - No migration, permission, Secret, key, payment or Unity changes. Unrelated
   user-owned README work remains uncommitted and untouched.
+
+## Stage integration candidate — 2026-09-28
+
+Source changes only affect new stage result JSON; no production SQL migration or
+schema reset. Rollback to 78cd1e2 reads the same row and ignores the additive field.
+Local actual SQLite race/restart/deletion/expiry tests passed, including late
+success losing to a sealed scripted result. Full fast gate passed (311 tests).
+An isolated workerd fixture now runs the actual CourtRoom with eight concurrent
+stage calls, compares cached outcomes, owner rejection and unchanged case state.
+Its extra binding/local v3 tag is **test-only**, never a production migration.
+Remote workerd/CI and deployment evidence are pending until recorded below.

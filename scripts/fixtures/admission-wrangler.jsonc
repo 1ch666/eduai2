@@ -3,6 +3,6 @@
   "main": "admission-worker.ts",
   "compatibility_date": "2026-09-01",
   "vars": {"AI_ADMISSION_ENABLED": "true"},
-  "durable_objects": {"bindings": [{"name": "ADMISSION", "class_name": "AIAdmission"}, {"name": "LEARNER", "class_name": "Learner"}]},
-  "migrations": [{"tag": "v1", "new_sqlite_classes": ["AIAdmission"]}, {"tag": "v2", "new_sqlite_classes": ["Learner"]}]
+  "durable_objects": {"bindings": [{"name": "ADMISSION", "class_name": "AIAdmission"}, {"name": "LEARNER", "class_name": "Learner"}, {"name": "COURT", "class_name": "CourtRoom"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["AIAdmission"]}, {"tag": "v2", "new_sqlite_classes": ["Learner"]}, {"tag": "v3", "new_sqlite_classes": ["CourtRoom"]}]
 }

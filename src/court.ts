@@ -10,7 +10,8 @@ import { resolveSession, csrfTokenMatches } from './session';
 import { NPC_IDS, npcKnowledge, npcHistory, npcResponse, validNpcInput, type NpcId, type NpcInput, type NpcReply } from './court-npc';
 import { generatedCandidates, generateModelCase, randomLibraryCase, similarCase, GENERATION_VERSION } from './court-generation';
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
-import {proposeStageDialogue} from './court-dialogue';
+import {proposeStageDialogue,type SavedStageDialogue} from './court-dialogue';
+import {aiOutcome} from './ai-outcome';
 import {createGovernedOllamaProvider} from './providers/governed-ollama';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 
@@ -218,7 +219,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(!Number.isSafeInteger(version)||version<0||typeof allowAI!=='boolean')return {error:'對話請求格式錯誤',status:400};
     const cached=this.dialogue(owner,version);
     if('error' in cached||cached.cached)return cached;
-    const view=courtView(state),fallback=view.turn;
+    const view=courtView(state),fallback={...view.turn,aiOutcome:aiOutcome('stage-dialogue','scripted')};
     const pending=this.ctx.storage.sql.exec<{created:number}>('SELECT created FROM court_dialogue_attempts WHERE version=?',version).toArray()[0];
     // A persisted attempt is never reissued after eviction, a lost response or
     // uncertainty. Recovery seals the same scripted turn after the deadline.
@@ -238,15 +239,15 @@ export class CourtRoom extends DurableObject<AppEnv> {
     // dialogue rechecks owner/deletion/version and INSERT OR IGNORE prevents a
     // late provider completion from replacing an already recovered fallback.
     return this.dialogue(owner,version,text===null||Date.now()-started>=20000?fallback:
-      {text,mode:'ai-dialogue',speaker:view.turn.speaker,version});
+      {text,mode:'ai-dialogue',speaker:view.turn.speaker,version,aiOutcome:aiOutcome('stage-dialogue','model')});
   }
-  dialogue(owner:string, version:number, result?:{text:string;mode:string;speaker:string;version:number}){
+  dialogue(owner:string, version:number, result?:SavedStageDialogue){
     const state=this.read();
     if(!state || state.owner!==owner)return {error:'場次不存在',status:404};
     if(state.version!==version)return {error:'場次已更新，請重新讀取',status:409};
     if(result)this.ctx.storage.sql.exec('INSERT OR IGNORE INTO dialogue VALUES (?,?)',version,JSON.stringify(result));
     const cached=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM dialogue WHERE version=?',version).toArray()[0];
-    return {cached:cached?JSON.parse(cached.body) as {text:string;mode:string;speaker:string;version:number}:null};
+    return {cached:cached?JSON.parse(cached.body) as SavedStageDialogue:null};
   }
   action(owner:string,a:CourtAction){
     const state=this.read();

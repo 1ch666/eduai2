@@ -42,3 +42,11 @@ assert.ok(Number.isSafeInteger(studies.find(r=>r.code==='RESERVED').issuedAt));
 assert.deepEqual(await call('study-reserve',{...studyId,fingerprint:'c'.repeat(64)},room+'-study'),{code:'CONFLICT'});
 assert.equal((await call('study-reserve',studyId,room+'-other-owner')).code,'RESERVED');
 console.log('Local workerd Learner study reservation passed: additive SQLite schema, eight-way dedup, conflict and owner isolation.');
+const stage=await call('stage-cycle',identity('not-used'),crypto.randomUUID());
+assert.equal(stage.stateUnchanged,true);assert.equal(stage.denied.status,404);
+assert.equal(stage.replies.length,8);
+for(const reply of stage.replies){
+ assert.deepEqual(reply,stage.replies[0]);assert.equal(reply.cached.mode,'scripted');
+ assert.deepEqual(reply.cached.aiOutcome,{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false});
+}
+console.log('Local workerd stage outcome passed: eight-way cached fallback, owner isolation and no authoritative state change.');
