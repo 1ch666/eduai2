@@ -61,9 +61,10 @@ namespace EduAI.Court.Core
         private void BuildHud()
         {
             if (canvasObject) return;
-            Font font = null;
-            foreach (var text in FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-                if (text.font) { font = text.font; break; }
+            // Use the serialized full Chinese font, not an arbitrary legacy Text
+            // whose subset font silently omits dynamic labels and case titles.
+            var dialogue = FindFirstObjectByType<NpcDialogueUI>(FindObjectsInactive.Include);
+            Font font = dialogue ? dialogue.DisplayFont : null;
             if (!font) return;
             canvasObject = new GameObject("ServerCourtHUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             canvasObject.transform.SetParent(transform, false);
@@ -71,8 +72,8 @@ namespace EduAI.Court.Core
             var scaler = canvasObject.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280,720); scaler.matchWidthOrHeight = .5f;
             var box = new GameObject("Status", typeof(RectTransform), typeof(Image)); box.transform.SetParent(canvasObject.transform,false);
-            var rect = (RectTransform)box.transform; rect.anchorMin = new Vector2(.02f,.79f); rect.anchorMax = new Vector2(.7f,.97f); rect.offsetMin = rect.offsetMax = Vector2.zero;
-            box.GetComponent<Image>().color = new Color(.96f,.97f,.96f,.95f); box.GetComponent<Image>().raycastTarget = false;
+            var rect = (RectTransform)box.transform; rect.anchorMin = new Vector2(.52f,.75f); rect.anchorMax = new Vector2(.98f,.97f); rect.offsetMin = rect.offsetMax = Vector2.zero;
+            box.GetComponent<Image>().color = new Color(.96f,.97f,.96f,1f); box.GetComponent<Image>().raycastTarget = false;
             var label = new GameObject("Caption", typeof(RectTransform), typeof(Text)); label.transform.SetParent(box.transform,false);
             caption = label.GetComponent<Text>(); caption.font = font; caption.fontSize = 20; caption.supportRichText = false; caption.raycastTarget = false;
             caption.color = new Color(.12f,.16f,.17f); caption.alignment = TextAnchor.UpperLeft;

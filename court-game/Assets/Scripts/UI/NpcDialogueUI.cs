@@ -12,6 +12,7 @@ namespace EduAI.Court
     public sealed class NpcDialogueUI : MonoBehaviour
     {
         [SerializeField] private Font dialogueFont;
+        public Font DisplayFont => dialogueFont;
         public static bool IsOpen { get; private set; }
         private readonly Dictionary<string, List<string>> histories = new Dictionary<string, List<string>>();
         private NPCInteractable npc;
