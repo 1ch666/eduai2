@@ -74,6 +74,22 @@ This is not yet an OpenTelemetry trace or a full cross-service trace tree.
   change if required; do not reset accounts or court data. Prior deployed Worker
   version: `6dbb61e6-5e4a-41f8-b60f-90115eece3d9`.
 
+## Verified release
+
+Source `a737abbd7e79d04dcc90870dc6a7ed5291117592` pushed to `main`.
+GitHub fast checks and isolated API job both succeeded:
+https://github.com/1ch666/eduai2/actions/runs/36336644180 .
+Wrangler dry-run succeeded, then `deploy --keep-vars --strict` published existing
+Worker version `66ef3a88-4382-4637-97e0-dc5040da5620`. No asset files changed.
+No Secrets, bindings, migrations, billing or permissions were changed.
+
+Production read-only checks verified headers and trusted Pages CORS on
+`/api/capabilities` (200), anonymous `/api/auth/session` (200), anonymous
+`/api/court/sessions` (401), and an unknown API route (404). This did not create
+accounts, alter production data, consume model tokens or verify persisted sampled
+logs. No Unity/Docker assets changed; the previous grounded-game build remains.
+The disposable local Worker used for integration was stopped after testing.
+
 ## Still required by the full goal
 
 Authenticated pseudonymous context with a defined retention policy; browser →
