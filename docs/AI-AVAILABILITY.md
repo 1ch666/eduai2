@@ -52,7 +52,16 @@ circuit/capacity states, 1,000 seeded comparisons to actual admission decisions,
 read-only SQLite bytes and cooldown recovery. The workerd RPC fixture adds READY
 and CIRCUIT_OPEN inspection assertions. No production model call is part of it.
 
-Record CI and actual deployment after they finish. Feature-level degraded modes,
+Released source 93531274acb1bcc55974569c3a509bc5925037ab: local fast gate
+passed 307 tests and artifact/type checks. CI 36348872114 passed, including the
+workerd fixture. Wrangler dry run and actual deployment exited 0 (453.84 KiB,
+gzip 103.96 KiB); Worker version 0a3e5819-3c92-4358-b2d3-642353321633 on the
+existing civic-law-lab-212 Worker. No new assets, schema, Secrets or permissions.
+All three production status endpoints returned 200 with READY/canAttempt:true
+and providerHealth:not-probed; anonymous court/sessions returned 401. These
+queries exercised production inspection, not authenticated/live model inference.
+
+Feature-level degraded modes,
 user-specific eligibility, provider-health freshness, versioned expiring study
 tickets and the broader backend goal are still open. Public account status also
 adds read traffic to the coordinator; do not implement rapid background polling.

@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-0e7ad2c / Worker d4bd7403-7914-469c-91d2-3c14a9955098 (study admission).
-CI 36348143950 passed; release evidence in STUDY-AI-ADMISSION.md. Later tests do not imply
+9353127 / Worker 0a3e5819-3c92-4358-b2d3-642353321633 (AI eligibility).
+CI 36348872114 passed; release evidence in AI-AVAILABILITY.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -26,7 +26,7 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 13 backpressure | Governed production Ollama routes; durable concurrency/queue/circuit, timeout and dedup; real workerd tests | Authenticated production behavior and outage verification; versioned study tickets replace finite legacy tombstones |
 | 14 providers | Three typed interfaces; tutor/NPC/generation/stage dialogue/photo adapter deployed; photo CI 36342849873 passed; vendor HTTP isolated in adapter | Integrate embedding/rerank validators with future adapters; complete composition/governance and real-provider semantic quality evidence |
 | 15 costs | Shared durable account/user/scope daily attempt budgets and shutdown flag; unknown tokens remain null; tutor/photo adoption deployed | Live quota/availability and accounting surfaces, retention upgrade, authenticated production verification; never auto-buy |
-| 16 availability | Existing scripted fallback and provider error codes | Formal FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/NO_AI states with truthful backend capability response and outage tests |
+| 16 availability | Public status reads actual account admission; config, switch, queue/budget/circuit errors distinguished; health explicitly not-probed; deployed 9353127 | Formal FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/NO_AI feature-level result contract, user-specific eligibility and provider-health freshness; admission READY is not live model success |
 | 17 migration | Existing additive wrangler tags, journal checkpoint tests | Versioned migration plan/dry-run/rollback/compatibility test for each redesign; MIGRATION.md is historical repo move, not complete DB plan |
 | 18 backup | No complete backup/restore implementation or drill established by this audit | Account/progress/court state/event/experiment export, protected archives, isolated restore and verification |
 | 19 CI | fast-checks two jobs, actual API harness; separate game Docker | Lint/format and migration gates, backend restore/container checks; heavy evaluation separate; update pinned action runtimes deliberately |
