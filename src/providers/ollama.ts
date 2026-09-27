@@ -10,6 +10,7 @@ function validInput(input: ChatInput, context: ProviderContext): boolean {
     !Number.isInteger(input.maxOutputTokens) || input.maxOutputTokens<1 || input.maxOutputTokens>8192 ||
     !Number.isFinite(input.temperature) || input.temperature<0 || input.temperature>2 ||
     !['text','json'].includes(input.output) || !Array.isArray(input.messages) || !input.messages.length || input.messages.length>32) return false;
+  if (context.maxResponseBytes!==undefined && (!Number.isInteger(context.maxResponseBytes) || context.maxResponseBytes<1 || context.maxResponseBytes>65536)) return false;
   let total=0;
   for (const m of input.messages) {
     if (!m || !['system','user','assistant'].includes(m.role) || typeof m.content!=='string') return false;
@@ -35,6 +36,7 @@ export function createOllamaProvider(
       if (!validInput(input,context)) return fail('INVALID_INPUT');
       if (context.signal?.aborted) return fail('CANCELLED');
       const deadline=AbortSignal.timeout(context.timeoutMs);
+      const maxBytes=context.maxResponseBytes ?? 65536;
       const signal=context.signal ? AbortSignal.any([context.signal,deadline]) : deadline;
       const interrupted=(error:unknown): ProviderErrorCode | null => {
         if (context.signal?.aborted) return 'CANCELLED';
@@ -57,13 +59,13 @@ export function createOllamaProvider(
         try { await upstream.body?.cancel(); } catch { /* no payload logging */ }
         return fail(upstream.status===429?'QUOTA':[401,403].includes(upstream.status)?'PROVIDER_AUTH':upstream.status===404?'MODEL_NOT_FOUND':'UPSTREAM');
       }
-      if (Number(upstream.headers.get('content-length') || 0)>65536) {
+      if (Number(upstream.headers.get('content-length') || 0)>maxBytes) {
         try { await upstream.body?.cancel(); } catch { /* no payload logging */ }
         return fail('RESPONSE_TOO_LARGE');
       }
       let result:unknown;
       try {
-        const raw=await readTextWithLimit(upstream.body,65536);
+        const raw=await readTextWithLimit(upstream.body,maxBytes);
         if (signal.aborted) return fail(interrupted(null) ?? 'TIMEOUT');
         if (raw.tooLarge) return fail('RESPONSE_TOO_LARGE');
         if (raw.invalidEncoding) return fail('INVALID_ENCODING');

@@ -9,6 +9,8 @@ export interface ProviderContext {
   signal?: AbortSignal;
   /** Includes headers and response-body consumption; no automatic retry. */
   timeoutMs: number;
+  /** Optional stricter envelope cap; adapters must never exceed 64 KiB. */
+  maxResponseBytes?: number;
 }
 export interface TokenUsage {
   /** null means unreported, not zero or free. Never estimate billing here. */

@@ -81,3 +81,33 @@ test('disabled AI never calls provider; valid selection and failures are bounded
   assert.equal((await npcResponse(env,state,'Lawyer',input,true)).mode,'scripted');
  }finally{globalThis.fetch=original;}
 });
+
+test('alternative provider sees only projected knowledge and cannot commit facts or state',async()=>{
+ const before=JSON.stringify(state);let calls=0;
+ const provider={contractVersion:1,id:'test-only',model:'no-model',generate:async(args,context)=>{
+  calls++;assert.deepEqual(context,{timeoutMs:15000,maxResponseBytes:32768});
+  assert.equal(args.output,'text');assert.equal(args.maxOutputTokens,1024);
+  const data=JSON.parse(args.messages[1].content);
+  assert.deepEqual(Object.keys(data).sort(),['role','facts','history','question'].sort());
+  assert.deepEqual(data.facts,npcKnowledge(state,'Witness').facts);
+  return {ok:true,value:{text:JSON.stringify({reply:'新增證物',factIds:['invented'],uncertain:false}),usage:{inputTokens:null,outputTokens:null}}};
+ }};
+ const oldWarn=console.warn;console.warn=()=>{};
+ try{
+  const result=await npcResponse({OLLAMA_API_KEY:'fake'},state,'Witness',input,true,[],provider);
+  assert.equal(result.mode,'scripted');assert.equal(result.errorCode,'CONTENT_SCHEMA');
+  assert.deepEqual(result.knowledgeIds,[]);assert.equal(JSON.stringify(state),before);assert.equal(calls,1);
+  await npcResponse({OLLAMA_API_KEY:'fake',COURT_AI_ENABLED:'false'},state,'Witness',input,true,[],provider);
+  await npcResponse({OLLAMA_API_KEY:'fake'},state,'Witness',input,false,[],provider);
+  assert.equal(calls,1,'provider injection must not bypass kill switch or rate budget');
+ }finally{console.warn=oldWarn;}
+});
+
+test('NPC retains 32 KiB envelope cap while tutor allows its existing 64 KiB cap',async()=>{
+ const old=globalThis.fetch,oldWarn=console.warn;let cancelled=false;console.warn=()=>{};
+ try{
+  globalThis.fetch=async()=>new Response(new ReadableStream({pull(c){c.enqueue(new Uint8Array(32769));},cancel(){cancelled=true;}}));
+  const result=await npcResponse({OLLAMA_API_KEY:'fake'},state,'Witness',input,true);
+  assert.equal(result.errorCode,'RESPONSE_TOO_LARGE');assert.equal(result.mode,'scripted');assert.equal(cancelled,true);
+ }finally{globalThis.fetch=old;console.warn=oldWarn;}
+});

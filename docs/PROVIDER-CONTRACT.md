@@ -11,6 +11,8 @@ Rules for implementations and consumers:
   an endpoint, key, vendor or paid model. Contract fields never include secrets.
 - `ProviderContext` carries a caller cancellation signal and bounded timeout.
   Implementations must stop network/body work on cancellation and timeout.
+  Optional `maxResponseBytes` allows a stricter envelope cap (integer 1–65536);
+  omission preserves 65536. NPC requests retain their existing 32768 cap.
 - No automatic retries. Timeout/network failure does not prove the provider did
   not process or bill a request. A later orchestration layer must govern budgets,
   concurrency, deduplication and any explicit retry policy.
@@ -38,7 +40,13 @@ redirects, strips vendor reasoning and logs no payload. Tests use an injected
 transport, never a real key or paid model. Embedding and rerank are interfaces
 only: no actual adapter, retrieval/vector database or benchmark is claimed.
 
-NPC, case-generation and stage-dialogue call sites still use their existing
+NPC now uses the same interface, retaining its 15-second deadline, existing
+prompt and plain-text transport (JSON is requested in the prompt, not forced by
+the vendor format flag). Domain JSON/schema/fact-ID validation stays in
+`court-npc.ts`. Provider `RESPONSE_FORMAT` maps to legacy `ENVELOPE_JSON`; all
+other existing codes/fallback fields remain. The optional server-only provider
+argument is for tests/composition, never a client-selectable provider.
+Case-generation and stage-dialogue still use their existing
 implementations and require separate migration and compatibility tests. This
 batch does not claim all domain logic is vendor-independent. No SQL, binding,
 Secret or permission change is needed. Reverting the tutor extraction restores

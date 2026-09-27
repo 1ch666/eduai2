@@ -29,6 +29,8 @@ test('provider does not start work for missing credentials, malformed bounds or 
     assert.equal((await provider(transport).generate(bad,ctx)).code,'INVALID_INPUT');
   }
   assert.equal((await provider(transport).generate(input,{timeoutMs:60001})).code,'INVALID_INPUT');
+  for(const maxResponseBytes of [0,-1,0.5,65537,NaN])
+    assert.equal((await provider(transport).generate(input,{...ctx,maxResponseBytes})).code,'INVALID_INPUT');
   assert.equal((await provider(transport).generate(input,{...ctx,signal:AbortSignal.abort()})).code,'CANCELLED');
   assert.equal(count,0);
 });
