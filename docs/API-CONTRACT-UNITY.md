@@ -61,6 +61,34 @@ Replay reducer is a separate read-only instance. Jump rebuilds from authenticate
 
 ## Acceptance and rollout
 
+### Shell bridge implementation (not yet enabled)
+
+`court/unity-bridge.js` owns the shell-to-frame command boundary around `CourtTransport`.
+The shell binds an exact iframe WindowProxy and origin and issues a fresh UUID channel
+for each binding. This channel is a lifetime discriminator, not an auth token. Clear
+on logout, account change, iframe navigation/replacement and session change. Rebinding
+aborts transport work and prevents old completions from reaching the new frame.
+
+Frame commands have exactly: type (`court-v1-command`), apiVersion (1), channel,
+sequence (positive monotonic safe integer), expectedStateVersion, actionId, targetId,
+text. Reserved action IDs `refresh`, `recover`, `retry` invoke transport controls and
+require empty target/text; other IDs are server descriptors. The shell rejects a
+rendered action whose expected version differs from its current snapshot. Only one
+command runs at a time; duplicates do not produce another HTTP request. Retries retain
+the transport's original request and idempotency IDs, not frame-supplied identifiers.
+
+Outgoing messages are `court-v1-bind` (sessionId/caseId), `court-v1-snapshot`
+(sequence/payload containing validated snapshot JSON), `court-v1-result`
+(sequence/status/canAct), and `court-v1-clear`; all carry apiVersion/channel and use
+an explicit target origin. No credentials, transport objects or exception text cross
+this bridge. Receiving Unity adapter must validate channel and use its strict reducer.
+
+Evidence: `node --test scripts/test-court-unity-bridge.mjs` tests the real transport
+with mocked HTTP/window delivery: origin/source/channel/shape/sequence rejection,
+stale-view action rejection, in-flight rebind cancellation and 401 clearing. This is
+NOT browser/Unity E2E evidence. No runtime imports or new WebGL artifact yet; wiring
+the receiver, lifecycle hooks, NPC/evidence projections and preservation gates remains.
+
 Shared protocol tests must reject malformed, extra/secret fields, unsafe IDs, cross-session data, duplicate IDs, missing references, stale/out-of-order/duplicate/conflicting snapshots and missing event sequences. Tests use synthetic public fixtures, not private user cases. C# must consume the same fixtures in real Unity. Backend must test transactional replay consistency, cross-account reads and idempotency before v1 activation.
 
 Current v0 frontend and WebGL stay untouched until v1 end-to-end capabilities match the preservation matrix. Subsequent source changes now implement v1 snapshot/action/outcome routes with additive court_events and court_v1_requests tables. Local workerd validation is recorded in court-game/API-INTEGRATION.md. No production deployment has been performed. A schema or passing reducer test does not prove a deployed authoritative game or replay.
