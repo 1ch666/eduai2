@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-78cd1e2 / Worker 545772b3-e72f-41e6-afe2-a19526e59693 (response outcomes).
-CI 36349627787 passed; release evidence in AI-OUTCOME.md. Later tests do not imply
+1273f5c / Worker a289aebd-00e1-4c91-9e8f-d20c5970f3bc (saved stage outcomes).
+CI 36350179869 passed; release evidence in AI-OUTCOME.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -49,7 +49,7 @@ NO_AI schema and actual tutor/photo/legacy NPC source mapping. RAG_ONLY is reser
 not emitted by dictionary lookup. Stage/generation/v1 projections and health
 freshness remain incomplete. See AI-OUTCOME.md for compatibility and rollback;
 deployment evidence is separate from local tests. Stage outcome persistence now
-has a candidate integration with old-row compatibility and expiry/restart races;
+is deployed with old-row compatibility and expiry/restart races;
 case-generation provenance, v1 public projection and health freshness remain open.
 
 `d529d07` adds explicit-time initialization/reduction with legacy clock adapters;

@@ -84,7 +84,7 @@ Unity artifact checks passed; Wrangler dry-run exit 0, 454.85 KiB / gzip
 - No migration, permission, Secret, key, payment or Unity changes. Unrelated
   user-owned README work remains uncommitted and untouched.
 
-## Stage integration candidate — 2026-09-28
+## Stage integration release — 2026-09-28
 
 Source changes only affect new stage result JSON; no production SQL migration or
 schema reset. Rollback to 78cd1e2 reads the same row and ignores the additive field.
@@ -93,4 +93,14 @@ success losing to a sealed scripted result. Full fast gate passed (311 tests).
 An isolated workerd fixture now runs the actual CourtRoom with eight concurrent
 stage calls, compares cached outcomes, owner rejection and unchanged case state.
 Its extra binding/local v3 tag is **test-only**, never a production migration.
-Remote workerd/CI and deployment evidence are pending until recorded below.
+Initial CI 36350077417 correctly failed an outdated exact HTTP comparison; the
+test now separately asserts every unchanged legacy field and the exact new
+outcome, without weakening either check.
+
+Source 1f6029b plus HTTP regression fix 1273f5c are pushed to main. CI 36350179869
+passed both jobs, including real HTTP stage requests and eight-way workerd RPC.
+Worker a289aebd-00e1-4c91-9e8f-d20c5970f3bc deployed from 1273f5c, exit 0,
+454.95 KiB / gzip 104.36 KiB, with no assets updated. Production capabilities and
+AI status GETs returned 200; anonymous scene listing and stage dialogue returned
+401. No authenticated production mutation or model inference was performed.
+These probes establish deployment/guard compatibility, not live AI success.
