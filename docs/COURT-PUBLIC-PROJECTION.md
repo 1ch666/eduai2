@@ -29,3 +29,9 @@ events are not rewritten; no existing private-data incident is asserted. Future
 private graph fields must stay server-only and receive dedicated integration tests
 before enabling ingestion. Reverting this fix after private fields are stored
 would reintroduce exposure: do not roll back to a spread-based projection then.
+
+Release source: `1fd7013fb8d05c99e7933366917a283f6df69561`; fast and local API CI
+passed at https://github.com/1ch666/eduai2/actions/runs/36340194262 . Dry-run and
+existing Worker deployment succeeded, version `4d206cf3-a3c5-49b5-8efd-a1e38db88d42`.
+No asset changes or data migrations. Prior version:
+`06bcf6ac-af81-432e-9336-9867c97537ad` (subject to rollback warning above).
