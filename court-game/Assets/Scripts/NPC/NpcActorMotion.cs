@@ -10,6 +10,8 @@ namespace EduAI.Court
         private bool serverControlled;
         private bool initialized;
         private Vector3 standingLocalPosition;
+        private Transform[] seatedLegs;
+        private Quaternion[] seatedLegRotations;
         public bool HasPublicState { get; private set; }
         public NpcMotionPlan PublicPlan { get; private set; }
         public string ActiveClip { get; private set; }
@@ -18,6 +20,19 @@ namespace EduAI.Court
         {
             if(initialized) return;
             initialized=true;motion=GetComponentInChildren<Animation>();standingLocalPosition=transform.localPosition;
+            foreach(var skin in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if(skin.name!="body-mesh" || !skin.sharedMesh)continue;
+                var bones=skin.bones;var bind=skin.sharedMesh.bindposes;
+                int left=System.Array.FindIndex(bones,b=>b&&b.name=="leg-left");
+                int right=System.Array.FindIndex(bones,b=>b&&b.name=="leg-right");
+                if(left<0||right<0||bind.Length!=bones.Length)break;
+                int lp=System.Array.IndexOf(bones,bones[left].parent),rp=System.Array.IndexOf(bones,bones[right].parent);
+                if(lp<0||rp<0)break;
+                seatedLegs=new[]{bones[left],bones[right]};
+                seatedLegRotations=new[]{(bind[lp]*bind[left].inverse).rotation,(bind[rp]*bind[right].inverse).rotation};
+                break;
+            }
         }
         private void Start() { if (!serverControlled) Play("idle", true); }
         public void ApplyPublicState(string pose, string emotion, string speaking, string request, bool visible)
@@ -32,12 +47,14 @@ namespace EduAI.Court
                 return;
             }
             HasPublicState=true; PublicPlan=plan;
-            // All three audited Kenney sit clips lower the rig root by .15
-            // model units. Seat anchors describe an elevated chair position,
-            // not floor sitting. Move only the visual model, never the NPC
-            // interaction/collision root or the authoritative role mapping.
+            // The imported clip is floor-sitting: compensate its .15 model-unit
+            // rig drop, then seat it .65 world units above the standing floor.
+            // Audited in the authored court (desks 1.1 / 1.3 high), not only an
+            // isolated model preview. Never move the interaction/collision root.
             var lift=plan.Clip=="sit"?Vector3.up*.15f:Vector3.zero;
-            transform.localPosition=standingLocalPosition+transform.localRotation*Vector3.Scale(transform.localScale,lift);
+            var chairLift=plan.Clip=="sit"?Vector3.up*.65f:Vector3.zero;
+            if(transform.parent) chairLift=transform.parent.InverseTransformVector(chairLift);
+            transform.localPosition=standingLocalPosition+transform.localRotation*Vector3.Scale(transform.localScale,lift)+chairLift;
             Play(plan.Clip,plan.Loop);
         }
         // Guest dialogue only. Hosted animation is driven solely by validated
@@ -48,6 +65,17 @@ namespace EduAI.Court
             until=Time.unscaledTime+2; Play("emote-yes",false);
         }
         private void Update() { if (until > 0 && Time.unscaledTime >= until) { until = 0; Play("idle",true); } }
+        private void LateUpdate() { ApplyPoseAdjustments(); }
+        public void ApplyPoseAdjustments()
+        {
+            // This miniature rig has one bone per leg, not articulated knees.
+            // The licensed floor-sit clips point both soles at the audience.
+            // Keep the legs hanging below the desk using the rig's bind pose;
+            // apply after animation, never as an accumulating rotation.
+            if(!HasPublicState||ActiveClip!="sit"||seatedLegs==null)return;
+            for(int i=0;i<seatedLegs.Length;i++)
+                if(seatedLegs[i])seatedLegs[i].localRotation=seatedLegRotations[i];
+        }
         private void Play(string name, bool loop)
         {
             if (!motion || !motion[name]) return;

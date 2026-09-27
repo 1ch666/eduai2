@@ -1,3 +1,6 @@
+【2026-09-28 桌機準星／椅面高度／法袍 WebGL 修復】
+正式 Unity Scene／Play／Release WebGL exit 0；修复 hosted 误隱藏 Crosshair，手機維持不顯示準星。坐姿額外椅面補償 .65 世界單位並修正垂腿，人物與法袍不再沉入桌下。真實本機 Chromium 驗證恢復、開始、走動、拖曳、準星、E 開檢察官、中文送出與版本 1→2；本機 AI_DISABLED 明示，不代表正式 AI 成功。五項下載合計 21,329,695 bytes；詳見 docs/UNITY-ROLE-WARDROBE.md。發布、Docker 接續記錄；完整前端／Unity 重構及手機真機未完成。
+
 【2026-09-27 使用者追加角色法袍與領帶：原始碼／離線渲染批次】
 追加真實 WebGL 載入與走動觀察發現 sit 動畫下移導致人物被桌面遮住，未發布該候選。已量測三款模型一致下移 .15 模型單位並補償視覺模型；不改 NPC root/collider。高度補正 Scene／Play exit 0；修正版重建與 browser 尚待確認，詳見 docs/UNITY-ROLE-WARDROBE.md。
 最新領帶版官方 Unity Scene／Play 已 exit 0（outputs/npc-wardrobe-tie-play.log）；Release WebGL 接續建置，尚未發布。下列未加領帶版測試保留為過程紀錄。

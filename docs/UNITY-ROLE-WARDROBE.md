@@ -1,5 +1,17 @@
 # 角色法袍、襯衫領口與領帶（2026-09-27）
 
+## 2026-09-28 修正版候選（發布狀態另記）
+
+先前只有 .15 模型單位補償仍不足：在真正 Courtroom 場景量測，頭部仍低於 1.1／1.3m 桌面。因此再加入 .65 世界單位椅面補償，僅移動 CharacterModel，不移動互動 root／collider。沿用模型每腿只有一根骨頭，sit 動畫原本把腳底朝前；現在於 LateUpdate 使用 mesh bind pose 恢復垂腿方向，不累積旋轉。離開 sit 由正常動畫控制。
+
+同批修復 CourtPresentation 切入 hosted 時將所有 Text 關閉而連桌機準星一起隱藏的問題；只保留 InteractionUI 下 Crosshair／Controls／InteractionPrompt，沒有重新啟用手機已隱藏的準星。
+
+官方 Unity 6000.6.2f1 Scene／Play exit 0（npc-chair-crosshair-play.log，COURT_PLAY_TESTS_PASSED），包含真實場景各模型 sit 取樣高度、root 不動、重複投影不累加、桌機 HUD 分類與手機 hosted 不重開準星。Editor SearchDatabase 既知例外仍存在，不宣稱零例外。
+
+Release WebGL exit 0（npc-chair-crosshair-build.log）；data 15,323,624、wasm 5,869,160、framework 83,199、loader 48,540，另 touch 5,172 bytes，合計 21,329,695。比已發布 d937c25 的 21,278,041 增加 51,654 bytes（約 0.24%），下載門檻通過。四檔必須一起發布；僅本機候選建置成功不代表線上已更新。實際瀏覽器、推送、部署及 Docker 驗證接續記錄。
+
+本機 Chromium 真實 WebGL 已驗證：恢復成人刑事場次、載入／開始、走動、滑鼠拖曳 fallback、中央準星、三職業服裝、E 開檢察官、中文輸入／送出、版本 1→2 與關閉恢復。AI 明確關閉的本機環境回傳 AI_DISABLED，不冒充正式供應商驗證。此次讀取 browser error/warn 為空。截圖 outputs/wardrobe-crosshair-browser-0928.png。手機真機、所有案件及完整重構仍未驗收。
+
 ## 已實作的原始碼
 
 使用者要求角色穿對應建模服裝，追加領帶。新增 `Assets/Scripts/NPC/NpcWardrobe.cs`：原創低多邊形衣身、寬袖、袖口、前襟、襯衫／領口、領結位置的領帶結及長領帶幾何。不是只換角色名稱、整件套色或貼一張 UI 圖。沿用已授權的 Kenney 三款人物骨架，SkinnedMeshRenderer 隨 torso / arm / leg 動畫變形。黑袍、角色鑲邊、白襯衫分三個材質區域；無外部模型下载或付費素材。

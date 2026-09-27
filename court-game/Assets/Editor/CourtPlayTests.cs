@@ -58,6 +58,9 @@ namespace EduAI.Court.Editor
             var player = UnityEngine.Object.FindFirstObjectByType<FirstPersonController>();
             var controller = player.GetComponent<CharacterController>();
             Require(!player.TouchMode, "Desktop remains the default");
+            var crosshair=GameObject.Find("Canvas/Crosshair").GetComponent<UnityEngine.UI.Text>();
+            Require(crosshair.gameObject.activeInHierarchy&&CourtPresentation.IsSharedInputHud(crosshair),"Desktop crosshair belongs to preserved hosted input HUD");
+            Require(CourtPresentation.IsSharedInputHud(GameObject.Find("Canvas/Controls").GetComponent<UnityEngine.UI.Text>()),"Hosted keyboard instructions are not legacy case labels");
             Require(!FirstPersonController.TryTouchVector("NaN,1", out _), "Reject invalid touch input");
             Require(FirstPersonController.TryTouchVector("0.5,0.25", out var normalized) && normalized.x == .5f, "Parse normalized touch");
             player.EnableTouchControls();
@@ -100,12 +103,14 @@ namespace EduAI.Court.Editor
                 Require(!(bool)typeof(FirstPersonController).GetField("wasDragging",flags).GetValue(player),"Closing dialogue clears stale drag origin");
                 dialogue.ResetHistory();
             }
+            TestSeatedSceneHeight();
             var hosted = UnityEngine.Object.FindFirstObjectByType<CourtPresentation>();
             Require(hosted && !CourtPresentation.IsHosted, "Classic mode remains default");
             hosted.SetView("{\"mode\":\"seat\",\"role\":\"observer\",\"procedure\":\"juvenile\"}");
             Require(!CourtPresentation.IsHosted, "Juvenile spectator camera refused");
             hosted.SetView("{\"mode\":\"seat\",\"role\":\"judge\",\"procedure\":\"civil\"}");
             Require(CourtPresentation.IsHosted && !FirstPersonController.InputActive, "Judge seat pauses movement");
+            Require(!crosshair.gameObject.activeSelf,"Hosted initialization does not re-enable mobile crosshair");
             Require(Mathf.Abs(player.transform.position.z - 8.8f) < .01f, "Judge seat position");
             hosted.SetView("{\"mode\":\"walk\",\"role\":\"judge\",\"procedure\":\"civil\"}");
             Require(FirstPersonController.InputActive, "Hosted walking restores movement");
@@ -138,6 +143,32 @@ namespace EduAI.Court.Editor
             Require(PlayerInteractor.AllowedInCurrentMode(cloudEvidence) && PlayerInteractor.AllowedInCurrentMode(button), "Hosted ray and touch allow both boxes");
             cloudEvidence.Interact();
             Require(CourtPresentation.LastPanelRequest == "evidence" && !NpcDialogueUI.IsOpen, "Hosted evidence uses current case panel, not legacy tablet evidence");
+        }
+        private static void TestSeatedSceneHeight()
+        {
+            foreach(var actor in UnityEngine.Object.FindObjectsByType<NPCInteractable>(FindObjectsSortMode.None))
+            {
+                var motion=actor.GetComponentInChildren<NpcActorMotion>();
+                var animation=motion.GetComponentInChildren<Animation>();
+                var head=Array.Find(motion.GetComponentsInChildren<Transform>(),t=>t.name=="head");
+                var rootPosition=actor.transform.position;
+                motion.ApplyPublicState("sitting","neutral","silent","idle",true);
+                var localPosition=motion.transform.localPosition;
+                // Evaluate several actual clip times after applying presentation,
+                // so a passing transform-offset assertion alone is insufficient.
+                foreach(float time in new[]{0f,.2f,.6f})
+                {
+                    animation["sit"].clip.SampleAnimation(motion.gameObject,time);
+                    motion.ApplyPoseAdjustments();
+                    float deskHeight=actor.name=="Judge"?1.3f:actor.name=="Witness"?1f:1.1f;
+                    Require(head.position.y>deskHeight+.15f,"Seated neck clears authored desk: "+actor.name);
+                    Require(actor.transform.position==rootPosition,"Seat fitting preserves interaction root");
+                }
+                motion.ApplyPublicState("sitting","neutral","silent","idle",true);
+                Require(motion.transform.localPosition==localPosition,"Scene chair lift does not accumulate");
+                motion.ApplyPublicState("standing","neutral","silent","idle",true);
+                animation["idle"].clip.SampleAnimation(motion.gameObject,0);
+            }
         }
         private static void TestPublicActors(NpcDialogueUI dialogue)
         {

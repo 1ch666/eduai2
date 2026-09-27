@@ -54,8 +54,11 @@ namespace EduAI.Court
                 var dialogue = FindFirstObjectByType<NpcDialogueUI>();
                 if (dialogue) dialogue.Close();
                 IsHosted = true;
-                // Hide legacy tablet case labels/UI, not the court geometry.
-                foreach (var text in FindObjectsByType<UnityEngine.UI.Text>(FindObjectsSortMode.None)) if(!text.GetComponentInParent<NpcDialogueUI>())text.gameObject.SetActive(false);
+                // Hide legacy case labels, not the desktop's shared aiming and
+                // input HUD. Touch already hides its crosshair/controls; do not
+                // reactivate those objects when the hosted snapshot arrives.
+                foreach (var text in FindObjectsByType<UnityEngine.UI.Text>(FindObjectsSortMode.None))
+                    if(!text.GetComponentInParent<NpcDialogueUI>()&&!IsSharedInputHud(text))text.gameObject.SetActive(false);
                 var choices = FindFirstObjectByType<ChoiceSystem>(); if (choices) choices.enabled = false;
                 BuildCharacters();
                 // Do not expose scene-default roles until a validated public
@@ -67,6 +70,11 @@ namespace EduAI.Court
             if (request.mode == "overview") { seat = new Vector3(7, 4, -7); target = new Vector3(0, 1, 4); }
             if (request.mode == "walk") { seat = new Vector3(0, .1f, -1); target = new Vector3(0, 1.6f, 8); }
             FirstPersonController.Active.SetSeat(seat, target, request.mode != "walk");
+        }
+        public static bool IsSharedInputHud(UnityEngine.UI.Text text)
+        {
+            return text && text.GetComponentInParent<InteractionUI>() &&
+                (text.name=="Crosshair"||text.name=="Controls"||text.name=="InteractionPrompt");
         }
         private static void BuildCharacters()
         {
