@@ -1,6 +1,20 @@
 # 角色法袍、襯衫領口與領帶（2026-09-27）
 
-## 2026-09-28 修正版候選（發布狀態另記）
+## 2026-09-28 追加修復：人物懸空（優先於下列歷史高度方案）
+
+5c95a37 已推送且發布 Worker e745e7fa-9564-4dbd-b9d4-a7d8cef50913；Pages 36332389492、Docker 36332434720 成功，兩個線上來源四檔均逐位元組一致，Docker 六項 SHA256 檢查通過。但使用者回報人物懸空，不能把這份發布當成完整美術驗收。
+
+根因：為越過原本 1.1／1.3m 桌面加入的 .65m 整體上移，同時把腳底抬高 .65m。僅檢查頭高／正面畫面漏掉腳底。SkinnedMeshRenderer.BakeMesh 結果再套用有縮放的 Transform 會在此骨架重複縮放，因此新的接觸測試直接使用原頂點、boneWeights、bindposes 及骨頭世界矩陣計算實際蒙皮位置，而不是誤用 BakeMesh bounds。
+
+修正原始碼：移除 .65m 整體上移；保留已測量的 sit 根骨架 .15 模型單位補償與垂腿姿勢。新增 Core/CourtFurniture.cs，只在 hosted 將桌面配合縮小模型調整為 .68m，新增五把 .36m 座面、有椅背及落地椅腳的簡化木椅。兩個互動盒隨桌面位移，保留原碰撞與互動 component；不改案件、座位權威或資料。套用一次後不累加；舊 guest 場景未被保存／覆寫。
+
+官方 Unity 6000.6.2f1 Scene／Play exit 0（npc-grounded-seat-play.log），新增所有角色三個 sit 時間取樣的腳底距地面小於 .025m、桌面可視、五椅存在、原 actor root 不動與盒子射線測試。量測腳底為約 0～.003m。Release 建置與瀏覽器側面驗證接續，不把離線渲染當成正式遊戲證據。
+
+補充驗收：增加椅腳 collider 下緣接地、座面高度斷言後再次 Play exit 0（npc-grounded-seat-contact-play.log）。Release exit 0，data 15,322,609、wasm 5,869,417、framework 83,199、loader 48,540，含 touch 合計 21,328,937 bytes。新本機來源 localhost:8792 真實瀏覽器完成恢復／載入／走動／側面椅腳觀察／E 開檢察官；error/warn 讀取為空。截圖 outputs/grounded-chair-browser-0928.png；手機真機仍待驗收。
+
+同時發現原本 127.0.0.1 頁面普通 reload 仍讀到舊 Unity 資源，不能把該次畫面算新成品。BuildWebGL 現在完成後 StampWebGL，以四檔內容 SHA256 產生同一個 16 位 revision query；check-build 強制檢查四檔版本與實際雜湊相符，防止缺失、混版及過時標記。這批 revision 為 8f0b2c59f3368fdd。不清空使用者的帳號或瀏覽器資料；HTML 本身的快取傳播仍需注意。
+
+## 2026-09-28 修正版候選（歷史方案，後被上方接地修復取代）
 
 先前只有 .15 模型單位補償仍不足：在真正 Courtroom 場景量測，頭部仍低於 1.1／1.3m 桌面。因此再加入 .65 世界單位椅面補償，僅移動 CharacterModel，不移動互動 root／collider。沿用模型每腿只有一根骨頭，sit 動畫原本把腳底朝前；現在於 LateUpdate 使用 mesh bind pose 恢復垂腿方向，不累積旋轉。離開 sit 由正常動畫控制。
 

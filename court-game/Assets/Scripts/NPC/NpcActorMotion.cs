@@ -47,14 +47,11 @@ namespace EduAI.Court
                 return;
             }
             HasPublicState=true; PublicPlan=plan;
-            // The imported clip is floor-sitting: compensate its .15 model-unit
-            // rig drop, then seat it .65 world units above the standing floor.
-            // Audited in the authored court (desks 1.1 / 1.3 high), not only an
-            // isolated model preview. Never move the interaction/collision root.
+            // Compensate the clip's .15 model-unit rig drop only. Furniture is
+            // fitted to these miniature rigs; never raise the entire body to
+            // clear a desk, which leaves the soles floating above the floor.
             var lift=plan.Clip=="sit"?Vector3.up*.15f:Vector3.zero;
-            var chairLift=plan.Clip=="sit"?Vector3.up*.65f:Vector3.zero;
-            if(transform.parent) chairLift=transform.parent.InverseTransformVector(chairLift);
-            transform.localPosition=standingLocalPosition+transform.localRotation*Vector3.Scale(transform.localScale,lift)+chairLift;
+            transform.localPosition=standingLocalPosition+transform.localRotation*Vector3.Scale(transform.localScale,lift);
             Play(plan.Clip,plan.Loop);
         }
         // Guest dialogue only. Hosted animation is driven solely by validated

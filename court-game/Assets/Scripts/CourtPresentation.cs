@@ -54,6 +54,7 @@ namespace EduAI.Court
                 var dialogue = FindFirstObjectByType<NpcDialogueUI>();
                 if (dialogue) dialogue.Close();
                 IsHosted = true;
+                Core.CourtFurniture.Ensure();
                 // Hide legacy case labels, not the desktop's shared aiming and
                 // input HUD. Touch already hides its crosshair/controls; do not
                 // reactivate those objects when the hosted snapshot arrives.

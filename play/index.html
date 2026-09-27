@@ -173,13 +173,13 @@
       progress.hidden = false;
       status.textContent = '正在載入 0%';
       const loader = document.createElement('script');
-      loader.src = 'Build/WebGL.loader.js';
+      loader.src = 'Build/WebGL.loader.js?v=8f0b2c59f3368fdd';
       loader.onerror = fail;
       loader.onload = () => {
         createUnityInstance(canvas, {
-          dataUrl: 'Build/WebGL.data.unityweb',
-          frameworkUrl: 'Build/WebGL.framework.js.unityweb',
-          codeUrl: 'Build/WebGL.wasm.unityweb',
+          dataUrl: 'Build/WebGL.data.unityweb?v=8f0b2c59f3368fdd',
+          frameworkUrl: 'Build/WebGL.framework.js.unityweb?v=8f0b2c59f3368fdd',
+          codeUrl: 'Build/WebGL.wasm.unityweb?v=8f0b2c59f3368fdd',
           streamingAssetsUrl: 'StreamingAssets',
           companyName: 'EduAI', productName: 'EduAI Court', productVersion: '0.1.0',
           devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5)

@@ -205,6 +205,25 @@ namespace EduAI.Court.Editor
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] {ScenePath},
                 locationPathName = "Builds/WebGL", target = BuildTarget.WebGL, options = BuildOptions.None });
             if (report.summary.result != BuildResult.Succeeded) throw new Exception("WebGL build failed.");
+            StampWebGL();
+        }
+        public static void StampWebGL()
+        {
+            // Content-derived URLs keep the four files of a release together,
+            // including Unity's persistent IndexedDB data cache.
+            string[] files={"WebGL.data.unityweb","WebGL.framework.js.unityweb","WebGL.loader.js","WebGL.wasm.unityweb"};
+            string inventory="";
+            using(var hash=System.Security.Cryptography.SHA256.Create())
+            {
+                foreach(var file in files)
+                    inventory+=file+":"+BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes("Builds/WebGL/Build/"+file))).Replace("-","").ToLowerInvariant()+"\n";
+                string revision=BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(inventory))).Replace("-","").ToLowerInvariant().Substring(0,16);
+                string path="Builds/WebGL/index.html",html=File.ReadAllText(path);
+                foreach(var file in files)
+                    html=System.Text.RegularExpressions.Regex.Replace(html,"Build/"+System.Text.RegularExpressions.Regex.Escape(file)+"(?:\\?v=[0-9a-f]{16})?", "Build/"+file+"?v="+revision);
+                File.WriteAllText(path,html,new System.Text.UTF8Encoding(false));
+                Debug.Log("COURT_BUILD_REVISION "+revision);
+            }
         }
         private static void StripUnusedAlwaysIncludedShaders()
         {

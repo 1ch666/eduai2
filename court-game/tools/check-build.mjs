@@ -13,9 +13,12 @@ const definitions = { data: /dataUrl:\s*'([^']+)'/, wasm: /codeUrl:\s*'([^']+)'/
   framework: /frameworkUrl:\s*'([^']+)'/, loader: /loader.src\s*=\s*'([^']+)'/, touch: /<script src="(touch-controls.js)">/ };
 const rows = [];
 let loaderText = '';
+const revisions = [];
 for (const [type, regex] of Object.entries(definitions)) {
-  const file = html.match(regex)?.[1];
-  assert(file && /^(Build\/[\w.-]+|touch-controls\.js)$/.test(file), `Safe ${type} URL required`);
+  const url = html.match(regex)?.[1];
+  assert(url && /^(Build\/[\w.-]+(?:\?v=[0-9a-f]{16})?|touch-controls\.js)$/.test(url), `Safe ${type} URL required`);
+  const [file, query] = url.split('?');
+  if(type!=='touch')revisions.push(query?.slice(2));
   const bytes = await readFile(join(root, file));
   const compressed = file.endsWith('.unityweb');
   if (['data', 'wasm', 'framework'].includes(type)) assert(compressed, `${type} must use compression fallback`);
@@ -27,6 +30,13 @@ for (const [type, regex] of Object.entries(definitions)) {
     sha256: createHash('sha256').update(bytes).digest('hex'),
     decodedBytes: raw.length, brotliEstimateBytes: compareBrotli ? brotliCompressSync(raw,
       { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length : undefined });
+}
+assert(revisions.every(Boolean),'All four build URLs require a content-derived release revision');
+{
+  const inventory=rows.filter(row=>row.type!=='touch').sort((a,b)=>a.file.localeCompare(b.file))
+    .map(row=>`${row.file}:${row.sha256}\n`).join('');
+  const revision=createHash('sha256').update(inventory).digest('hex').slice(0,16);
+  assert(revisions.every(value=>value===revision),'Every build URL must use the content hash of the same four-file release');
 }
 const declaredWasmSize = loaderText.match(/\bwasmFileSize\s*:\s*(\d+)/);
 assert(declaredWasmSize, 'Unity loader must declare wasmFileSize');

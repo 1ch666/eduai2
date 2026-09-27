@@ -31,6 +31,9 @@ namespace EduAI.Court.Editor
         private static void RenderCourtPose(string pose)
         {
             EditorSceneManager.OpenScene("Assets/Scenes/Courtroom.unity");
+            // Awake is not automatically invoked outside Play mode.
+            Core.CourtSeatLayout.Ensure().SendMessage("Awake");
+            Core.CourtFurniture.Ensure();
             foreach(var actor in Object.FindObjectsByType<NPCInteractable>(FindObjectsSortMode.None))
             {
                 var model=actor.transform.Find("CharacterModel");
@@ -43,11 +46,32 @@ namespace EduAI.Court.Editor
                 motion.ApplyPoseAdjustments();
                 var head=System.Array.Find(model.GetComponentsInChildren<Transform>(),t=>t.name=="head");
                 Debug.Log("COURT_SEATED "+actor.name+" model="+model.position.ToString("F4")+" head="+head.position.ToString("F4"));
+                foreach(var bone in model.GetComponentsInChildren<Transform>())
+                    if(bone.name=="torso"||bone.name=="leg-left"||bone.name=="leg-right")
+                        Debug.Log("SEAT_BONE "+actor.name+" "+bone.name+" "+bone.position.ToString("F4"));
+                var skin=System.Array.Find(model.GetComponentsInChildren<SkinnedMeshRenderer>(),r=>r.name=="body-mesh");
+                var baked=new Mesh();skin.BakeMesh(baked);
+                float min=float.PositiveInfinity;
+                foreach(var vertex in baked.vertices) min=Mathf.Min(min,skin.transform.TransformPoint(vertex).y);
+                Debug.Log("SEAT_FEET "+actor.name+" "+min+" scale="+skin.transform.lossyScale+" bounds="+skin.bounds.min.y+" local="+baked.bounds.min.y);Object.DestroyImmediate(baked);
+                var vertices=skin.sharedMesh.vertices;var weights=skin.sharedMesh.boneWeights;var binds=skin.sharedMesh.bindposes;var bones=skin.bones;
+                min=float.PositiveInfinity;
+                for(int i=0;i<vertices.Length;i++)
+                {
+                    var w=weights[i];var v=vertices[i];
+                    Vector3 Point(int b)=>bones[b].TransformPoint(binds[b].MultiplyPoint3x4(v));
+                    var p=Point(w.boneIndex0)*w.weight0+Point(w.boneIndex1)*w.weight1+Point(w.boneIndex2)*w.weight2+Point(w.boneIndex3)*w.weight3;
+                    min=Mathf.Min(min,p.y);
+                }
+                Debug.Log("SEAT_SKIN_WORLD "+actor.name+" "+min);
             }
             var camera=Camera.main;
             camera.transform.position=new Vector3(0,1.65f,-1);
             camera.transform.rotation=Quaternion.identity;camera.fieldOfView=60;
             Capture(camera,"Logs/wardrobe-court-"+pose+".png");
+            camera.transform.position=new Vector3(0,1.6f,6);
+            camera.transform.LookAt(new Vector3(3,.7f,3.5f));
+            Capture(camera,"Logs/wardrobe-seat-contact-side.png");
         }
         private static void RenderPose(string pose)
         {

@@ -127,7 +127,8 @@ namespace EduAI.Court.Editor
             Require(player.transform.position.z < 1.2f, "Defense desk collision");
             // 將玩家移開測試射線，避免撞到自己的 CharacterController。
             Teleport(controller, new Vector3(0, .05f, -1));
-            Require(Physics.Raycast(new Vector3(-3, 1.23f, -.5f), Vector3.forward, out RaycastHit evidenceHit, 3), "Evidence ray hit");
+            float evidenceHeight=UnityEngine.Object.FindFirstObjectByType<EvidenceInteractable>().transform.position.y;
+            Require(Physics.Raycast(new Vector3(-3, evidenceHeight, -.5f), Vector3.forward, out RaycastHit evidenceHit, 3), "Evidence ray hit at fitted tabletop");
             Require(evidenceHit.collider.GetComponent<EvidenceInteractable>(), "Evidence target within 3m");
             Require(Physics.Raycast(new Vector3(10, 1.5f, 0), Vector3.left, out RaycastHit wallHit, 3), "Wall ray hit");
             Require(wallHit.collider.name == "East", "Wall blocks nearest-hit interaction ray");
@@ -146,6 +147,19 @@ namespace EduAI.Court.Editor
         }
         private static void TestSeatedSceneHeight()
         {
+            Core.CourtFurniture.Ensure();
+            var box=UnityEngine.Object.FindFirstObjectByType<EvidenceInteractable>();
+            var boxPosition=box.transform.position;
+            Core.CourtFurniture.Ensure();
+            Require(box.transform.position==boxPosition,"Furniture fitting does not accumulate box offsets");
+            Require(GameObject.Find("HostedFurniture").transform.childCount==5,"Five physical chairs support all authored seats");
+            foreach(Transform chair in GameObject.Find("HostedFurniture").transform)
+            {
+                var seat=chair.Find("Seat").GetComponent<Collider>();
+                Require(Mathf.Abs(seat.bounds.max.y-Core.CourtFurniture.SeatHeight)<.001f,"Chair seat uses audited hip support height");
+                foreach(Transform part in chair)
+                    if(part.name=="Leg")Require(Mathf.Abs(part.GetComponent<Collider>().bounds.min.y)<.001f,"Chair legs contact floor");
+            }
             foreach(var actor in UnityEngine.Object.FindObjectsByType<NPCInteractable>(FindObjectsSortMode.None))
             {
                 var motion=actor.GetComponentInChildren<NpcActorMotion>();
@@ -160,8 +174,18 @@ namespace EduAI.Court.Editor
                 {
                     animation["sit"].clip.SampleAnimation(motion.gameObject,time);
                     motion.ApplyPoseAdjustments();
-                    float deskHeight=actor.name=="Judge"?1.3f:actor.name=="Witness"?1f:1.1f;
-                    Require(head.position.y>deskHeight+.15f,"Seated neck clears authored desk: "+actor.name);
+                    Require(head.position.y>Core.CourtFurniture.DeskHeight+.10f,"Seated neck clears fitted desk: "+actor.name);
+                    var skin=Array.Find(motion.GetComponentsInChildren<SkinnedMeshRenderer>(),r=>r.name=="body-mesh");
+                    var vertices=skin.sharedMesh.vertices;var weights=skin.sharedMesh.boneWeights;var binds=skin.sharedMesh.bindposes;var bones=skin.bones;
+                    float footY=float.PositiveInfinity;
+                    for(int i=0;i<vertices.Length;i++)
+                    {
+                        var w=weights[i];var v=vertices[i];
+                        Vector3 Point(int b)=>bones[b].TransformPoint(binds[b].MultiplyPoint3x4(v));
+                        var p=Point(w.boneIndex0)*w.weight0+Point(w.boneIndex1)*w.weight1+Point(w.boneIndex2)*w.weight2+Point(w.boneIndex3)*w.weight3;
+                        footY=Mathf.Min(footY,p.y);
+                    }
+                    Require(Mathf.Abs(footY)<.025f,"Actual skinned soles touch floor, not merely renderer bounds: "+actor.name);
                     Require(actor.transform.position==rootPosition,"Seat fitting preserves interaction root");
                 }
                 motion.ApplyPublicState("sitting","neutral","silent","idle",true);
