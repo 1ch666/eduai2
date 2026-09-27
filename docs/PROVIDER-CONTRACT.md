@@ -117,7 +117,7 @@ them after bounded JSON parsing; adding them is not proof of an integrated RAG
 pipeline. No actual embedding/rerank provider or public route currently invokes
 them, so this batch does not need a production deployment or data migration.
 
-## Case generation transport migration (2026-09-28, not yet deployed)
+## Case generation transport migration (2026-09-28, deployed)
 
 `generateModelCase` now accepts an optional server-only `LLMProvider` and validates
 its normalized text with the existing narrative and reachability validators.
@@ -134,4 +134,14 @@ fake transports only, including a different provider, invalid drafts, oversized
 text, upstream failures and immutable history. No live model quality claim.
 No schema, migration, Secret, binding, frontend or Unity change. Rollback can
 restore the previous runtime code without data conversion. CI and production
-verification remain pending; stage dialogue still needs provider migration.
+verification are recorded below; stage dialogue still needs provider migration.
+
+Source `950f04ec31bdd1bc0d4bf497f456bf073880d6d7` passed fast and isolated
+workerd API CI: https://github.com/1ch666/eduai2/actions/runs/36342149022 .
+Wrangler dry-run and strict deployment with preserved variables succeeded.
+Worker version: `9084a8ca-bd34-4e07-a115-ff5ea7c36031`.
+No static assets changed. Read-only production probes verified capabilities
+200, court cases 200 and anonymous sessions 401, each with a trace header.
+No production case creation or live inference was performed; these probes do
+not prove model availability or narrative quality. Previous rollback version:
+`8681a49b-afb9-4234-8aaa-a68ee1f622db`. No data conversion is needed.

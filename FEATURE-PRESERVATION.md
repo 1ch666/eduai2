@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+最新發布：950f04e 案件生成供應商介面已部署為 9084a8ca-bd34-4e07-a115-ff5ea7c36031；CI 36342149022 fast/local-api 通過。保留提示詞、參數、案件驗證、題庫備援與資料格式；capabilities/cases 200、匿名 sessions 401。無正式模型呼叫、資料變更或 Unity 重建；詳見 docs/PROVIDER-CONTRACT.md。下方版本號為歷史證據。
+
 最新發布：d529d07 確定性法庭核心已部署為 8681a49b-afb9-4234-8aaa-a68ee1f622db；CI 36341479597 成功。保留原 API，核心明確接收伺服器時間，隨機序列測試比對完整狀態；詳見 docs/COURT-DETERMINISM.md。未修改前端／Unity／正式資料；以下舊版發布記錄為歷史證據。
 
 最新後端增量：ab035b7 已部署為 984670ba-6025-4df7-9734-45dcffc46f0e；CI 36341128195 fast/local-api 通過。CourtRoom 可選私有引用圖在寫入前綁定範本並驗證，與事件原子儲存；舊場次／公開 API 不變，未啟用模型產生引用圖。詳見 docs/CASE-GRAPH-CONTRACT.md。以下較早版本號為歷史證據，不能取代本段部署現況。
