@@ -182,7 +182,8 @@ namespace EduAI.Court
             history.text=r.historyText??r.text??"尚無對話";input.text="";
             state.text=!string.IsNullOrEmpty(r.notice)?r.notice:r.mode=="history"?"對話已恢復，可直接提問。":"已保存";
             Canvas.ForceUpdateCanvases();scroll.verticalNormalizedPosition=0;
-            npc.GetComponentInChildren<NpcActorMotion>()?.Speak();
+            // Receiving text (including history / fallback) is not a server
+            // speaking-state transition. CourtRuntimeState owns hosted motion.
         }
         private void RenderHistory()
         {

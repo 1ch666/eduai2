@@ -1,3 +1,6 @@
+【2026-09-27 NPC 動畫公開狀態接線：原始碼與 Play 已驗證】
+新增固定 NpcMotionPlan 與公開狀態同步，三款既有 CC0 模型增加 emote-no / interact-right，坐姿、說話、異議與展示對應實際 clip。重複快照不重播；失同步停止；雲端歷史／回覆不再擅自触發 Speak，guest 原行為保留。官方 Unity 6000.6.2f1 編譯、匯入、Scene／Play exit 0；Editor 既知 SearchDatabase 例外仍在。尚未完成本批 WebGL／外觀／手機／發布／Docker。情緒、傾聽、思考、轉頭專用動畫與 server 事件接線仍未完成，詳見 docs/UNITY-NPC-MOTION.md。下方為前版發布紀錄。
+
 【2026-09-27 NPC 座位映射：本批發布完成】
 來源 d937c25 已發布 Worker 4ac4cc00-4d91-43d0-a969-aae33cb2e7c1；Pages 36327374557、Docker 36327425396 均 success。Worker／Pages 四檔成品普通路徑皆與本機逐位元組一致；Docker 下载校驗六項通過。初始發布短暫讀到舊資源，後續核對已更新，不能宣稱完全不存在快取問題。手機／所有角色與完整重構仍未完成。
 

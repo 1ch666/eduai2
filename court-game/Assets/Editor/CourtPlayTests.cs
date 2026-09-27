@@ -134,6 +134,9 @@ namespace EduAI.Court.Editor
             var snapshot = Networking.CourtWire.Snapshot(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(witness.CanInteract && witness.DisplayName == "證人", "Public NPC projection enables matching actor");
+            var motion=witness.GetComponentInChildren<NpcActorMotion>();
+            Require(motion && motion.HasPublicState && motion.PublicPlan.Pose==snapshot.state.npcs[0].pose, "Validated snapshot drives public motion state");
+            TestMotionPlans(motion);
             var layout = Core.CourtSeatLayout.Active;
             Require(layout && layout.TryResolve("witness-seat", "witness", out _), "Public seat resolves by explicit server role and seat");
             Require(!layout.TryResolve("judge-seat", "witness", out _) && !layout.TryResolve("unknown-seat", "witness", out _), "No guessed or unsupported seat mapping");
@@ -146,6 +149,7 @@ namespace EduAI.Court.Editor
             snapshot.state.npcs[0].visible = false; snapshot.state.npcs[0].interactable = false;
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(!witness.CanInteract && !NpcDialogueUI.IsOpen, "Revoked NPC closes dialogue and blocks interaction");
+            Require(!motion.HasPublicState && motion.ActiveClip==null, "Revoked visibility clears motion and stale public state");
             foreach (var renderer in witness.GetComponentsInChildren<Renderer>(true)) Require(!renderer.enabled, "Invisible NPC renderers hidden");
             runtime.ApplySnapshot(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
             Require(!witness.CanInteract, "Stale visible snapshot cannot restore revoked actor");
@@ -156,7 +160,7 @@ namespace EduAI.Court.Editor
             Require(witness.CanInteract && witness.DisplayName == "本案證人", "New projection restores actor with server label");
             bool rendered = false; foreach (var renderer in witness.GetComponentsInChildren<Renderer>(true)) rendered |= renderer.enabled;
             Require(rendered, "Model renderers restored after temporary hiding");
-            runtime.MarkUnavailable(); Require(!witness.CanInteract, "Unavailable sync blocks NPC");
+            runtime.MarkUnavailable(); Require(!witness.CanInteract && !motion.HasPublicState, "Unavailable sync blocks NPC and stops motion");
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot)); Require(witness.CanInteract, "Same validated snapshot restores availability");
             dialogue.Open(witness);
             snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
@@ -169,6 +173,37 @@ namespace EduAI.Court.Editor
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(!witness.CanInteract && witness.transform.position == mappedPosition, "Unknown seat disables actor without relocating to origin");
             runtime.ClearState(); Require(!witness.CanInteract, "Clearing session disables old actor");
+        }
+        private static void TestMotionPlans(NpcActorMotion motion)
+        {
+            string[] poses={"idle","speaking","listening","thinking","objecting","presentingEvidence","sitting","standing","turnHeadToSpeaker"};
+            string[] clips={"idle","emote-yes","idle","idle","emote-no","interact-right","sit","idle","idle"};
+            var animation=motion.GetComponentInChildren<Animation>();
+            for(int i=0;i<poses.Length;i++)
+                foreach(var emotion in new[]{"neutral","nervous","confident","surprised"})
+                {
+                    Require(NpcMotionPlan.TryCreate(poses[i],emotion,"silent","idle",out var plan) && plan.Clip==clips[i], "Finite deterministic pose mapping: "+poses[i]);
+                    Require(animation[plan.Clip]!=null, "Mapped clip actually imported: "+plan.Clip);
+                    motion.ApplyPublicState(poses[i],emotion,"silent","idle",true);
+                    Require(motion.HasPublicState && motion.ActiveClip==clips[i] && motion.PublicPlan.Emotion==emotion, "Runtime consumes public visual state");
+                }
+            motion.ApplyPublicState("objecting","neutral","silent","idle",true);
+            animation["emote-no"].time=.25f;
+            motion.ApplyPublicState("objecting","neutral","silent","idle",true);
+            Require(Mathf.Abs(animation["emote-no"].time-.25f)<.001f, "Duplicate projection does not restart motion");
+            motion.ApplyPublicState("sitting","nervous","speaking","idle",true);
+            motion.Speak();
+            Require(motion.ActiveClip=="sit", "Dialogue receipt cannot stand a hosted actor up");
+            motion.ApplyPublicState("speaking","neutral","speaking","pending",true);
+            Require(motion.ActiveClip=="idle", "Pending response does not simulate delivered speech");
+            Require(!NpcMotionPlan.TryCreate("run-script","neutral","silent","idle",out _) &&
+                !NpcMotionPlan.TryCreate("idle","arbitrary","silent","idle",out _) &&
+                !NpcMotionPlan.TryCreate("idle","neutral","unknown","idle",out _) &&
+                !NpcMotionPlan.TryCreate("idle","neutral","silent","unknown",out _), "Reject arbitrary animation vocabulary");
+            motion.ApplyPublicState("unknown","neutral","silent","idle",true);
+            Require(!motion.HasPublicState && motion.ActiveClip==null && !animation.isPlaying, "Unknown motion clears prior animation");
+            // Restore through the authoritative store, not a test-owned NPC copy.
+            Core.CourtRuntimeState.Active.ApplySnapshot(JsonUtility.ToJson(Core.CourtRuntimeState.Active.Snapshot));
         }
         private static void Teleport(CharacterController controller, Vector3 position)
         {

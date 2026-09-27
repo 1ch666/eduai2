@@ -8,24 +8,32 @@ namespace EduAI.Court.Editor
 {
     public static class NpcUpgrade
     {
-        [MenuItem("EduAI/Upgrade NPC Models and Dialogue")]
-        public static void Apply()
+        // Import only the licensed gestures used by the presentation vocabulary.
+        // This entry point does not regenerate or overwrite the authored scene.
+        [MenuItem("EduAI/Configure NPC Motion Clips")]
+        public static void ConfigureMotionClips()
         {
-            const string folder="Assets/Art/KenneyMini/";
-            var names=new[]{"character-male-a","character-male-b","character-female-a"};
-            foreach(var name in names)
+            var required=new[]{"idle","sit","emote-yes","emote-no","interact-right"};
+            foreach(var name in new[]{"character-male-a","character-male-b","character-female-a"})
             {
-                var importer=AssetImporter.GetAtPath(folder+name+".fbx") as ModelImporter;
+                var importer=AssetImporter.GetAtPath("Assets/Art/KenneyMini/"+name+".fbx") as ModelImporter;
                 if(!importer)throw new Exception("Missing licensed model: "+name);
                 importer.animationType=ModelImporterAnimationType.Legacy;
                 importer.importAnimation=true; importer.importCameras=false; importer.importLights=false;
                 importer.materialImportMode=ModelImporterMaterialImportMode.None;
-                var clips=importer.defaultClipAnimations.Where(c=>c.name=="idle"||c.name=="emote-yes"||c.name=="sit").ToArray();
-                if(clips.Length==0)throw new Exception("Expected idle/gesture clips missing");
-                foreach(var clip in clips)clip.loopTime=clip.name=="idle"||clip.name=="sit";
+                var clips=importer.defaultClipAnimations.Where(c=>required.Contains(c.name)).ToArray();
+                if(clips.Length!=required.Length)throw new Exception("Required NPC motion clips missing: "+name);
+                foreach(var clip in clips)clip.loopTime=clip.name=="idle"||clip.name=="sit"||clip.name=="emote-yes";
                 importer.clipAnimations=clips; importer.SaveAndReimport();
                 Debug.Log("NPC_CLIPS: "+string.Join(",",clips.Select(c=>c.name)));
             }
+        }
+        [MenuItem("EduAI/Upgrade NPC Models and Dialogue")]
+        public static void Apply()
+        {
+            ConfigureMotionClips();
+            const string folder="Assets/Art/KenneyMini/";
+            var names=new[]{"character-male-a","character-male-b","character-female-a"};
             var texturePath=folder+"Textures/colormap.png";
             var ti=(TextureImporter)AssetImporter.GetAtPath(texturePath);
             ti.maxTextureSize=512; ti.mipmapEnabled=true; ti.SaveAndReimport();

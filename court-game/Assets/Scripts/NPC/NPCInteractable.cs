@@ -34,6 +34,8 @@ namespace EduAI.Court
             }
             publicInteractionAllowed = visible && projection.interactable && projection.requestState != "pending";
             publicDisplayName = visible ? projection.displayName : null;
+            GetComponentInChildren<NpcActorMotion>(true)?.ApplyPublicState(
+                projection?.pose, projection?.emotion, projection?.speakingState, projection?.requestState, visible);
             if (publicRenderers == null)
             {
                 publicRenderers = GetComponentsInChildren<Renderer>(true);
