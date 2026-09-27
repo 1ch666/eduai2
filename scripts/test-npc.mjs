@@ -38,7 +38,7 @@ test('cloud request is compatible, has conversation context, and accepts fenced 
    return Response.json({message:{content:'```json\n{"reply":"你好，你想詢問這筆交易的哪個部分？","factIds":[],"uncertain":true}\n```'}});
   };
   const r=await npcResponse({OLLAMA_API_KEY:'local-test'},state,'Lawyer',{...input,text:'嗨'},true,[{question:'一台二手相機',answer:''}]);
-  assert.equal(r.mode,'ai');assert.ok(r.text.startsWith('你好'));
+  assert.equal(r.mode,'ai');assert.ok(r.text.startsWith('你好'));assert.equal(r.aiOutcome.mode,'FULL');assert.equal(r.aiOutcome.modelUsed,true);
  }finally{globalThis.fetch=old;}
 });
 test('failure classes are distinct and logs contain no questions, secrets or raw provider text',async()=>{
@@ -55,7 +55,7 @@ test('failure classes are distinct and logs contain no questions, secrets or raw
   ['CONTENT_SCHEMA',()=>Response.json({message:{content:'{"reply":"無引用","uncertain":false,"factIds":[]}'}})],
  ];
  try{for(const [code,fn] of scenarios){globalThis.fetch=async()=>fn();const r=await npcResponse({OLLAMA_API_KEY:'secret'},state,'Lawyer',input,true);
-  assert.equal(r.errorCode,code);assert.equal(r.mode,'scripted');assert.ok(r.text.includes('沒有新增角色證詞'));assert.ok(npcNotice(r).includes(code));
+  assert.equal(r.errorCode,code);assert.equal(r.mode,'scripted');assert.equal(r.aiOutcome.mode,'SCRIPTED_AI_FALLBACK');assert.equal(r.aiOutcome.modelUsed,false);assert.ok(r.text.includes('沒有新增角色證詞'));assert.ok(npcNotice(r).includes(code));
  }}finally{globalThis.fetch=old;console.warn=oldWarn;}
  for(const log of logs)assert.ok(!/private|secret|你知道|thinking/.test(log));
 });

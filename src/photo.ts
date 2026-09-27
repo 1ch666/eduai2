@@ -7,6 +7,7 @@ import type { AppEnv } from './env';
 import type { ChatInput, LLMProvider } from './providers/contracts';
 import { studyProvider, STUDY_RESERVATION_MESSAGES } from './providers/study-provider';
 import {aiAvailability} from './ai-availability';
+import {aiOutcome} from './ai-outcome';
 
 const EXPLAIN_SYSTEM_PROMPT = [
   '你是「公民法律研究室」的題目講解助教。',
@@ -40,6 +41,8 @@ export async function handlePhoto(
   }
 
   if (pathname !== '/api/photo/explain') return respond({ error: '找不到端點' }, 404);
+  const send=respond;
+  respond=(body,status,cookies)=>send({aiOutcome:aiOutcome('photo','none'),...(body && typeof body==='object'?body:{})},status,cookies);
   if (request.method !== 'POST') return respond({ error: '此端點只接受 POST' }, 405);
   if (!trustedOrigin) return respond({ error: '拒絕未授權來源' }, 403);
 
@@ -100,5 +103,5 @@ export async function handlePhoto(
   const answer=result.value.text;
   if (typeof answer !== 'string' || !answer.trim()) return respond({ error: 'AI 未傳回答案' }, 502);
 
-  return respond({ explanation: answer.trim().slice(0, 2000) });
+  return respond({ explanation: answer.trim().slice(0, 2000), aiOutcome:aiOutcome('photo','model') });
 }

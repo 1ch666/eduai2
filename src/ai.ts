@@ -9,6 +9,7 @@ import { resolveSession } from "./session";
 import type { AppEnv } from "./env";
 import { lookupDictionary, dictionaryAnswer } from './dictionary';
 import {aiAvailability} from './ai-availability';
+import {aiOutcome} from './ai-outcome';
 
 const MAX_BODY_BYTES = 16_384;
 const UPSTREAM_TIMEOUT_MS = 50_000;
@@ -65,6 +66,8 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
     return respond({ available: availability.canAttempt, availability, provider: "Ollama", model, modes: ["civics", "court"] });
   }
   if (url.pathname !== "/api/ai/ask") return respond({ error: "找不到 API" }, 404);
+  const send=respond;
+  respond=(body,status,cookies)=>send({aiOutcome:aiOutcome('tutor','none'),...(body && typeof body==='object'?body:{})},status,cookies);
   if (request.method !== "POST") return respond({ error: "此端點只接受 POST" }, 405);
 
   const body = await readJsonObject(request, MAX_BODY_BYTES, respond, "請求內容過長");
@@ -123,7 +126,7 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   }
 
   const dictionary = await lookupDictionary(env, candidate.question);
-  if (dictionary) return respond({ answer: dictionaryAnswer(dictionary), provider: 'MOE dictionary', mode, source: dictionary.source_url, sourceVersion: dictionary.version });
+  if (dictionary) return respond({ answer: dictionaryAnswer(dictionary), provider: 'MOE dictionary', mode, source: dictionary.source_url, sourceVersion: dictionary.version, aiOutcome:aiOutcome('tutor','dictionary') });
   if (!env.OLLAMA_API_KEY) return respond({ error: "Ollama 服務尚未完成設定" }, 503);
   const failed = (code: string, error: string, status = 502) => {
     console.warn(JSON.stringify({ event: 'tutor_provider_failure', requestId: candidate.requestId, code }));
@@ -151,5 +154,5 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
     return failed(result.code,messages[result.code],result.code==='QUOTA'?429:
       ['CANCELLED','ADMISSION_DENIED','ADMISSION_UNAVAILABLE'].includes(result.code)?503:502);
   }
-  return respond({ answer: result.value.text.slice(0,5000), provider: "Ollama", model, mode });
+  return respond({ answer: result.value.text.slice(0,5000), provider: "Ollama", model, mode, aiOutcome:aiOutcome('tutor','model') });
 }

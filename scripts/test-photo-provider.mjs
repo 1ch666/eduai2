@@ -28,7 +28,7 @@ test('photo route projects confirmed text, preserves bounds, returns only explan
   assert.equal(input.messages[1].content,'題目文字：\n民主是什麼');assert.ok(!JSON.stringify(input).includes('PRIVATE_IMAGE'));
   return {ok:true,value:{text:'答'.repeat(2100),thinking:'PRIVATE'}};
  }});
- assert.equal(r.status,200);assert.deepEqual(await r.json(),{explanation:'答'.repeat(2000)});assert.equal(calls,1);
+ const body=await r.json();assert.equal(r.status,200);assert.deepEqual(body,{explanation:'答'.repeat(2000),aiOutcome:{schemaVersion:1,scope:'response',feature:'photo',source:'model',mode:'FULL',modelUsed:true}});assert.equal(calls,1);
 });
 test('origin, login, CSRF, rate and malformed bodies stop before inference',async()=>{
  let calls=0;const p={async generate(){calls++;throw Error('must not call');}};
@@ -42,13 +42,13 @@ test('origin, login, CSRF, rate and malformed bodies stop before inference',asyn
   [request('bad JSON'),env,'trusted',400],
   [request({text:'x'.repeat(1001),requestId:crypto.randomUUID()}),env,'trusted',400],
   [request({text:'民主',requestId:'bad'}),env,'trusted',400]]){
-   assert.equal((await handlePhoto(req,e,respond,origin,p)).status,status);
+   const response=await handlePhoto(req,e,respond,origin,p);assert.equal(response.status,status);assert.equal((await response.json()).aiOutcome.mode,'NO_AI');
  }assert.equal(calls,0);
 });
 test('provider failure codes and exceptions are sanitized without retry',async()=>{
  for(const code of ['QUOTA','NETWORK','TIMEOUT','CANCELLED','OUTPUT_TRUNCATED','EMPTY_CONTENT','RESPONSE_FORMAT','PROVIDER_AUTH']){
   let calls=0;const r=await handlePhoto(request(),env,respond,'trusted',{async generate(){calls++;return {ok:false,code,private:'PRIVATE'};}});
-  assert.equal(r.status,code==='QUOTA'?429:502);assert.ok(!JSON.stringify(await r.json()).includes('PRIVATE'));assert.equal(calls,1);
+  assert.equal(r.status,code==='QUOTA'?429:502);const body=await r.json();assert.equal(body.aiOutcome.mode,'NO_AI');assert.equal(body.aiOutcome.modelUsed,false);assert.ok(!JSON.stringify(body).includes('PRIVATE'));assert.equal(calls,1);
  }
  const r=await handlePhoto(request(),env,respond,'trusted',{async generate(){throw Error('PRIVATE_KEY');}});
  assert.equal(r.status,502);assert.ok(!JSON.stringify(await r.json()).includes('PRIVATE'));

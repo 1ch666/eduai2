@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI execution outcome for one delivered response, not platform health",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "scope", "feature", "mode", "source", "modelUsed"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "scope": {"const": "response"},
+    "feature": {"enum": ["tutor", "photo", "npc", "stage-dialogue", "case-generation"]},
+    "mode": {"enum": ["FULL", "RAG_ONLY", "SCRIPTED_AI_FALLBACK", "NO_AI"]},
+    "source": {"enum": ["model", "retrieval", "scripted", "dictionary", "none"]},
+    "modelUsed": {"type": "boolean"}
+  },
+  "oneOf": [
+    {"properties": {"mode": {"const": "FULL"}, "source": {"const": "model"}, "modelUsed": {"const": true}}},
+    {"properties": {"mode": {"const": "RAG_ONLY"}, "source": {"const": "retrieval"}, "modelUsed": {"const": false}}},
+    {"properties": {"mode": {"const": "SCRIPTED_AI_FALLBACK"}, "source": {"const": "scripted"}, "modelUsed": {"const": false}}},
+    {"properties": {"mode": {"const": "NO_AI"}, "source": {"enum": ["dictionary", "none"]}, "modelUsed": {"const": false}}}
+  ]
+}

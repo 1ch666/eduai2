@@ -3,6 +3,7 @@ import { CASES, type CourtState } from './court-rules';
 import { createGovernedOllamaProvider } from './providers/governed-ollama';
 import type { LLMProvider } from './providers/contracts';
 import { lookupDictionary, dictionaryAnswer } from './dictionary';
+import {aiOutcome, type AiOutcome} from './ai-outcome';
 
 import {npcIdentity, type NpcId} from './court-cast';
 export {NPC_IDS, type NpcId} from './court-cast';
@@ -16,7 +17,9 @@ export function npcHistory(rows:{payload:string;result:string}[],id:NpcId):NpcHi
     return [{question:p.text.slice(0,400),answer:r.mode==='ai'?r.text.slice(0,500):''}];
   }catch{return [];}}).slice(-4);
 }
-export type NpcReply = { requestId:string; npcId:string; version:number; text:string; mode:'ai'|'scripted'; errorCode:string; knowledgeIds:string[] };
+// Optional only for pre-contract persisted replies. Never backfill old replies
+// as if a new model call had succeeded. New npcResponse outputs always include it.
+export type NpcReply = { requestId:string; npcId:string; version:number; text:string; mode:'ai'|'scripted'; errorCode:string; knowledgeIds:string[]; aiOutcome?:AiOutcome };
 export function validNpcInput(v:Record<string,unknown>): v is Record<string,unknown>&NpcInput {
   return typeof v.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v.requestId)&&Number.isSafeInteger(v.version)&&Number(v.version)>=0&&typeof v.text==='string'&&v.text.trim().length>0&&v.text.length<=400;
 }
@@ -43,9 +46,9 @@ export function renderNpcSelection(value:unknown, knowledge:ReturnType<typeof np
 }
 export async function npcResponse(env:AppEnv,s:CourtState,id:NpcId,a:NpcInput,allowAI:boolean,history:NpcHistory=[],provider?:LLMProvider,issuedAt?:number):Promise<NpcReply>{
   const k=npcKnowledge(s,id);
-  const fallback:NpcReply={requestId:a.requestId,npcId:id,version:s.version,text:'這次未取得 AI 回覆，沒有新增角色證詞。你可以繼續查看本案證物，稍後再提問。',mode:'scripted',errorCode:'AI_DISABLED',knowledgeIds:[]};
+  const fallback:NpcReply={requestId:a.requestId,npcId:id,version:s.version,text:'這次未取得 AI 回覆，沒有新增角色證詞。你可以繼續查看本案證物，稍後再提問。',mode:'scripted',errorCode:'AI_DISABLED',knowledgeIds:[],aiOutcome:aiOutcome('npc','scripted')};
   const dictionary=await lookupDictionary(env,a.text);
-  if(dictionary){const text=dictionaryAnswer(dictionary);if(text.length<=12000)return {...fallback,text,errorCode:'DICTIONARY',knowledgeIds:[]};}
+  if(dictionary){const text=dictionaryAnswer(dictionary);if(text.length<=12000)return {...fallback,text,errorCode:'DICTIONARY',knowledgeIds:[],aiOutcome:aiOutcome('npc','dictionary')};}
   // Automatically use the configured provider; an explicit false remains an
   // operator kill switch. Keep existing budgets, and never select a paid upgrade.
   if(!allowAI)return {...fallback,errorCode:'RATE_LIMIT'};
@@ -67,7 +70,7 @@ export async function npcResponse(env:AppEnv,s:CourtState,id:NpcId,a:NpcInput,al
     try{parsed=JSON.parse(content.trim().replace(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i,'$1'));}catch{return failed('CONTENT_JSON');}
     const selected=renderNpcDialogue(parsed,k)||renderNpcSelection(parsed,k);
     if(!selected)return failed('CONTENT_SCHEMA');
-    return {...fallback,...selected,mode:'ai',errorCode:''};
+    return {...fallback,...selected,mode:'ai',errorCode:'',aiOutcome:aiOutcome('npc','model')};
   }catch(e){return failed(e instanceof Error&&(e.name==='TimeoutError'||e.name==='AbortError')?'TIMEOUT':'NETWORK');}
 }
 

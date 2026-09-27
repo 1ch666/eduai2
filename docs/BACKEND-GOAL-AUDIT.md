@@ -44,6 +44,12 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 
 ## Latest verified increment — 2026-09-28
 
+Current working increment adds response-level FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/
+NO_AI schema and actual tutor/photo/legacy NPC source mapping. RAG_ONLY is reserved,
+not emitted by dictionary lookup. Stage/generation/v1 projections and health
+freshness remain incomplete. See AI-OUTCOME.md for compatibility and rollback;
+deployment evidence is separate from local tests.
+
 `d529d07` adds explicit-time initialization/reduction with legacy clock adapters;
 reachability no longer reads wall time, and seeded invariant tests compare full
 states including timestamps. All roles/templates complete under a throwing clock

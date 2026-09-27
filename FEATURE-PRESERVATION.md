@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+本輪候選：助教／照片文字講解／新 legacy NPC 回覆新增 aiOutcome v1，保留原 answer、explanation、mode、錯誤碼與 HTTP 狀態。舊 NPC JSON 不回填、不清除；v1 NPC 公開投影尚待接入。辭典是 NO_AI/dictionary，不假稱 RAG。310 項快速測試及乾跑通過，正式發布另記於 docs/AI-OUTCOME.md；不修改 Unity、前端或既有帳號資料。
+
 目前最新發布：9353127 / Worker 0a3e5819-3c92-4358-b2d3-642353321633；CI 36348872114 通過，本機 307 項測試通過。三個 AI 狀態端點改讀實際共用額度管控，維持既有欄位並附版本化 availability，不因只有金鑰就認定可用；READY 僅為帳戶層允許嘗試，providerHealth 明示 not-probed。正式三端點 200、匿名場次 401，未呼叫模型。無新遷移／靜態資源／Secrets；詳見 docs/AI-AVAILABILITY.md。下方為歷史發布。
 
 目前發布：0e7ad2c / Worker d4bd7403-7914-469c-91d2-3c14a9955098；CI 36348143950 的 checks/local-api 通過，298 項本機快速測試、真實 workerd 預約 RPC、部署乾跑皆通過。公民助教與照片文字講解加入共同模型額度管控、每使用者持久化去重；保留原成功格式、字典、登入／CSRF／限流，不保存完整問答。重送現在明示 409，不會再次消耗模型；舊 UUID 紀錄上限 4,096，達限回 503，仍須新版可過期 ticket 才能安全清理。詳見 docs/STUDY-AI-ADMISSION.md。公開狀態 200、匿名私人端點 401 不等於正式 AI 已實測。未改 Unity／靜態資源／Secrets／README。下列較早版本為歷史記錄，不是最新部署。
