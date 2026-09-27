@@ -238,7 +238,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     try{
       const provider=await createGovernedOllamaProvider(this.env,{kind:'stage-dialogue',owner,
         sessionId:state.id,requestKey:String(version),issuedAt:started},false,trace);
-      text=await proposeStageDialogue(provider,view);
+      text=await proposeStageDialogue(provider,view,trace);
     }catch{/* Admission unavailable: preserve the reservation and scripted result. */}
     // dialogue rechecks owner/deletion/version and INSERT OR IGNORE prevents a
     // late provider completion from replacing an already recovered fallback.

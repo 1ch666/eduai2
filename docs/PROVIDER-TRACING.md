@@ -48,7 +48,30 @@ arguments only. Existing HTTP bodies/cookies remain unchanged. Rollback can
 restore the previous source without data conversion. Deployment verification
 must distinguish HTTP response headers from actually observed provider logs.
 
-Still incomplete: dedicated domain/DO, retrieval, reranker and validator spans;
+## Pipeline hooks (next source increment)
+
+`pipeline-tracing.ts` adds an explicit server-only async hook for retrieval,
+reranker and validator operations; `pipeline-trace-v1.schema.json` defines its
+exact output. The hook preserves the operation's result/exception by identity,
+never retries, and never serializes input/output/errors. Only a trusted
+classifier can mark accepted/rejected; classifier failure becomes unclassified
+without changing the domain result. Operation exceptions are recorded separately.
+Trace IDs are copied before asynchronous work; no request-scoped global state.
+
+Actual adoption: `proposeStageDialogue` now records the existing bounded JSON/text
+validator after a successful provider proposal. Invalid JSON/shape/text is
+rejected; provider failure emits no fake validator span. Accepted only means
+this structural validator passed, not factual/legal accuracy or committed state.
+CourtRoom still performs its existing deadline/version/deletion checks afterwards.
+Cached replies do not rerun validation or inference. Old no-context callers keep
+their prior behavior. No API/DB migration, new service or model call is required.
+Rollback is code-only; no persisted data changes. Retrieval/reranker hooks are
+available for future research adapters, **not** evidence that RAG is deployed.
+
+Tests: pipeline schema/privacy/exceptions/concurrency, actual stage malformed
+output classification, and CourtRoom SQLite propagation/cache regression.
+
+Still incomplete: dedicated domain/DO spans and actual retrieval/reranker adoption;
 parent-span hierarchy; pseudonymous authenticated-session correlation; bounded
 log retention/accounting export; live-provider/real RPC trace evidence. No OTel
 export service, paid feature or retention configuration was enabled by this batch.

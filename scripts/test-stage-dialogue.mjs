@@ -5,6 +5,21 @@ const bundle=await build({entryPoints:['src/court-dialogue.ts'],bundle:true,plat
 const {proposeStageDialogue}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const view={title:'虛構案件',procedure:'civil',stageLabel:'開庭',facts:['公開資料'],turn:{speaker:'法官',text:'請依序陳述。'},config:{role:'judge'},statements:['較早陳述','最後陳述'],privateGraph:'PRIVATE_CANARY',owner:'PRIVATE_OWNER'};
 const success=text=>({ok:true,value:{text,usage:{inputTokens:null,outputTokens:null}}});
+
+test('actual stage validation distinguishes accepted proposals from rejected model output without leaking content',async()=>{
+ const log=console.log,records=[],trace={schemaVersion:1,requestId:crypto.randomUUID(),traceId:crypto.randomUUID().replaceAll('-','')};
+ console.log=value=>records.push(JSON.parse(value));
+ try{
+  for(const [raw,expected] of [['PRIVATE_NOT_JSON',null],['{}',null],['{"text":"PRIVATE_VALID"}','PRIVATE_VALID']]){
+   assert.equal(await proposeStageDialogue({generate:async()=>success(raw)},view,trace),expected);
+   assert.equal(records.at(-1).outcome,expected===null?'rejected':'accepted');
+   assert.equal(records.at(-1).traceId,trace.traceId);assert.equal(records.at(-1).step,'validator');
+  }
+  assert.equal(await proposeStageDialogue({generate:async()=>({ok:false,code:'QUOTA'})},view,trace),null);
+  assert.equal(records.length,3,'provider failure must not invent a validation that did not run');
+  assert.equal(JSON.stringify(records).includes('PRIVATE'),false);
+ }finally{console.log=log;}
+});
 test('stage proposal uses normalized provider, only public fields, no mutation',async()=>{
  const before=structuredClone(view);let calls=0;
  const text=await proposeStageDialogue({async generate(input,context){

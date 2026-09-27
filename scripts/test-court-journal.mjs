@@ -26,9 +26,10 @@ test('CourtRoom propagates a copied trace but never persists it or emits new pro
  try{
   const pending=room.stageDialogue('owner',0,true,trace);trace.traceId='PRIVATE_MUTATED';
   const result=await pending;assert.equal(result.cached.mode,'ai-dialogue');
-  assert.equal(records.length,2);
+  assert.equal(records.length,3);
   for(const r of records){assert.equal(r.traceId,expected.traceId);assert.equal(r.requestId,expected.requestId);assert.equal(r.feature,'stage-dialogue');}
-  assert.deepEqual(await room.stageDialogue('owner',0,true,expected),result);assert.equal(records.length,2);
+  assert.equal(records[2].event,'ai.pipeline.completed');assert.equal(records[2].step,'validator');assert.equal(records[2].outcome,'accepted');
+  assert.deepEqual(await room.stageDialogue('owner',0,true,expected),result);assert.equal(records.length,3);
   assert.equal(JSON.stringify(result).includes(expected.traceId),false);
   assert.equal(JSON.stringify(db.prepare('SELECT body FROM state').all()).includes(expected.traceId),false);
   assert.equal(JSON.stringify(records).includes('synthetic-test-key'),false);
