@@ -179,4 +179,49 @@ let csrf = registered.payload.csrfToken;
   assert.equal(missing.response.status, 404);
 }
 
-console.log(`API checks passed against ${base}: accounts, sessions, CSRF, progress, notes and guards.`);
+// 14. One-use recovery is atomic, even when two clients submit together.
+// Do not assume request arrival order, and do not sleep to manufacture ordering.
+{
+  const originalCookie = cookie;
+  const recoveryCode = registered.payload.recoveryCode;
+  assert.match(recoveryCode || '', /^[0-9a-f]{64}$/);
+  const replacements = ['recovered-local-password-a', 'recovered-local-password-b'];
+  const attempts = await Promise.all(replacements.map(nextPassword => call('/api/auth/recover', {
+    method: 'POST', body: { username, password: nextPassword, recoveryCode }
+  })));
+  assert.deepEqual(attempts.map(r => r.response.status).sort(), [200, 401]);
+  const winningIndex = attempts.findIndex(r => r.response.status === 200);
+  const winner = attempts[winningIndex];
+  const recoveredCookie = sessionCookie(winner.response);
+  assert.ok(recoveredCookie !== originalCookie, 'recovery rotates the session');
+  assert.ok(winner.payload.recoveryCode !== recoveryCode, 'recovery rotates its one-use code');
+  assert.equal((await call('/api/auth/session', { cookie: originalCookie })).payload.user, null);
+  assert.equal((await call('/api/progress', { cookie: originalCookie })).response.status, 401);
+  assert.equal((await call('/api/auth/recover', { method:'POST',
+    body:{username,password:replacements[winningIndex],recoveryCode} })).response.status, 401);
+  assert.equal((await call('/api/auth/login', { method:'POST',
+    body:{username,password:replacements[1-winningIndex]} })).response.status, 401);
+
+  // 15. A login racing a reset may finish before the reset, or be rejected.
+  // In either ordering its old-password session must not survive the reset.
+  const finalPassword = 'final-local-recovered-password';
+  const [racingLogin, reset] = await Promise.all([
+    call('/api/auth/login', {method:'POST', body:{username,password:replacements[winningIndex]}}),
+    call('/api/auth/recover', {method:'POST', body:{username,password:finalPassword,recoveryCode:winner.payload.recoveryCode}})
+  ]);
+  assert.equal(reset.response.status, 200);
+  assert.ok([200,401].includes(racingLogin.response.status));
+  if(racingLogin.response.status===200)
+    assert.equal((await call('/api/auth/session',{cookie:sessionCookie(racingLogin.response)})).payload.user,null);
+  assert.equal((await call('/api/auth/session',{cookie:recoveredCookie})).payload.user,null);
+  assert.equal((await call('/api/auth/login',{method:'POST',body:{username,password:replacements[winningIndex]}})).response.status,401);
+  const finalCookie=sessionCookie(reset.response);
+  const data=await call('/api/progress',{cookie:finalCookie});
+  assert.equal(data.response.status,200);
+  assert.equal(data.payload.records.find(record=>record.scope==='civics').payload.score,2,'recovery must preserve progress');
+  const finalLogin=await call('/api/auth/login',{method:'POST',body:{username,password:finalPassword},cookie:'civic_session='+ '0'.repeat(64)});
+  assert.equal(finalLogin.response.status,200);
+  assert.ok(sessionCookie(finalLogin.response)!=='civic_session='+ '0'.repeat(64),'caller cannot fix the issued session token');
+}
+
+console.log(`API checks passed against ${base}: accounts, sessions, CSRF, progress, notes, guards and concurrent account recovery.`);
