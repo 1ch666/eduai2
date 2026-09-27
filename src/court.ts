@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import {appendJournal,checkpointJournal,type JournalEvent} from './court-journal';
 import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
@@ -17,6 +18,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,result TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS dialogue(version INTEGER PRIMARY KEY,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS npc_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
+      CREATE TABLE IF NOT EXISTS court_events(version INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL);
     `);});
   }
   init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number]){
@@ -24,10 +26,20 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(current) return current.owner===owner ? {view:courtView(current)} : {error:'場次不存在',status:404};
     const state=newCourt(id,owner,config);
     if(generated){state.generatedCase=generated;state.generationVersion=GENERATION_VERSION;}
-    this.ctx.storage.sql.exec('INSERT INTO state VALUES (1,?)',JSON.stringify(state));
+    this.ctx.storage.transactionSync(()=>{
+      this.ctx.storage.sql.exec('INSERT INTO state VALUES (1,?)',JSON.stringify(state));
+      appendJournal(this.ctx.storage.sql,state,{kind:'session_started',requestId:crypto.randomUUID(),speaker:'系統',roleId:state.config.role,text:'建立虛構教學場次。'});
+    });
     return {view:courtView(state)};
   }
   get(owner:string){const state=this.read();return state?.owner===owner?{view:{...courtView(state),npcs:NPC_IDS.map(id=>({id,name:npcKnowledge(state,id).name})),npcHistory:this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray().map(r=>({question:JSON.parse(r.payload).text as string,...JSON.parse(r.result) as NpcReply}))}}:{error:'場次不存在',status:404};}
+  events(owner:string,after:number){
+    const state=this.read();if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
+    if(!Number.isSafeInteger(after)||after< -1)return {error:'事件游標錯誤',status:400};
+    checkpointJournal(this.ctx.storage.sql,state);
+    const events=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version>? ORDER BY version LIMIT 20',after).toArray().map(r=>JSON.parse(r.body) as JournalEvent);
+    return {events,nextAfter:events.at(-1)?.eventSequence??after,currentVersion:state.version};
+  }
   async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean){
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
     const payload=JSON.stringify({npcId:id,...a});
@@ -47,10 +59,13 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const current=this.read();
     if(!current||current.owner!==owner||current.version!==a.version)return {error:'場次已改變，未保存過期回覆；請重新讀取',status:409};
     reply.version=current.version+1;
+    const before=structuredClone(current);
     current.version++;current.updatedAt=new Date().toISOString();
     this.ctx.storage.transactionSync(()=>{
+      checkpointJournal(this.ctx.storage.sql,before);
       this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(current));
       this.ctx.storage.sql.exec('UPDATE npc_requests SET result=? WHERE id=?',JSON.stringify(reply),a.requestId);
+      appendJournal(this.ctx.storage.sql,current,{kind:'npc_utterance',requestId:a.requestId,speaker:npcKnowledge(current,id).name,roleId:id.toLowerCase(),text:(reply.mode==='scripted'?'[案件參考資料] ':'')+reply.text});
     });
     return {reply};
   }
@@ -72,8 +87,10 @@ export class CourtRoom extends DurableObject<AppEnv> {
     try{
       const next=transition(state,a), view=courtView(next);
       this.ctx.storage.transactionSync(()=>{
+        checkpointJournal(this.ctx.storage.sql,state);
         this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
         this.ctx.storage.sql.exec('INSERT INTO requests VALUES (?,?,?)',a.requestId,payload,JSON.stringify(view));
+        appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==state.stage?'stage_changed':'checkpoint',requestId:a.requestId,speaker:'玩家',roleId:state.config.role,text:a.type==='speak'?a.text!.trim():a.type==='rule'?`${a.rulingId}: ${a.decision}`:a.type,evidenceIds:a.type==='review'&&a.evidenceId?[a.evidenceId]:[]});
       });
       return {view};
     }catch(e){return {error:e instanceof Error?e.message:'動作不合法',status:409};}
@@ -142,6 +159,13 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
   const learner=env.LEARNER.getByName(session.user.id);
   if(request.method==='GET'){
     if(path==='/api/court/sessions')return respond({sessions:await learner.list()});
+    const eventId=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})\/events$/)?.[1];
+    if(eventId){
+      const cursor=new URL(request.url).searchParams.get('after')??'-1';
+      if(!/^(?:-1|0|[1-9][0-9]{0,15})$/.test(cursor))return respond({error:'事件游標錯誤'},400);
+      const result=await env.COURT_ROOM.getByName(eventId).events(session.user.id,Number(cursor));
+      return respond(result,'status' in result?result.status:200);
+    }
     const id=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})$/)?.[1];
     if(!id)return respond({error:'找不到場次'},404);
     const result=await env.COURT_ROOM.getByName(id).get(session.user.id);return respond(result,'status' in result?result.status:200);

@@ -24,7 +24,7 @@ Cookies and CSRF only in shell transport; never forward them into Unity or logs.
 
 ## Remaining integration and evidence
 
-No live API, game scene, Unity adapter or presenter uses this transport yet. Tests inject fetch and synthetic public snapshots/events; they are not production or browser E2E evidence. No new backend tables, migrations, bindings, secrets or deployment in this batch.
+No live API, game scene, Unity adapter or presenter uses this transport yet. Transport tests inject fetch and synthetic public snapshots/events; they are not production or browser E2E evidence. The subsequent journal batch adds court_events to each existing CourtRoom and a v0 owner-only /events read endpoint; see REPLAY.md. The three proposed v1 endpoints above are still absent. No formal Wrangler migration, binding, secret or production deployment has been performed.
 
 Pending work is memory-only. Reload recovery still requires a safe server-backed unresolved-request discovery design; do not persist auth tokens or private dialogue in localStorage. Do not claim the disconnect/reload acceptance scenario is complete.
 
