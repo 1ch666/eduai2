@@ -1,4 +1,7 @@
-【2026-09-27 NPC 公開投影：WebGL 與本機瀏覽器驗證通過，正式發布待續】
+【2026-09-27 NPC 公開投影：正式發布與 Docker 更新】
+本批最終來源 b795d7b，Worker fb5f45a5-c47b-44b9-b0d4-b9f9de590772 已上線，Pages 36326307030、Docker 36326330321 均 success。補正初次同步漏更新 loader，完整四檔與 Unity 輸出逐位元組一致；新增 check-build 的 wasmFileSize 配對檢查，錯配確實失敗、修正後通過。正式遊戲仍需手機／全角色／真實 AI 驗收，不能稱完整重構完成；詳細雜湊與驗證界線見 docs/UNITY-NPC-PROJECTION.md。
+
+【本批發布前紀錄：WebGL 與本機瀏覽器驗證通過】
 CourtRuntimeState 已將公開 NPC 名稱／可見／互動狀態同步到既有角色，未同步或撤銷時停止交談；保留 guest 原操作。官方 Unity 6000.6.2f1 編譯、場景驗證、新增角色投影 Play 與 Release WebGL 建置均 exit 0。Editor 仍有既知 SearchDatabase 例外。play 成品已同步；本機真實瀏覽器驗證載入、場次恢復、走動、E 開原告、中文提問與版本 3→4，AI_DISABLED 明示無模型證詞，對話維持可用；48 項 Node 測試通過。總下載含 touch 21,275,667 bytes，比前版增 1,425 bytes；詳見 docs/UNITY-NPC-PROJECTION.md。本批正式 Worker／Pages 發布與 Docker 尚未確認。完整角色座位、動畫、私有資料隔離、手機與全角色驗收尚未完成。
 
 【2026-09-27 HUD 成品建置完成，發布另記】

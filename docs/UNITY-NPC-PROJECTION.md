@@ -1,6 +1,18 @@
 # Unity 公開 NPC 投影接線（2026-09-27）
 
+## 最新發布（優先於下方當時建置紀錄）
+
+來源 `b795d7b29088d64cc06635846ed323ce6ada1e9e` 已推送 main 並發布既有 Worker：`fb5f45a5-c47b-44b9-b0d4-b9f9de590772`。網址 https://civic-law-lab-212.yichengc869.workers.dev 。相較前一批 `54e4cd9` 無 src 或 wrangler.jsonc 差異；使用 keep-vars 與 strict，未改 Secret、權限、付費方案或新增 migration。前批可回復版本為 `d5023659-5885-419f-be86-a99c749af09a`，本輪中間版本 `9c1d8676-d938-447d-be0c-850ce410911e` 已被修正版取代，不建議使用。
+
+發布後發現初次同步只替換 data/wasm，loader 中 wasmFileSize 仍是舊值 18,600,979。修正版同步完整四個建置檔，逐位元組等於隔離副本輸出；新 loader 宣告 18,604,392，與解壓 WASM 完全相符。framework 解壓後內容與舊版相同，壓縮封裝位元組不同。`check-build.mjs` 新增大小配對斷言：舊 loader 實際失敗，完整同步後通過；另 11 項模板與觸控測試通過。此檢查只能捕捉大小不符，不可取代完整檔案雜湊校驗。
+
+正式 Worker 的 HTML、data、wasm 已 HTTP 200 且與本機完全一致；最終 loader/framework 亦 HTTP 200、雜湊完全一致。新 loader SHA-256 `482505d6e2e918cf8421003c4f99c3ce9678bb8deffb2547e200804f68e0e0f2`，framework `4743624f37fb6b990982bb7cb9e77f6820093dedb4e7facb5706835e03864863`。這是唯讀成品檢查，不代表正式登入、AI 或手機完整驗收。
+
+GitHub Pages 的 `5610c62` 發布工作 `36325998369` 已成功；其四項 Build 資源與當時提交相符，HTML 只差 CRLF/LF（正規化後一致）。loader 修正版 Pages `36326307030` 及 Docker `36326330321` 均已 success，來源同為 `b795d7b`。Docker 執行實際 build/run、48 項測試、成品格式／loader 大小驗證、HTTP 位元組比對、非 root／唯讀與 API 501 檢查。容器只提供靜態遊戲，沒有正式帳號、資料庫或 AI。Docker `36326152464` 雖成功但來源仍是初次同步，不能當作修正版。
+
 ## 原始碼實作範圍
+
+修正版 Pages 的 loader/framework 已額外取得 HTTP 200 並與本機逐位元組一致。Docker 產物已下載至工作區外層 `outputs/docker-npc-projection-b795d7b/`；`sha256sum -c SHA256SUMS` 六項通過，SOURCE_COMMIT 為 b795d7b29088d64cc06635846ed323ce6ada1e9e。映像封裝 SHA-256：`e1544f6a61e6824b1fd9a0dde751bcb4a1a5346ab62562aa9539d5dfefd7e5a0`。GitHub artifact 保留一天，本機副本可供接手。
 
 `CourtRuntimeState` 在嚴格快照解析及 reducer 接受後，將最新公開 NPC 投影套到名稱對應的既有角色。舊快照只保留目前 store，不以舊 visible 值重啟角色；未同步、清除場次或同步失效時停止 NPC 互動。
 
