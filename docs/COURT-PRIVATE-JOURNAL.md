@@ -30,11 +30,31 @@ now use an explicit transaction for both journals. Read-only v2 events remain
 SELECT-only and never create private history. Deleting a session deletes both
 private tables' contents; schema metadata contains no session content.
 
-reconstructPrivateState(sql, version) reads exactly the recorded snapshot,
+reconstructPrivateState(sql, version, expectedIdentity) reads exactly the recorded snapshot,
 checks event/context links, rejects overlapping/prototype keys, and returns null
 for missing history. It never advances the live state or calls a model. This is
 snapshot reconstruction, not independent validation by replaying commands, and
-not a full validator for untrusted imported states. Do not expose it to clients.
+not independent proof that an archive is authentic. Do not expose it to clients.
+
+## Private state validation candidate
+
+`court-private-state-v1.schema.json` describes the full current CourtState shape.
+`parsePrivateCourtState` adds trusted expected owner/session binding, supported
+RULE_VERSION, canonical timestamps, bounded JSON-only copying, config policy,
+generated-template reachability, private graph binding, valid/unique references,
+stage/completion/statement/ruling/attempt consistency and minimum version checks.
+Historical unknown rule versions are rejected rather than silently migrated.
+It returns detached objects; accessors, toJSON hooks, sparse/custom arrays,
+unknown fields, unsafe integers, invalid Unicode and oversized content fail.
+
+The private reconstruction helper uses this validator; it does not modify live
+state or validate every live read/write path. This remains a snapshot consistency
+gate, not proof of a valid historical action sequence or permission to restore.
+Future file import still needs bounded duplicate-key-aware raw JSON parsing,
+archive authenticity/encryption and full cross-table validation before any write.
+Tests cover all six templates and every permitted role's complete path, incorrect
+answers/rulings, malformed/missing fields, owner/session mismatch and detached
+private generated answer/graph preservation. No production restore is enabled.
 
 ## Additive migration and rollback plan
 

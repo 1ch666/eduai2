@@ -1,5 +1,6 @@
 import type {CourtState} from './court-rules';
 import {canonical} from '../court/protocol.js';
+import {parsePrivateCourtState} from './court-private-state';
 
 // Internal persistence only. Never expose through a Worker route or DO RPC:
 // contexts include owner, answer keys and optional role-private graph data.
@@ -33,7 +34,7 @@ export function appendPrivateState(sql:SqlStorage,state:CourtState,eventId:strin
 /** Read-only reconstruction of a recorded server snapshot. Not an import or
  * live restore API, not a command re-execution verifier. Legacy gaps are null.
  */
-export function reconstructPrivateState(sql:SqlStorage,version:number):CourtState|null{
+export function reconstructPrivateState(sql:SqlStorage,version:number,expected:{sessionId:string;owner:string}):CourtState|null{
  if(!Number.isSafeInteger(version)||version<0)throw Error('Invalid replay version');
  const meta=sql.exec<{schema_version:number}>('SELECT schema_version FROM court_replay_meta WHERE id=1').one();
  if(meta.schema_version!==1)throw Error('Unsupported private journal schema');
@@ -47,6 +48,7 @@ export function reconstructPrivateState(sql:SqlStorage,version:number):CourtStat
    Object.keys(fixed).some(key=>!contextKeys.includes(key as typeof contextKeys[number]))||
    Object.keys(dynamic).some(key=>contextKeys.includes(key as typeof contextKeys[number])||['__proto__','constructor','prototype'].includes(key))||
    dynamic.version!==version||typeof fixed.id!=='string'||typeof fixed.owner!=='string')throw Error('Private journal integrity failure');
- // Only server-persisted records; future import must use a full state validator.
- return {...fixed,...dynamic} as CourtState;
+ const state=parsePrivateCourtState({...fixed,...dynamic},expected);
+ if(!state)throw Error('Private journal integrity failure');
+ return state;
 }

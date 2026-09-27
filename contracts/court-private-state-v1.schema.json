@@ -1,0 +1,38 @@
+{
+ "$schema":"http://json-schema.org/draft-07/schema#","$id":"urn:eduai:court:private-state:v1",
+ "description":"Private CourtState structure only. Runtime also checks supported rules, config policy, graph binding, references and stage consistency. Not authorization to restore.",
+ "type":"object","additionalProperties":false,
+ "required":["id","owner","config","stage","version","reviewed","statements","attempts","completed","feedback","createdAt","updatedAt","ruleVersion"],
+ "properties":{
+  "id":{"type":"string","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"},
+  "owner":{"type":"string","minLength":1,"maxLength":160,"pattern":"^[A-Za-z0-9_.:-]+$"},
+  "config":{"$ref":"#/definitions/config"},"stage":{"type":"integer","minimum":0,"maximum":5},
+  "version":{"$ref":"#/definitions/counter"},"attempts":{"$ref":"#/definitions/counter"},
+  "reviewed":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"$ref":"#/definitions/id"}},
+  "rulings":{"type":"array","maxItems":2,"uniqueItems":true,"items":{"$ref":"#/definitions/id"}},
+  "statements":{"type":"array","maxItems":100,"items":{"type":"string","minLength":2,"maxLength":600}},
+  "completed":{"type":"boolean"},"feedback":{"type":"string","maxLength":5000},
+  "createdAt":{"$ref":"#/definitions/timestamp"},"updatedAt":{"$ref":"#/definitions/timestamp"},
+  "ruleVersion":{"type":"string","minLength":1,"maxLength":80},
+  "generatedCase":{"$ref":"#/definitions/template"},"generationVersion":{"type":"string","minLength":1,"maxLength":80},
+  "privateGraph":{"$ref":"urn:eduai:case-graph:v1"}
+ },
+ "definitions":{
+  "counter":{"type":"integer","minimum":0,"maximum":9007199254740991},
+  "id":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,80}$"},
+  "text":{"type":"string","minLength":1,"maxLength":12000},
+  "timestamp":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
+  "aid":{"enum":["none","private","legalAid","appointed"]},
+  "age":{"type":"integer","minimum":7,"maximum":90},
+  "config":{"type":"object","additionalProperties":false,"required":["caseId","role","claimantAge","claimantHearingAge","respondentAge","respondentHearingAge","claimantAid","respondentAid"],"properties":{
+   "caseId":{"$ref":"#/definitions/id"},"role":{"enum":["judge","claimant","respondent","claimantCounsel","respondentCounsel","observer","juvenile","assistant"]},
+   "claimantAge":{"$ref":"#/definitions/age"},"claimantHearingAge":{"$ref":"#/definitions/age"},"respondentAge":{"$ref":"#/definitions/age"},"respondentHearingAge":{"$ref":"#/definitions/age"},"claimantAid":{"$ref":"#/definitions/aid"},"respondentAid":{"$ref":"#/definitions/aid"}
+  }},
+  "template":{"type":"object","additionalProperties":false,"required":["id","title","procedure","summary","facts","evidence","question","answers","correct","explanation","mandatory","aidApproved"],"properties":{
+   "id":{"$ref":"#/definitions/id"},"title":{"type":"string","minLength":1,"maxLength":160},"procedure":{"enum":["civil","criminal","juvenile"]},"summary":{"$ref":"#/definitions/text"},
+   "facts":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/definitions/text"}},
+   "evidence":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["id","title","text"],"properties":{"id":{"$ref":"#/definitions/id"},"title":{"type":"string","minLength":1,"maxLength":160},"text":{"$ref":"#/definitions/text"}}}},
+   "question":{"$ref":"#/definitions/text"},"answers":{"type":"array","minItems":2,"maxItems":8,"items":{"$ref":"#/definitions/text"}},"correct":{"type":"integer","minimum":0,"maximum":7},"explanation":{"$ref":"#/definitions/text"},"mandatory":{"type":"boolean"},"aidApproved":{"type":"boolean"}
+  }}
+ }
+}

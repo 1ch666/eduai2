@@ -29,14 +29,15 @@ test('private journal reconstructs exact server state, deduplicates context and 
  const {room,db,ctx,id}=setup();
  try{
   const initial=JSON.parse(db.prepare('SELECT body FROM state').get().body);
-  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,0),initial);
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,0,{sessionId:id,owner:'owner'}),initial);
   room.actionV1('owner',mutation(id));
   await room.npcV1('owner',{...mutation(id,1,'npc.ask'),targetId:'Witness',text:'你好'},false);
   const latest=JSON.parse(db.prepare('SELECT body FROM state').get().body);
   const before=db.prepare('SELECT total_changes() AS n').get().n;
-  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,2),latest);
-  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,0),initial);
-  assert.equal(reconstructPrivateState(ctx.storage.sql,99),null);
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,2,{sessionId:id,owner:'owner'}),latest);
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,0,{sessionId:id,owner:'owner'}),initial);
+  assert.equal(reconstructPrivateState(ctx.storage.sql,99,{sessionId:id,owner:'owner'}),null);
+  assert.throws(()=>reconstructPrivateState(ctx.storage.sql,0,{sessionId:id,owner:'other'}),/integrity/);
   assert.equal(db.prepare('SELECT total_changes() AS n').get().n,before);
   assert.equal(db.prepare('SELECT count(*) AS n FROM court_replay_context').get().n,1);
   assert.equal(db.prepare('SELECT count(*) AS n FROM court_replay_state').get().n,3);
@@ -64,12 +65,12 @@ test('private reconstruction preserves generated answer keys and private graph w
  try{
   const template=structuredClone(CASES.find(c=>c.id==='sale')),graph=graphFor(template);
   assert.ok(room.init(id,'owner',config,template,graph).view);
-  const recorded=reconstructPrivateState(ctx.storage.sql,0);
+  const recorded=reconstructPrivateState(ctx.storage.sql,0,{sessionId:id,owner:'owner'});
   assert.deepEqual(recorded,JSON.parse(db.prepare('SELECT body FROM state').get().body));
   assert.equal(recorded.generatedCase.correct,template.correct);
   assert.deepEqual(recorded.privateGraph,graph);
   recorded.generatedCase.correct=99;
-  assert.equal(reconstructPrivateState(ctx.storage.sql,0).generatedCase.correct,template.correct);
+  assert.equal(reconstructPrivateState(ctx.storage.sql,0,{sessionId:id,owner:'owner'}).generatedCase.correct,template.correct);
   const publicData=JSON.stringify(room.eventsV2('owner',-1));
   for(const hidden of ['PRIVATE_TIMELINE_CANARY','generatedCase','privateGraph','"owner"'])assert.ok(!publicData.includes(hidden));
  }finally{db.close();}
@@ -82,11 +83,11 @@ test('private journal upgrade preserves old data without invented history and re
   const before=db.prepare('SELECT body FROM state').get().body;
   const restarted=new CourtRoom(ctx,{});
   assert.equal(db.prepare('SELECT body FROM state').get().body,before);
-  assert.equal(reconstructPrivateState(ctx.storage.sql,0),null);
+  assert.equal(reconstructPrivateState(ctx.storage.sql,0,{sessionId:id,owner:'owner'}),null);
   restarted.actionV1('owner',mutation(id));
-  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,1),JSON.parse(db.prepare('SELECT body FROM state').get().body));
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,1,{sessionId:id,owner:'owner'}),JSON.parse(db.prepare('SELECT body FROM state').get().body));
   db.prepare('UPDATE court_replay_state SET event_id=?').run(crypto.randomUUID());
-  assert.throws(()=>reconstructPrivateState(ctx.storage.sql,1),/integrity/);
+  assert.throws(()=>reconstructPrivateState(ctx.storage.sql,1,{sessionId:id,owner:'owner'}),/integrity/);
  }finally{db.close();}
 });
 

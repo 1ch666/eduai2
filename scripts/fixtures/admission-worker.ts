@@ -13,7 +13,7 @@ export class CourtRoom extends ProductionCourtRoom {
   this.init(id,'fixture-owner',config);
   const sql=this.ctx.storage.sql;
   const before=sql.exec<{body:string}>('SELECT body FROM state').one().body;
-  const exact=reconstructPrivateState(sql,0);
+  const exact=reconstructPrivateState(sql,0,{sessionId:id,owner:'fixture-owner'});
   // Canonical persistence sorts nested keys; compare values and all fields,
   // not incidental property insertion order within config.
   const matches=canonical(JSON.parse(before))===canonical(exact);
