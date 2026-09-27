@@ -92,3 +92,36 @@ compared with Ajv plus runtime cross-field checks, and all 3,000 reducer states
 round-trip through restore validation. Tests cover late/unknown usage remaining
 null, non-mutating restore, duplicate IDs and future/invalid versions. No storage
 migration or production deployment is implied by these tests.
+
+## Durable coordinator candidate
+
+`admission-store.ts` atomically loads/validates/reduces/writes the ledger before
+returning a start receipt. Two additive tables (`ai_admission_meta` v1 and
+`ai_admission_state`) distinguish a brand-new store from missing/corrupt state.
+Initialization does not replace invalid data. Serialized reads/writes are bounded
+to 1 MiB. A storage exception returns no grant; unknown results keep the original
+reservation. Every poll/cancel/finish matches ID, fingerprint, user and session;
+conflicts disclose neither phase nor ledger. Receipts omit all ledger records.
+
+`admission-coordinator.ts` is the actual DurableObject class with server time,
+disabled-by-default admission and synchronous storage transactions; no provider
+I/O occurs while holding the transaction. It is NOT exported by the production
+entry point, bound in production Wrangler config or consumed by live endpoints.
+The candidate conservative policy is not an assertion about available free quota.
+No automatic pruning yet: reaching the record/byte cap fails closed. Request-age
+validation and safe retention are still required before rollout.
+
+Migration: new isolated SQLite class only when integration is ready; never reuse
+or clear account/court databases. In local tests new tables initialize together,
+metadata versions other than 1 and missing state reject. Rollback before runtime
+activation removes unused code only; after binding, retain class/migration and
+stored budgets while disabling admission. Do not delete/recreate the namespace.
+
+Seven actual Node SQLite tests cover commit/rollback, restart/lost response,
+identity fencing, corrupt/oversized/missing state, metadata mismatch and the
+actual class under concurrent calls. Lifecycle is mocked there. A separate local
+workerd fixture and CI step exercise real RPC/SQLite concurrency and receipt
+projection. `scripts/fixtures/admission-wrangler.jsonc` and its unauthenticated
+dispatcher are local test harnesses ONLY: never deploy them or route traffic to
+them. The runtime checker rejects non-loopback targets. CI evidence is recorded
+after execution; not inferred from the presence of a harness.

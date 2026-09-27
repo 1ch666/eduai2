@@ -63,6 +63,12 @@ complete the full validator/research/production goal. See CASE-GRAPH-CONTRACT.md
 
 ## Next implementation batches and closure criteria
 
+2026-09-28 durable admission candidate: actual AIAdmission class plus atomic SQLite
+host, metadata/version guard, 1 MiB serialization cap and identity-fenced receipts.
+Seven SQLite tests passed; isolated workerd RPC CI added. Production bindings,
+provider wrapper, age-validated retention and rollout are still required. Never
+deploy the local fixture. The global governance goal is not yet satisfied.
+
 2026-09-28 persisted admission contract: exact JSON shape schema plus safe
 data-property restore validator now reject malformed/cross-field-invalid ledgers
 without resetting budgets. Sixteen focused groups pass, including 512 seeded

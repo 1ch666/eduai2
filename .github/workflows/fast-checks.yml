@@ -56,3 +56,16 @@ jobs:
           node scripts/check-api.mjs http://127.0.0.1:8797
           node scripts/check-court-v1-api.mjs http://127.0.0.1:8797
           node scripts/check-npc-recovery-api.mjs http://127.0.0.1:8797
+      - name: Isolated admission coordinator RPC (local only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node node_modules/wrangler/bin/wrangler.js dev --config scripts/fixtures/admission-wrangler.jsonc --local --ip 127.0.0.1 --port 8798 --persist-to "$RUNNER_TEMP/admission-state" > "$RUNNER_TEMP/admission.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:8798/ | grep -q admission-local-only; then break; fi
+            kill -0 "$worker_pid"
+            sleep 0.25
+          done
+          node scripts/check-admission-runtime.mjs http://127.0.0.1:8798

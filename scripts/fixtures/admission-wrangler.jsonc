@@ -1,0 +1,8 @@
+{
+  "name": "eduai-admission-local-test-only",
+  "main": "admission-worker.ts",
+  "compatibility_date": "2026-09-01",
+  "vars": {"AI_ADMISSION_ENABLED": "true"},
+  "durable_objects": {"bindings": [{"name": "ADMISSION", "class_name": "AIAdmission"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["AIAdmission"]}]
+}
