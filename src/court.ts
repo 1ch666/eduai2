@@ -39,9 +39,14 @@ export class CourtRoom extends DurableObject<AppEnv> {
   }
   remove(owner:string){
     const deleted=this.ctx.storage.sql.exec<{owner:string}>('SELECT owner FROM court_deleted WHERE id=1').toArray()[0];
-    if(deleted)return deleted.owner===owner?{ok:true}:{error:'場次不存在',status:404};
-    const state=this.read();if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
-    this.ctx.storage.sql.exec('INSERT INTO court_deleted VALUES(1,?,?)',owner,new Date().toISOString());
+    if(deleted&&deleted.owner!==owner)return {error:'場次不存在',status:404};
+    const state=this.read();if(!deleted&&(!state||state.owner!==owner))return {error:'場次不存在',status:404};
+    this.ctx.storage.transactionSync(()=>{
+      if(!deleted)this.ctx.storage.sql.exec('INSERT INTO court_deleted VALUES(1,?,?)',owner,new Date().toISOString());
+      // Keep only the small deletion guard: delayed generation must not revive
+      // this UUID. All case content, replies, replay and request bodies are gone.
+      for(const table of ['state','requests','dialogue','npc_requests','court_events','court_v1_requests'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
+    });
     return {ok:true};
   }
   get(owner:string){const state=this.read();return state?.owner===owner?{view:{...courtView(state),npcs:NPC_IDS.map(id=>({id,name:npcKnowledge(state,id).name})),npcHistory:this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray().map(r=>({question:JSON.parse(r.payload).text as string,...JSON.parse(r.result) as NpcReply}))}}:{error:'場次不存在',status:404};}
@@ -167,7 +172,15 @@ export class Learner extends DurableObject<AppEnv>{
     this.ctx.storage.sql.exec('INSERT OR REPLACE INTO limits VALUES(?,?,?)',key,window,r?.window===window?r.count+1:1);return true;
   }
   list(){return this.ctx.storage.sql.exec('SELECT id,title,created_at AS createdAt FROM courts ORDER BY created_at DESC LIMIT 20').toArray();}
-  removeCourt(id:string){this.ctx.storage.sql.exec('DELETE FROM courts WHERE id=?',id);return {ok:true};}
+  removeCourt(id:string){
+    this.ctx.storage.transactionSync(()=>{
+      // Preserve attempt IDs/timestamps for provider quotas and idempotency, but
+      // discard saved configuration. Never refund AI quota by deleting a case.
+      this.ctx.storage.sql.exec("UPDATE generation_attempts SET payload='{}' WHERE id IN (SELECT id FROM generated_requests WHERE room=?)",id);
+      this.ctx.storage.sql.exec('DELETE FROM generated_requests WHERE room=?',id);
+      this.ctx.storage.sql.exec('DELETE FROM courts WHERE id=?',id);
+    });return {ok:true};
+  }
   async generate(requestId:string,config:CourtConfig){
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
@@ -252,8 +265,8 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     if(!validProtocolUuid(removeId)||Object.keys(body.value).length!==1||body.value.confirm!==true)return respond({error:'請確認刪除場次'},400);
     const result=await env.COURT_ROOM.getByName(removeId).remove(session.user.id);
     if('status' in result)return respond(result,result.status);
-    // Tombstone first. If index cleanup fails, retry is safe and the room is
-    // already inaccessible. Retain history for administrator recovery.
+    // Erase case content first; index/template cleanup can safely be retried.
+    // No application recovery. Minimal deletion/quota guards are retained.
     await learner.removeCourt(removeId);return respond({ok:true});
   }
   const npcMatch=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})\/npcs\/([A-Za-z]+)\/messages$/);

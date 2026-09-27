@@ -70,11 +70,11 @@ async function sessions(){
   const row=node('div');row.className='session-row';
   row.append(button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);if(account?.id===owner)open(p.view);}));
   const remove=button('刪除',async()=>{
-   if(account?.id!==owner||!window.confirm(`刪除「${s.title}」？場次將移出清單且無法繼續；紀錄保留供管理者恢復。`))return;
+   if(account?.id!==owner||!window.confirm(`永久刪除「${s.title}」？案件內容、對話、進度及重播紀錄都會清除，無法從網站恢復。`))return;
    await api(`/api/court/sessions/${s.id}/delete`,{confirm:true});
    if(account?.id!==owner)return;
    if(view?.id===s.id){pause();stopVoice(true);view=null;$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;}
-   await sessions();status('場次已移除。');
+   await sessions();status('場次內容與紀錄已永久刪除，無法從網站恢復。');
   });remove.className='delete-session';remove.setAttribute('aria-label',`刪除場次：${s.title}`);row.append(remove);return row;
  }));
  if(!p.sessions.length)$('sessions').append(node('p','尚無場次，可按「新增場次」開始。'));

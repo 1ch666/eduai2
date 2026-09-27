@@ -6,7 +6,7 @@ import {build} from 'esbuild';
 import {parseEvent,parseSnapshot} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
-const {CourtRoom}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
 function setup(){
  const db=new DatabaseSync(':memory:');let fail=false;
@@ -31,7 +31,7 @@ test('journal stores real ordered versions and duplicate actions produce no even
   assert.equal(room.events('owner',0).events.length,1);assert.equal(room.events('owner',1).events.length,0);
  }finally{db.close();}
 });
-test('soft deletion is owner-only, idempotent and blocks every existing room entry',async()=>{
+test('permanent content deletion is owner-only, idempotent and blocks resurrection',async()=>{
  const {room,db,id}=setup();try{
   assert.equal(room.remove('other').status,404);assert.ok(room.get('owner').view);
   assert.equal(room.remove('owner').ok,true);assert.equal(room.remove('owner').ok,true);
@@ -41,8 +41,8 @@ test('soft deletion is owner-only, idempotent and blocks every existing room ent
   assert.equal(room.action('owner',{requestId:crypto.randomUUID(),version:0,type:'acknowledge'}).status,404);
   assert.equal((await room.npc('owner','Witness',{requestId:crypto.randomUUID(),version:0,text:'你好'},false)).status,404);
   assert.equal(room.dialogue('owner',0).status,404);assert.equal(room.init(id,'owner',config).status,404);
-  assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,1);
-  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,1);
+  for(const table of ['state','requests','dialogue','npc_requests','court_events','court_v1_requests'])assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n,0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_deleted').get().n,1);
  }finally{db.close();}
 });
 test('failed event insertion rolls back BOTH state and request result',()=>{
@@ -85,6 +85,29 @@ test('bounded pagination and illegal stage do not invent or mutate history',()=>
  }finally{db.close();}
 });
 const mutation=(id,version=0,actionId='acknowledge')=>({apiVersion:1,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,caseId:'sale',expectedStateVersion:version,actionId,targetId:'',text:''});
+test('deletion clears generated case copies but preserves quota and unrelated rooms',()=>{
+ const {db,ctx,id}=setup();try{
+  const learner=new Learner(ctx,{}),requestId=crypto.randomUUID(),other=crypto.randomUUID();
+  learner.addCourt(id,'erase');learner.addCourt(other,'keep');
+  db.prepare('INSERT INTO generation_attempts VALUES(?,?,?,NULL)').run(requestId,JSON.stringify(config),1234);
+  db.prepare('INSERT INTO generated_requests VALUES(?,?,?,?)').run(requestId,JSON.stringify(config),id,'{"facts":["erase me"]}');
+  learner.removeCourt(id);learner.removeCourt(id);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM generated_requests WHERE room=?').get(id).n,0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM courts WHERE id=?').get(id).n,0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM courts WHERE id=?').get(other).n,1);
+  const attempt=db.prepare('SELECT * FROM generation_attempts WHERE id=?').get(requestId);
+  assert.equal(attempt.payload,'{}');assert.equal(attempt.created,1234);assert.equal(attempt.error,null);
+ }finally{db.close();}
+});
+test('deletion transaction failure restores all case data and does not leave a guard',()=>{
+ const {room,db,ctx}=setup();try{
+  const original=ctx.storage.sql.exec;ctx.storage.sql.exec=(query,...args)=>{if(query==='DELETE FROM court_events')throw Error('injected erase failure');return original(query,...args);};
+  assert.throws(()=>room.remove('owner'),/erase failure/);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,1);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_deleted').get().n,0);
+  assert.ok(room.get('owner').view);
+ }finally{db.close();}
+});
 test('v1 snapshot correlation, owner checks and stable idempotent outcomes',()=>{
  const {room,db,id}=setup();try{
   const requestId=crypto.randomUUID(),s=room.snapshotV1('owner',requestId);assert.ok(parseSnapshot(JSON.stringify(s)));assert.equal(s.requestId,requestId);
