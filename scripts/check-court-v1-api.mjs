@@ -22,7 +22,11 @@ const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,re
  assert.equal((await call(root+'/dialogue',{},{cookie:auth.cookie})).status,403);
  assert.equal((await call(root+'/dialogue',{},a)).status,404);
  const replies=await Promise.all(Array.from({length:3},()=>call(root+'/dialogue',{},auth)));
- for(const reply of replies){assert.equal(reply.status,200);assert.deepEqual(reply.data,scene.data.view.turn);}
+ for(const reply of replies){
+  assert.equal(reply.status,200);
+  const {aiOutcome,...legacy}=reply.data;assert.deepEqual(legacy,scene.data.view.turn);
+  assert.deepEqual(aiOutcome,{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false});
+ }
  assert.equal((await call(root,undefined,auth)).data.view.version,0);
  assert.equal((await call(root+'/events',undefined,auth)).data.events.length,1);
  assert.equal((await call(root+'/delete',{confirm:true},auth)).status,200);
