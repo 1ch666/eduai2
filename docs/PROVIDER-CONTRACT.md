@@ -58,4 +58,13 @@ These are deterministic transport tests, not evidence that a production model,
 quota, billing policy or mobile disconnect propagation works. Embedding/rerank
 adapters and their output validators, global backpressure/circuit breaker,
 durable budgets and full request tracing are not completed by these interfaces.
-Production release and CI evidence follow separately after verification.
+Release source `d502822294e8e6d64ff7e5f499be2d72fb849a52` was pushed to main.
+Both GitHub fast and isolated workerd integration jobs succeeded:
+https://github.com/1ch666/eduai2/actions/runs/36337119591 .
+Dry-run passed; existing Worker deployed with `--keep-vars --strict` as version
+`6bda6a1e-b057-434c-a01f-52b26f7070a1`. No static assets changed.
+Production `/api/ai/status` returned 200 with the existing Ollama/gpt-oss:20b
+configuration, and empty `/api/ai/ask` returned 400 with trace headers before any
+model call or quota operation. No live inference was requested; configuration
+presence is not provider availability evidence. Prior rollback Worker version is
+`66ef3a88-4382-4637-97e0-dc5040da5620`; no data migration is involved.
