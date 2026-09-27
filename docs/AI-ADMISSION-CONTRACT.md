@@ -125,3 +125,11 @@ projection. `scripts/fixtures/admission-wrangler.jsonc` and its unauthenticated
 dispatcher are local test harnesses ONLY: never deploy them or route traffic to
 them. The runtime checker rejects non-loopback targets. CI evidence is recorded
 after execution; not inferred from the presence of a harness.
+
+Verified source `c6790a4910753e66d08c38bdd2b4e8c4eea69ddc`: CI
+https://github.com/1ch666/eduai2/actions/runs/36344848597 passed fast checks,
+existing local API suites and the isolated workerd admission RPC step. This adds
+real runtime evidence for dedup/FIFO/identity fencing/receipt projection. The
+process-restart and failure-injection evidence remains the separate SQLite suite,
+not a claim of production recovery or live-provider integration. No production
+deployment or new binding was performed for this candidate.
