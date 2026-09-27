@@ -51,4 +51,12 @@ node scripts/check-npc-recovery-api.mjs http://127.0.0.1:8792
 
 限制：錯誤由 Node fetch adapter 注入，pending storage 使用記憶體 Map；不代表真正瀏覽器 reload、作業系統斷網、Unity 逾時 UI、手機背景恢復或供應商成功回答已完成驗收。測試未修改後端與正式設定。
 
-下一步：在遊戲內驗證中斷並從程序面板恢復 → 驗證真實 AI 供應商回覆 → 部署同源前端 → Docker 重建。遊客固定案件路徑不修改。正式部署仍未包含此批接線。
+## 場次頁恢復入口（尚未部署）
+
+`court/recovery-notice.js` 由 action panel 的同一 transport 狀態驅動，在場次頁的說明下方顯示未確認操作提示。關閉程序視窗不會隱藏 pending 提示；重新開啟場次讀到 journal 時會立即呈現。分頁儲存失效有獨立訊息。恢復成功、登出或清除 context 後提示消失。提示不包含問題、requestId、Cookie 或秘密。
+
+「開啟操作恢復」只開啟既有程序視窗，不查詢或重送；使用者再按「查詢上次送出結果」才執行 GET。進行中的操作會停用入口，不強制搶走焦點；文字提醒玩家先關閉 Unity 對話。高對比邊框與文字並用，不只靠顏色辨識，按鈕至少 44px。
+
+新增 `test-recovery-notice.mjs`（2 項）及 `test-action-panel-recovery.mjs`（1 項），後者實際裝配 action panel、transport 與 journal，證明恢復提示能在 dialog 關閉時出現，開啟無網路請求，確認恢復只發一個 GET，完成後清除提示。這些使用最小 DOM adapter，不冒充瀏覽器視覺、鍵盤或螢幕閱讀器驗收。Docker workflow 已納入測試及模組檔案比對，尚未以此次來源執行映像建置。
+
+下一步：在遊戲內驗證中斷並從程序面板恢復與提示版面 → 驗證真實 AI 供應商回覆 → 部署同源前端 → Docker 重建。遊客固定案件路徑不修改。正式部署仍未包含此批接線。

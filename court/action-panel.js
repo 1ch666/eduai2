@@ -3,6 +3,7 @@ import {createEvidenceViewer} from './evidence-viewer.js';
 import {createPendingJournal} from './pending-journal.js';
 import {actionTargets,actionTargetStatus} from './action-targets.js';
 import {askNpcThroughTransport} from './npc-action.js';
+import {createRecoveryNotice} from './recovery-notice.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
@@ -24,10 +25,13 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const evidenceViewer=createEvidenceViewer({document});
  dialog.append(close,heading,notice,dialogue,evidenceViewer.element,body,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
+ const recoveryNotice=createRecoveryNotice({document,onOpen:open});
+ document.getElementById('notice')?.after(recoveryNotice.element);
  const valid=()=>context&&getView()?.id===context.session&&getAccount()?.id===context.owner;
  const messages={accepted:'已同步伺服器紀錄。',duplicate:'這筆操作已保存，未重複執行。',stale:'已保留較新的狀態。',conflict:'狀態已改變，請更新後重新確認。','login-required':'登入已失效，請重新登入。',forbidden:'沒有執行權限，請更新登入狀態。','rate-limited':'操作頻繁，請稍候再試。',timeout:'等待逾時；操作可能已保存，請先查詢結果。',network:'連線中斷；操作結果尚未確認。','outcome-unknown':'尚未取得結果，可稍後查詢；不要建立另一筆相同操作。','retry-exhausted':'已達重送上限，請繼續查詢結果。',malformed:'回覆格式不符，未套用資料。','not-allowed':'目前不能執行這個動作。','needs-snapshot':'請先更新伺服器狀態。'};
  function render(){
   const snapshot=transport.snapshot,pending=transport.pending;
+  recoveryNotice.update({pending:!!pending,blocked:transport.recoveryBlocked,working});
   const reply=transport.lastDialogue;dialogue.hidden=!reply;dialogue.textContent=reply?`${reply.speaker}：${reply.text}`:'';
   evidenceViewer.setSnapshot(snapshot);
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
@@ -84,7 +88,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  document.getElementById('logout')?.addEventListener('click',clear,{capture:true});
  function resume(){
   const v=getView(),a=getAccount();if(!v||!a)return;
-  if(!context||context.session!==v.id||context.owner!==a.id){clear();context={session:v.id,owner:a.id};transport.bind(v.id,v.config.caseId);}
+  if(!context||context.session!==v.id||context.owner!==a.id){clear();context={session:v.id,owner:a.id};transport.bind(v.id,v.config.caseId);render();}
  }
  async function askNpc(npcId,question){
   if(working)return 'pending';
@@ -98,7 +102,8 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
    return result;
   }finally{if(started===generation){working=false;render();}}
  }
- return {clear,resume,askNpc,get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;},open(){
+ function open(){
+  if(working)return;
   const v=getView(),a=getAccount();if(!v||!a)return;
   returnFocus=document.activeElement;beforeOpen();
   resume();
@@ -107,5 +112,6 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   if(transport.recoveryBlocked)notice.textContent='無法讀取操作識別碼，已停止新操作；請恢復分頁儲存功能後重新載入。';
   else if(transport.pending)notice.textContent='上次操作結果尚未確認，請先查詢結果。重新整理後只查詢，不自動重送。';
   else void execute(()=>transport.refresh());
- }};
+ }
+ return {clear,resume,askNpc,open,get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;}};
 }

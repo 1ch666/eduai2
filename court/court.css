@@ -6,6 +6,7 @@
 .game-panel h2{margin-top:8px}.game-panel #evidence:empty::before{content:'本場次尚未提供可查看的證物。'}
 .evidence-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:12px 0}.evidence-comparison>*{min-width:0;overflow-wrap:anywhere}.evidence-card{border:1px solid var(--line);padding:12px}.evidence-card dt{font-weight:600}.evidence-card dd{margin:0 0 8px}.evidence-text{white-space:pre-wrap}.evidence-viewer summary{min-height:44px;padding:8px 0;cursor:pointer}.evidence-viewer mark{color:#000;background:#ffe08a;text-decoration:underline;text-decoration-thickness:2px}@media(max-width:600px){.evidence-comparison{grid-template-columns:1fr}}
 .skip-link{position:fixed;left:12px;top:12px;transform:translateY(-200%);z-index:100;background:white;color:black;padding:12px;border:2px solid black}.skip-link:focus{transform:none}
+.recovery-notice{border:2px solid currentColor;padding:16px;margin:16px 0;background:var(--paper,#fff);color:var(--ink,#242b2d)}.recovery-notice p{margin-top:0}.recovery-notice button{min-height:44px;max-width:100%;white-space:normal}.recovery-notice[hidden]{display:none}
 html[data-court-scale="125"]{font-size:20px}html[data-court-scale="150"]{font-size:24px}
 html[data-court-scale] h1{font-size:clamp(1.5625rem,4vw,2.375rem)}html[data-court-scale] h2{font-size:1.3125rem}html[data-court-scale] h3{font-size:1.0625rem}
 html[data-court-scale] .eyebrow{font-size:.8rem}html[data-court-scale] footer{font-size:.875rem}html[data-court-scale] header{font-size:1rem;flex-wrap:wrap}
