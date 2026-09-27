@@ -48,7 +48,14 @@ arguments only. Existing HTTP bodies/cookies remain unchanged. Rollback can
 restore the previous source without data conversion. Deployment verification
 must distinguish HTTP response headers from actually observed provider logs.
 
-## Pipeline hooks (next source increment)
+## Pipeline hooks — released 2026-09-28
+
+Source `57bb10ecae1c7d2d8916ed2bb83564d3034b16b8`; full local fast gate,
+53 focused tests and CI `36351501427` checks/local-api passed. Worker version
+`202fca8f-8a8c-4597-b87d-c06f6826a7e4` deployed, 459.73 KiB / gzip 105.60 KiB.
+No static assets or migrations changed. Post-deploy capabilities/cases returned
+200 and anonymous sessions 401, each with server trace headers. No live model
+request or production validation-span capture was performed; those remain open.
 
 `pipeline-tracing.ts` adds an explicit server-only async hook for retrieval,
 reranker and validator operations; `pipeline-trace-v1.schema.json` defines its

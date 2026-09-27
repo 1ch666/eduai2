@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+最新發布：57bb10e / Worker 202fca8f-8a8c-4597-b87d-c06f6826a7e4；完整快速 CI、53 項聚焦測試與遠端 CI 36351501427 通過。新增檢索／重排／驗證追蹤介面，實際接線僅程序對話格式驗證；不改接受條件、案件權威、快取或逾時防護。正式 capabilities/cases 200、匿名 sessions 401，不代表模型或 RAG 已驗收。無資料庫／Secrets／Unity 變更；詳见 docs/PROVIDER-TRACING.md。下方為歷史紀錄。
+
 最新發布：bb9ffb9 / Worker e45edfca-e4e4-4817-a789-5878d79e12c8；318 項本機快速測試及 CI 36351089548 通過。HTTP 識別明確傳給助教、照片文字講解、CourtRoom／Learner 與模型封裝；不改公開回覆、狀態權威、重送保護或資料庫。日誌失敗不重試推論，模型用量只記內層一次；不記提問、答案、帳號或 Secret。無前端／Unity／正式遷移變更，詳見 docs/PROVIDER-TRACING.md。下方為歷史紀錄；完整 pipeline tracing 仍未完成。
 
 最新發布：1273f5c / Worker a289aebd-00e1-4c91-9e8f-d20c5970f3bc。程序對話保存來源契約，舊資料不回填；並行、逾時、重啟、刪除與晚到回覆測試保留。311 項快速測試與 CI 36350179869（含實際 HTTP／workerd）通過。正式公開狀態 200、匿名場次與程序對話 401；未實測正式模型回答。無正式遷移／Secrets／Unity 變更。下方為歷史發布，詳細證據見 docs/AI-OUTCOME.md。

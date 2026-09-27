@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-bb9ffb9 / Worker e45edfca-e4e4-4817-a789-5878d79e12c8 (HTTP/provider correlation).
-CI 36351089548 passed; release evidence in PROVIDER-TRACING.md. Later tests do not imply
+57bb10e / Worker 202fca8f-8a8c-4597-b87d-c06f6826a7e4 (pipeline validator traces).
+CI 36351501427 passed; release evidence in PROVIDER-TRACING.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
