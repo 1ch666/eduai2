@@ -4,6 +4,7 @@ export {Learner} from '../../src/court';
 import {CourtRoom as ProductionCourtRoom} from '../../src/court';
 import type {Learner} from '../../src/court';
 import {reconstructPrivateState} from '../../src/court-private-journal';
+import {canonical} from '../../court/protocol.js';
 // Test-only SQL introspection. This subclass is never exported by src/index.ts.
 export class CourtRoom extends ProductionCourtRoom {
  privateJournalDrill(id:string){
@@ -12,8 +13,10 @@ export class CourtRoom extends ProductionCourtRoom {
   this.init(id,'fixture-owner',config);
   const sql=this.ctx.storage.sql;
   const before=sql.exec<{body:string}>('SELECT body FROM state').one().body;
-  const exact=JSON.stringify(reconstructPrivateState(sql,0));
-  const matches=Object.keys(JSON.parse(before)).every(key=>JSON.stringify(JSON.parse(before)[key])===JSON.stringify(JSON.parse(exact!)[key]));
+  const exact=reconstructPrivateState(sql,0);
+  // Canonical persistence sorts nested keys; compare values and all fields,
+  // not incidental property insertion order within config.
+  const matches=canonical(JSON.parse(before))===canonical(exact);
   const counts=()=>['state','court_events','court_replay_state','court_replay_context'].map(table=>sql.exec<{n:number}>(`SELECT count(*) AS n FROM ${table}`).one().n);
   const legacyDelete=()=>{
    for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])sql.exec(`DELETE FROM ${table}`);
