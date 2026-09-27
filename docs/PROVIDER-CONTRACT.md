@@ -1,6 +1,6 @@
 # Server provider contract v1
 
-## Photo text explanation (2026-09-28, locally verified)
+## Photo text explanation (2026-09-28, deployed)
 
 `handlePhoto` now accepts an optional server-only LLMProvider; its public route,
 session/CSRF/origin checks, per-user limit and input validation are preserved.
@@ -16,7 +16,14 @@ Four actual-handler test groups cover authorization/input rejection, an alternat
 provider, default adapter wire compatibility, oversize/truncated output and error
 sanitization. Account/learner RPCs are test doubles, not production calls. Full
 local fast gate and TypeScript passed. No storage/schema/Secret/static/Unity
-change. CI/deployment pending; rollback requires no data conversion. Remaining:
+change. Source `72097b63f58297b02fbc475502c50a1b363c1f26` passed fast/local-api
+CI https://github.com/1ch666/eduai2/actions/runs/36342849873 . Dry-run and strict
+deployment with preserved variables succeeded: Worker
+`84455261-9668-49a6-a963-331457defd3f`. No updated assets. Production capabilities,
+photo/status and court/cases returned 200; anonymous sessions and photo/explain
+returned 401. Photo status still reports ocrAvailable:false. No authenticated
+model call or production-data mutation was performed. Rollback baseline:
+`83550073-3205-4cbd-9f57-c2327a313278`; no data conversion required. Remaining:
 durable photo request dedup/budgets and unified availability (status currently
 indicates configuration, not provider health). No live model quality claim.
 

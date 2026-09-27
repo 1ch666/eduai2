@@ -4,7 +4,7 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-29e94c0 / Worker 83550073-3205-4cbd-9f57-c2327a313278. Later tests do not imply
+72097b6 / Worker 84455261-9668-49a6-a963-331457defd3f. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -23,7 +23,7 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 11 observability | telemetry.ts + http-trace schema, safe boundary logs | Authenticated pseudonymous context, retention, model/token/latency/fallback/cost metrics |
 | 12 tracing | Fresh HTTP trace ID, no trusted caller spoofing | API → DO → orchestration → provider/validator/retrieval/rerank spans; real propagation evidence |
 | 13 backpressure | Timeouts/cancellation in adapter; NPC request dedup | Global bounded concurrency/queue, circuit breaker, durable dedup and explicit safe retry policy |
-| 14 providers | Three typed interfaces; tutor/NPC/generation/stage dialogue adapter deployed; photo route migrated with local fast gate passing | CI/deploy photo migration; integrate embedding/rerank validators with future adapters; real-provider semantic quality remains unverified |
+| 14 providers | Three typed interfaces; tutor/NPC/generation/stage dialogue/photo adapter deployed; photo CI 36342849873 passed; vendor HTTP isolated in adapter | Integrate embedding/rerank validators with future adapters; complete composition/governance and real-provider semantic quality evidence |
 | 15 costs | Local route/user limits and kill switch; unknown token counts remain null | Durable user/session/daily budgets, quota state, accounting/reservations and global shutdown tests; never auto-buy |
 | 16 availability | Existing scripted fallback and provider error codes | Formal FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/NO_AI states with truthful backend capability response and outage tests |
 | 17 migration | Existing additive wrangler tags, journal checkpoint tests | Versioned migration plan/dry-run/rollback/compatibility test for each redesign; MIGRATION.md is historical repo move, not complete DB plan |
