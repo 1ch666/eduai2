@@ -1,5 +1,25 @@
 # Server provider contract v1
 
+## Stage dialogue extraction (2026-09-28, local verification)
+
+`src/court-dialogue.ts` now takes an `LLMProvider` and an explicit public-view
+input, returning a text proposal or null. The route keeps authentication, CSRF,
+rate checks, cached-turn lookup and version-checked storage. Null selects the
+original scripted turn; failures are not labelled successful AI dialogue.
+The existing prompt, 250-token limit, temperature 0.3, 15-second deadline,
+16 KiB envelope cap and 240-character text gate remain. Default composition
+uses the existing Ollama model with thinking disabled, as before.
+
+Only selected public fields enter the prompt. Additional output fields such as
+stage/score are never applied. Tests cover private-field canaries, immutable
+input, malformed/oversized replies and every provider failure code without
+retry. 16 focused tests, TypeScript and the full local fast gate passed. No
+live inference or semantic-grounding claim. No schema/binding/Secret/UI/Unity
+changes; rollback needs no data conversion. CI and deployment remain pending.
+Stage dialogue still has only per-version result caching, not a durable
+in-flight provider reservation: concurrent calls can consume duplicate quota.
+Global backpressure and that reservation remain work, not claimed complete.
+
 Authoritative TypeScript contract: `src/providers/contracts.ts`.
 `LLMProvider`, `EmbeddingProvider`, `RerankProvider` return a discriminated
 `ProviderResult`, never a vendor response or exception containing private text.
