@@ -1,5 +1,15 @@
 # HTTP → provider correlation v1
 
+Release 2026-09-28: source `bb9ffb903bc96b2189efa64854552049154980de`,
+318 local fast tests and CI `36351089548` (checks + disposable local workerd)
+passed. Dry run: 458.46 KiB / gzip 105.23 KiB. Existing Worker deployed as
+`e45edfca-e4e4-4817-a789-5878d79e12c8`; no assets, bindings, migrations,
+Secrets or payment changes. Existing log sampling remains 0.1, so records are
+not an exhaustive billing ledger. No live inference was used to verify this batch.
+Post-deploy GET capabilities/status returned 200; anonymous court sessions 401.
+All three returned distinct server request/trace headers. This proves the HTTP
+boundary, not production inference spans or successful authenticated court play.
+
 Server-created `requestId` and `traceId` flow explicitly from `observeApiRequest`
 through tutor/photo and CourtRoom/Learner RPC to the governed provider. The
 server ignores caller trace headers and JSON fields. Correlation is not identity,

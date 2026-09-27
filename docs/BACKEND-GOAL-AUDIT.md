@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-1273f5c / Worker a289aebd-00e1-4c91-9e8f-d20c5970f3bc (saved stage outcomes).
-CI 36350179869 passed; release evidence in AI-OUTCOME.md. Later tests do not imply
+bb9ffb9 / Worker e45edfca-e4e4-4817-a789-5878d79e12c8 (HTTP/provider correlation).
+CI 36351089548 passed; release evidence in PROVIDER-TRACING.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -21,7 +21,7 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 8 races | Concurrent action and recovery HTTP tests; NPC lost-response recovery | Forced crypto/storage interleavings, real two-tab scenario, complete delayed-response matrix |
 | 9 security | Session/HTTP/account checks, bounded provider output | All endpoint quotas/negative authorization, CSP, abuse/audit framework; password-version migration audit |
 | 10 threat model | SECURITY-THREAT-MODEL.md created with likelihood/impact/mitigation/residual/test | Keep source/tests current; document actual mitigations as gaps close; model is not security proof |
-| 11 observability | telemetry.ts + http-trace schema, safe boundary logs | Authenticated pseudonymous context, retention, model/token/latency/fallback/cost metrics |
+| 11 observability | HTTP + bounded provider records share server-created context; 318 fast tests | Authenticated pseudonymous context, retention, fallback/validator spans and actual cost accounting; sampled logs are not billing records |
 | 12 tracing | Fresh HTTP trace ID, no trusted caller spoofing | API → DO → orchestration → provider/validator/retrieval/rerank spans; real propagation evidence |
 | 13 backpressure | Governed production Ollama routes; durable concurrency/queue/circuit, timeout and dedup; real workerd tests | Authenticated production behavior and outage verification; versioned study tickets replace finite legacy tombstones |
 | 14 providers | Three typed interfaces; tutor/NPC/generation/stage dialogue/photo adapter deployed; photo CI 36342849873 passed; vendor HTTP isolated in adapter | Integrate embedding/rerank validators with future adapters; complete composition/governance and real-provider semantic quality evidence |

@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+最新發布：bb9ffb9 / Worker e45edfca-e4e4-4817-a789-5878d79e12c8；318 項本機快速測試及 CI 36351089548 通過。HTTP 識別明確傳給助教、照片文字講解、CourtRoom／Learner 與模型封裝；不改公開回覆、狀態權威、重送保護或資料庫。日誌失敗不重試推論，模型用量只記內層一次；不記提問、答案、帳號或 Secret。無前端／Unity／正式遷移變更，詳見 docs/PROVIDER-TRACING.md。下方為歷史紀錄；完整 pipeline tracing 仍未完成。
+
 最新發布：1273f5c / Worker a289aebd-00e1-4c91-9e8f-d20c5970f3bc。程序對話保存來源契約，舊資料不回填；並行、逾時、重啟、刪除與晚到回覆測試保留。311 項快速測試與 CI 36350179869（含實際 HTTP／workerd）通過。正式公開狀態 200、匿名場次與程序對話 401；未實測正式模型回答。無正式遷移／Secrets／Unity 變更。下方為歷史發布，詳細證據見 docs/AI-OUTCOME.md。
 
 本輪發布：78cd1e2 / Worker 545772b3-e72f-41e6-afe2-a19526e59693，CI 36349627787 通過。助教／照片文字講解／新 legacy NPC 回覆新增 aiOutcome v1，保留原 answer、explanation、mode、錯誤碼與 HTTP 狀態。舊 NPC JSON 不回填、不清除；v1 NPC 公開投影尚待接入。辭典是 NO_AI/dictionary，不假稱 RAG。310 項快速測試及乾跑通過；正式 tutor 無效請求 400、匿名 photo 401 均附 NO_AI，三個狀態 GET 200。不代表真實模型或登入 NPC 已驗收。詳見 docs/AI-OUTCOME.md；不修改 Unity、前端或既有帳號資料。下方版本為歷史發布。
