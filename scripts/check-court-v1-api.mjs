@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import {parseSnapshot,parseEvent} from '../court/protocol.js';
 import {CourtReplayLoader} from '../court/replay-loader.js';
-const base=process.argv[2];assert.ok(base&&['127.0.0.1','localhost'].includes(new URL(base).hostname));
+import {localApiTarget} from './local-api-target.mjs';
+const base=localApiTarget(process.argv[2]);
 async function call(path,body,auth={},raw){
- const r=await fetch(base+path,{method:body||raw?'POST':'GET',signal:AbortSignal.timeout(20000),headers:{Origin:base,...(body||raw?{'Content-Type':'application/json'}:{}),...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{})},body:raw??(body?JSON.stringify(body):undefined)});
+ const r=await fetch(base+path,{method:body||raw?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(20000),headers:{Origin:base,...(body||raw?{'Content-Type':'application/json'}:{}),...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{})},body:raw??(body?JSON.stringify(body):undefined)});
  const data=await r.json();return {status:r.status,data,cookie:r.headers.getSetCookie().find(s=>s.startsWith('civic_session='))?.split(';')[0],csrf:data.csrfToken};
 }
 const register=()=>call('/api/auth/register',{username:'v1_'+crypto.randomUUID().slice(0,8),password:'local-test-password-2026',displayName:'本機 v1 測試'});
@@ -28,7 +29,7 @@ assert.deepEqual((await call(path+'/requests/'+m.requestId,undefined,a)).data,su
 assert.equal((await call(path+'/requests/'+m.requestId,undefined,b)).status,404);
 const history=await call('/api/court/sessions/'+id+'/events',undefined,a);assert.equal(history.status,200);assert.equal(history.data.events.length,2);
 for(const e of history.data.events)assert.ok(parseEvent(JSON.stringify(e)));
-const replay=new CourtReplayLoader({origin:base,fetchImpl:(url,options)=>fetch(url,{...options,headers:{...options.headers,Cookie:a.cookie}})});
+const replay=new CourtReplayLoader({origin:base,fetchImpl:(url,options)=>fetch(url,{...options,redirect:'error',headers:{...options.headers,Cookie:a.cookie}})});
 replay.bind(id,'sale');assert.equal(await replay.next(),'caught-up');assert.equal(replay.replay.length,2);
 assert.equal(replay.replay.step(),true);assert.equal(replay.replay.current.stateVersion,1);
 replay.replay.seek(0);assert.equal(replay.replay.current.stateVersion,0);

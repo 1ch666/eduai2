@@ -2,8 +2,9 @@
 // Exercises register, session, CSRF, progress, notes and the API guards.
 // Usage: node scripts/check-api.mjs [baseUrl]
 import assert from 'node:assert/strict';
+import {localApiTarget} from './local-api-target.mjs';
 
-const base = (process.argv[2] || 'http://127.0.0.1:8787').replace(/\/$/, '');
+const base = localApiTarget(process.argv[2] || 'http://127.0.0.1:8787');
 const origin = base;
 const username = `check_${Math.random().toString(36).slice(2, 10)}`;
 const password = 'study-civics-2026';
@@ -126,6 +127,8 @@ let csrf = registered.payload.csrfToken;
 {
   const response = await fetch(`${base}/api/messages`, {
     method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(15000),
     headers: { 'Content-Type': 'application/json', Origin: 'https://attacker.example' },
     body: JSON.stringify({ text: 'nope', clientId, messageId: crypto.randomUUID() })
   });

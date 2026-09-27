@@ -5,9 +5,9 @@ import {CourtTransport} from '../court/transport.js';
 import {createPendingJournal} from '../court/pending-journal.js';
 import {askNpcThroughTransport} from '../court/npc-action.js';
 import {parseEvent} from '../court/protocol.js';
+import {localApiTarget} from './local-api-target.mjs';
 
-const base=process.argv[2],url=new URL(base);
-assert.ok(url.origin===base&&url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname),'Explicit loopback HTTP origin required');
+const base=localApiTarget(process.argv[2]);
 async function call(path,body,auth={}){
  const response=await fetch(base+path,{method:body?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(20000),
   headers:{Origin:base,...(body?{'Content-Type':'application/json'}:{}),...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{})},
@@ -29,7 +29,7 @@ for(const fault of ['network','malformed','timeout']){
  const fetchImpl=async(target,options)=>{
   assert.equal(new URL(target).origin,base);
   if(offline)throw new TypeError('Simulated offline outcome lookup');
-  const response=await fetch(target,{...options,headers:{...options.headers,Origin:base,Cookie:auth.cookie}});
+  const response=await fetch(target,{...options,redirect:'error',headers:{...options.headers,Origin:base,Cookie:auth.cookie}});
   if(options.method!=='POST')return response;
   posts++;assert.equal(response.status,200);
   committed=await response.json();assert.ok(parseEvent(JSON.stringify(committed)));assert.equal(committed.kind,'npc_utterance');
