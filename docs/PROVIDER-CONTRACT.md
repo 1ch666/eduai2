@@ -22,6 +22,16 @@ Rules for implementations and consumers:
   Unknown is not zero. Token counts do not imply a price, a free quota or budget.
 - Embeddings preserve order/dimensions; rerank IDs must belong to the supplied
   set and be unique. Future adapters must test these constraints before enabling.
+  `src/providers/validation.ts` validates normalized outputs before consumption:
+  embedding count 1–32, dimensions 1–4096 and total scalars at most 65536;
+  rerank candidates 1–100 (unique safe IDs), exactly topK results in descending
+  score order. Scores may be negative, but must be finite; they are not assumed
+  to be probabilities. Limits are engineering caps, not claims about a model.
+  Missing/extra fields, malformed usage and sparse arrays are rejected. Valid
+  results are copied, so a provider retaining its own output cannot mutate the
+  validated result later. These checks cannot prove vector quality, input-order
+  semantics, relevance or that supplied candidates were authorized: projection
+  and retrieval permissions remain the caller's responsibility.
 - No provider can commit court state, add evidence, score an answer or override
   owner, CSRF, role, procedure or fact validation.
 
@@ -64,7 +74,7 @@ Full local fast gate passed 191 tests, TypeScript, frontend and WebGL checks.
 
 These are deterministic transport tests, not evidence that a production model,
 quota, billing policy or mobile disconnect propagation works. Embedding/rerank
-adapters and their output validators, global backpressure/circuit breaker,
+adapters, integration of the standalone output validators, global backpressure/circuit breaker,
 durable budgets and full request tracing are not completed by these interfaces.
 Release source `d502822294e8e6d64ff7e5f499be2d72fb849a52` was pushed to main.
 Both GitHub fast and isolated workerd integration jobs succeeded:
@@ -95,3 +105,14 @@ headers. No live NPC inference, production mutation, new service, key change,
 data migration or Unity rebuild was performed. Actual provider quality/latency
 is not verified by these checks. Prior Worker rollback version:
 `6bda6a1e-b057-434c-a01f-52b26f7070a1`.
+
+## Retrieval-provider validation foundation
+
+`parseEmbeddingOutput` and `parseRerankOutput` now implement the normalized
+output rules above. `scripts/test-provider-validation.mjs` verifies limits,
+copy isolation, missing/extra fields, finite values, nullable usage, membership,
+duplicates, ordering, sparse arrays and 512 seeded malformed pairs. These pure
+functions perform no fetch/storage/model calls. Future adapters must invoke
+them after bounded JSON parsing; adding them is not proof of an integrated RAG
+pipeline. No actual embedding/rerank provider or public route currently invokes
+them, so this batch does not need a production deployment or data migration.

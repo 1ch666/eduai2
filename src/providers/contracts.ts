@@ -17,6 +17,8 @@ export interface TokenUsage {
   inputTokens: number | null;
   outputTokens: number | null;
 }
+export interface EmbeddingOutput { vectors: number[][]; usage: TokenUsage }
+export interface RerankOutput { items: Array<{id: string; score: number}>; usage: TokenUsage }
 export interface ChatInput {
   messages: ReadonlyArray<{role: 'system' | 'user' | 'assistant'; content: string}>;
   maxOutputTokens: number;
@@ -35,7 +37,7 @@ export interface EmbeddingProvider {
   readonly model: string;
   /** Preserve input order; finite vectors of the configured dimensions only. */
   embed(input: {texts: readonly string[]; dimensions: number}, context: ProviderContext):
-    Promise<ProviderResult<{vectors: number[][]; usage: TokenUsage}>>;
+    Promise<ProviderResult<EmbeddingOutput>>;
 }
 export interface RerankProvider {
   readonly contractVersion: 1;
@@ -43,5 +45,5 @@ export interface RerankProvider {
   readonly model: string;
   /** Return unique input IDs only; score is not a legal truth/confidence value. */
   rerank(input: {query: string; candidates: ReadonlyArray<{id: string; text: string}>; topK: number}, context: ProviderContext):
-    Promise<ProviderResult<{items: Array<{id: string; score: number}>; usage: TokenUsage}>>;
+    Promise<ProviderResult<RerankOutput>>;
 }
