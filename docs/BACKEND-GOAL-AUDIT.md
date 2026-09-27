@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-50efc03 / Worker 6aff28bc-e363-4649-abe3-f09943dc62c4 (court v2 HTTP envelope).
-CI 36351960047 passed; release evidence in COURT-API-V2.md. Later tests do not imply
+a68df68 / Worker 6df7235c-2523-4af3-a5d6-37e1b1fcce6c (read-only v2 event audit).
+CI 36352765265 passed; release evidence in COURT-API-V2.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -13,9 +13,9 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 0 scope | Backend modules/tests and preserved platform; partial | All gates below, not merely passing a subset |
 | 1 invariants | No destructive migrations in recent releases; compatibility docs | Apply preservation/rollback/verification to every future DB/API change |
 | 2 preservation | FEATURE-PRESERVATION.md updated | Actual group/planner/rankings/weakness integration parity |
-| 3 contracts | v1 public DTOs plus deployed court v2 HTTP envelope and shared command recovery; real workerd cross-version dedup passed | Version creation/deletion/events and remaining platform APIs, preserving mutation identity; authenticated production acceptance remains open |
+| 3 contracts | v1 public DTOs plus deployed court v2 HTTP envelope, shared command recovery and read-only event audit; actual workerd checks passed | Version creation/deletion and remaining platform APIs, preserving mutation identity; authenticated production acceptance remains open |
 | 4 authority | court-rules transition, court RPC checks, seeded invariants | Formal fact/role/policy hook composition and audit all mutation paths |
-| 5 events | court-journal snapshot + append-only public events, replay tests | Compare required actor/payload/previous/new version/idempotency metadata and research export; distinguish public replay from full internal restore |
+| 5 events | Public journal plus readonly v2 audit verifies actor/previous version/idempotency from exact saved receipts; old unknown provenance stays null; malformed/cross-session rows rejected | Full internal state replay/restore and research export remain incomplete; legacy mutations/creation lack complete verified metadata |
 | 6 validator | Narrative parser and real transition completion gate deployed | Structured fact/evidence/witness/timeline/source graph contract, dangling refs/order validation; all legal config paths |
 | 7 fuzz | Seeded action/provider tests, malformed draft/protocol and import suites | Coverage across all requested boundaries, including malformed structured graph and full input/owner invariants |
 | 8 races | Concurrent action and recovery HTTP tests; NPC lost-response recovery | Forced crypto/storage interleavings, real two-tab scenario, complete delayed-response matrix |

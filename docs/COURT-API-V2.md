@@ -65,7 +65,14 @@ versioned or that all production authenticated workflows have been exercised.
 Release evidence must be appended after actual CI/deployment, not inferred from
 source or unit tests.
 
-## Read-only event audit (candidate, not yet released)
+## Read-only event audit (released 2026-09-28)
+
+Source a68df68; 52 focused tests, local fast CI, deployment dry-run and remote
+CI 36352765265 (checks + actual workerd integration) passed. Worker version
+6df7235c-2523-4af3-a5d6-37e1b1fcce6c; upload 464.90 KiB / gzip 106.75 KiB.
+No static asset update or migration. Production anonymous events GET returned
+401, POST returned 405; v2 metadata matched request headers. Authenticated
+production event retrieval remains unverified; local workerd owner tests passed.
 
 The events route requires an authenticated owner. Its data follows
 `contracts/court-v2-events.schema.json`: at most 20 events ordered by version,

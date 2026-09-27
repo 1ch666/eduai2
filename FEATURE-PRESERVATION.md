@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+最新發布：a68df68 / Worker 6df7235c-2523-4af3-a5d6-37e1b1fcce6c。新增唯讀 v2 場次事件稽核；核對命令來源，不回填舊紀錄、不因讀取寫入 checkpoint。52 項聚焦測試、完整快速 CI、遠端 CI 36352765265（含實際 workerd）與乾跑通過。正式匿名 events GET 401、POST 405；登入後正式資料未測。沒有 DB 遷移、前端／Unity 或 Secret 變更。完整內部狀態重播／備份還原仍未完成。下方為歷史發布。
+
 最新發布：50efc03 / Worker 6aff28bc-e363-4649-abe3-f09943dc62c4，325 項快速測試及 CI 36351960047 通過。新增 /api/v2/court 場次快照、動作、結果恢復的統一 HTTP 外層，內層沿用明確 v1 DTO 與命令；實際 workerd 驗證 v1/v2 並行同一請求只產生一次動作及事件。舊網頁／Unity／API 不變、無 DB 遷移。正式匿名 v2 401、未知 404、舊 cases 200，追蹤標頭相符；登入後正式場次尚未驗收。詳見 docs/COURT-API-V2.md。
 
 最新發布：57bb10e / Worker 202fca8f-8a8c-4597-b87d-c06f6826a7e4；完整快速 CI、53 項聚焦測試與遠端 CI 36351501427 通過。新增檢索／重排／驗證追蹤介面，實際接線僅程序對話格式驗證；不改接受條件、案件權威、快取或逾時防護。正式 capabilities/cases 200、匿名 sessions 401，不代表模型或 RAG 已驗收。無資料庫／Secrets／Unity 變更；詳见 docs/PROVIDER-TRACING.md。下方為歷史紀錄。
