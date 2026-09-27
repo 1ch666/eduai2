@@ -40,5 +40,20 @@ Evidence:
 - These plus journal/generation regressions: 44 passing tests; TypeScript noEmit
   passes. Existing basic court tests also pass (four groups).
 
-This batch has not yet been deployed. Production remains graph-admission Worker
-`984670ba-6025-4df7-9734-45dcffc46f0e` until a separate verified rollout.
+## Verified rollout — 2026-09-28
+
+Source `d529d07c878c3ced0fb9c3c81e82b77fd4841926` passed
+[fast and local API CI 36341479597](https://github.com/1ch666/eduai2/actions/runs/36341479597).
+Wrangler dry-run and deployment both succeeded. Current Worker version:
+`8681a49b-afb9-4234-8aaa-a68ee1f622db` at
+https://civic-law-lab-212.yichengc869.workers.dev.
+No asset uploads or SQL/schema migration; existing variables were preserved.
+Read-only production probes: capabilities 200, cases 200, anonymous sessions 401.
+These probes are availability/access checks, not a full production court flow.
+No real account, case or AI request was created for this rollout.
+
+Rollback candidate: `984670ba-6025-4df7-9734-45dcffc46f0e` retains graph admission
+and private-field allowlisting. A code rollback does not require altering saved
+timestamps or deleting data. Do not roll back to pre-allowlist projections after
+private graph records exist. Full disaster recovery remains a separate unfinished
+goal; a recorded code rollback version is not a verified database restore.

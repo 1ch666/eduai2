@@ -43,6 +43,13 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 
 ## Latest verified increment — 2026-09-28
 
+`d529d07` adds explicit-time initialization/reduction with legacy clock adapters;
+reachability no longer reads wall time, and seeded invariant tests compare full
+states including timestamps. All roles/templates complete under a throwing clock
+test. CI 36341479597 passed; Worker 8681a49b-afb9-4234-8aaa-a68ee1f622db deployed.
+No public API or SQL migration. This establishes core clock determinism, not full
+historical authoritative replay or deterministic AI behavior. See COURT-DETERMINISM.md.
+
 `ab035b7` integrates optional private case graphs at CourtRoom initialization:
 shape/references, actual template fact/evidence IDs, witness cast and procedure
 source allowlist, config rules and generated-template reachability before commit.
