@@ -133,3 +133,30 @@ real runtime evidence for dedup/FIFO/identity fencing/receipt projection. The
 process-restart and failure-injection evidence remains the separate SQLite suite,
 not a claim of production recovery or live-provider integration. No production
 deployment or new binding was performed for this candidate.
+
+## Retention and request-age boundary (latest candidate)
+
+The durable host now requires request IDs in `<UTC issuance day>:<stable nonce>`
+form (canonical unsigned day, 1–90 alphanumeric/underscore/hyphen nonce). The
+trusted server issues and preserves this identity across retries; NEVER take the
+day from a public request or prepend today's date afresh on each retry. The
+coordinator remains a private binding candidate, not an authenticated HTTP API.
+This is an internal caller contract change before any production adoption.
+
+Only today/yesterday's issued IDs can enter the ledger. Older/future IDs receive
+STALE without a grant. Valid operations first expire leases/queued work, then
+prune settled records older than yesterday and commit the next decision in the
+same SQLite transaction. Current-day budgets and yesterday's retry identities
+remain. Cleanup is lazy on traffic, not a claim of automatic erasure by a strict
+wall-clock deadline. No cleanup alarm is installed yet. Stored schema stays v1;
+there is no new class migration. Older candidate metadata/records stay readable,
+but undated old IDs cannot be newly submitted to this host.
+
+Ten SQLite groups pass, including 30 simulated days, retained duplicate refusal,
+replay after pruning, future/malformed IDs, stable yesterday IDs and write-failure
+rollback of cleanup plus admission. The real workerd fixture now issues dated IDs.
+No account, court, progress or production data is deleted. Rollback must not
+reactivate the prior age-unchecked host against a ledger already pruned: disable
+admission or forward-fix it, otherwise removed IDs could be re-admitted. No
+production host has yet been enabled. Provider wrapper/endpoint adoption still
+must preserve the original issuance ID and be verified before rollout.

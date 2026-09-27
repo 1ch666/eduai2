@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {localApiTarget} from './local-api-target.mjs';
 const base=localApiTarget(process.argv[2]),room=crypto.randomUUID();
-const identity=id=>({id,fingerprint:'synthetic',userKey:'user',sessionKey:'session'});
+const issuedDay=Math.floor(Date.now()/86400000);
+const identity=id=>({id:issuedDay+':'+id,fingerprint:'synthetic',userKey:'user',sessionKey:'session'});
 async function call(op,request){
  const r=await fetch(base,{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({room,op,request}),signal:AbortSignal.timeout(10000)});

@@ -1,4 +1,4 @@
-import {emptyAdmission,reduceAdmission,type AdmissionCommand,type AdmissionPolicy,type AdmissionRequest,type AdmissionResult} from './admission';
+import {emptyAdmission,reduceAdmission,pruneAdmission,type AdmissionCommand,type AdmissionPolicy,type AdmissionRequest,type AdmissionResult} from './admission';
 import {parseAdmissionState} from './admission-state';
 
 export const ADMISSION_STORE_MAX_BYTES=1048576;
@@ -40,13 +40,23 @@ export function executeAdmission(storage:AdmissionStorage,identity:AdmissionRequ
   if(!validRequest(identity)||command.type==='tick'||
     (command.type==='admit'?!validRequest(command.request)||!same(identity,command.request):command.id!==identity.id))
     throw Error('Invalid admission command');
+  // Issuance day is part of the stable server-generated ID, never rewritten on
+  // retry. Internal callers must not accept a client-chosen day or re-date IDs.
+  const issued=/^(0|[1-9][0-9]{0,8}):[a-zA-Z0-9_-]{1,90}$/.exec(identity.id);
+  if(!issued||!Number.isSafeInteger(now)||now<0||now>8e15)throw Error('Invalid admission request age');
+  const day=Math.floor(now/86400000),issuedDay=Number(issued[1]);
+  if(issuedDay>day||issuedDay<day-1)return {code:'STALE',start:false};
   return storage.transactionSync(()=>{
     const meta=storage.sql.exec('SELECT version FROM ai_admission_meta WHERE id=1').toArray();
     if(meta.length!==1||meta[0].version!==1)invalid();
     const row=storage.sql.exec('SELECT body FROM ai_admission_state WHERE id=1').toArray()[0];
     if(!row||typeof row.body!=='string'||row.body.length>ADMISSION_STORE_MAX_BYTES||encoded(row.body)>ADMISSION_STORE_MAX_BYTES)invalid();
     let parsed:unknown;try{parsed=JSON.parse(row.body as string);}catch{invalid();}
-    const state=parseAdmissionState(parsed);if(!state)return invalid();
+    let state=parseAdmissionState(parsed);if(!state)return invalid();
+    // Expire leases/queued work before pruning, in the same transaction as the
+    // next decision. Preserve today and yesterday, including charged attempts.
+    state=reduceAdmission(state,{type:'tick'},now,policy,enabled).state;
+    if(day>1)state=pruneAdmission(state,day-1);
     const old=state.records.find(r=>r.id===identity.id);
     // No phase/deadline disclosure for a mismatching owner, session or payload.
     if(old&&!same(old,identity))return {code:'CONFLICT',start:false};

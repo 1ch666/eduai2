@@ -63,6 +63,13 @@ complete the full validator/research/production goal. See CASE-GRAPH-CONTRACT.md
 
 ## Next implementation batches and closure criteria
 
+2026-09-28 retention candidate: durable admission host now validates stable
+server-issued day-prefixed IDs before atomic expiry/pruning/admission. Ten SQLite
+groups cover 30 days and replay after pruning; this is lazy admission-metadata
+cleanup only, not deletion of platform data. Private coordinator is still not
+bound in production. Next: provider wrapper and endpoint adoption, preserving
+issuance identity and fail-closed behavior across RPC uncertainty.
+
 2026-09-28 durable admission candidate: actual AIAdmission class plus atomic SQLite
 host, metadata/version guard, 1 MiB serialization cap and identity-fenced receipts.
 Seven SQLite tests passed; isolated workerd RPC CI added. Production bindings,
