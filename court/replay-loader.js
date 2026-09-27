@@ -5,7 +5,7 @@ import {parseEventPage,MAX_PROTOCOL_BYTES} from './protocol.js';
 // or private account object is exposed to the historical model or Unity.
 export class CourtReplayLoader {
  #origin; #fetch; #timeout; #session=''; #generation=0; #controller=null; #replay=new CourtReplay(); #currentVersion=-1;
- constructor({origin,fetchImpl=globalThis.fetch,timeoutMs=15000}){
+ constructor({origin,fetchImpl=(...args)=>globalThis.fetch(...args),timeoutMs=15000}){
   if(new URL(origin).origin!==origin||!/^https?:/.test(origin)||!Number.isFinite(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw new TypeError('Invalid replay loader');
   this.#origin=origin;this.#fetch=fetchImpl;this.#timeout=timeoutMs;
  }

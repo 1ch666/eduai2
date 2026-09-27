@@ -4,6 +4,12 @@ import {readFile} from 'node:fs/promises';
 import {CourtTransport} from '../court/transport.js';
 const fixture=JSON.parse(await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8'));
 const json=Response.json;
+test('default browser fetch retains its global receiver',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=function(url){assert.equal(this,globalThis,'browser fetch requires its Window receiver');return Promise.resolve(json(snapshot(url)));};
+ try{const t=new CourtTransport({origin:'https://court.test',csrf:()=>''});t.bind(fixture.sessionId,fixture.caseId);assert.equal(await t.refresh(),'accepted');}
+ finally{globalThis.fetch=original;}
+});
 function snapshot(url,v=0){return {...structuredClone(fixture),requestId:new URL(url).searchParams.get('requestId'),stateVersion:v,eventSequence:v};}
 function event(body){const m=JSON.parse(body),s={...structuredClone(fixture),requestId:m.requestId,stateVersion:1,eventSequence:1,eventId:crypto.randomUUID()};const {state,...envelope}=s;return {...envelope,kind:'stage_changed',speaker:'法官',roleId:'judge',stageId:state.stageId,text:'確認',evidenceIds:[],citationIds:[],snapshot:s};}
 function setup(fetchImpl,more={}){const t=new CourtTransport({origin:'https://court.test',csrf:()=> 'test-csrf',fetchImpl,...more});t.bind(fixture.sessionId,fixture.caseId);return t;}

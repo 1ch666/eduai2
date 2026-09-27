@@ -7,7 +7,7 @@ export class CourtTransport {
  #store=new CourtClientState(); #context=null; #pending=null; #controllers=new Set();
  #fetch; #csrf; #origin; #uuid; #now; #timeout; #ready=false;
  #journalFactory; #journal=null; #journalBlocked=false;
- constructor({origin,csrf,fetchImpl=globalThis.fetch,uuid=()=>crypto.randomUUID(),now=()=>Date.now(),timeoutMs=15000,journalFactory=null}) {
+ constructor({origin,csrf,fetchImpl=(...args)=>globalThis.fetch(...args),uuid=()=>crypto.randomUUID(),now=()=>Date.now(),timeoutMs=15000,journalFactory=null}) {
   const u=new URL(origin);
   if(u.origin!==origin||!['http:','https:'].includes(u.protocol)||typeof csrf!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw new TypeError('Invalid transport configuration');
   this.#origin=origin;this.#csrf=csrf;this.#fetch=fetchImpl;this.#uuid=uuid;this.#now=now;this.#timeout=timeoutMs;
