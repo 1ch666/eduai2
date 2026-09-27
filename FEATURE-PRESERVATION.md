@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+最新發布：29e94c0 程序對話供應商介面已部署為 83550073-3205-4cbd-9f57-c2327a313278，CI 36342509102 成功。保留原台詞備援與版本檢查，沒有靜態遊戲成品變更。公開 capabilities/cases 200、匿名 sessions 401；未呼叫正式模型。照片講解仍有直接 vendor 呼叫，供應商解耦尚未全部完成；詳見 docs/PROVIDER-CONTRACT.md。
+
 最新發布：950f04e 案件生成供應商介面已部署為 9084a8ca-bd34-4e07-a115-ff5ea7c36031；CI 36342149022 fast/local-api 通過。保留提示詞、參數、案件驗證、題庫備援與資料格式；capabilities/cases 200、匿名 sessions 401。無正式模型呼叫、資料變更或 Unity 重建；詳見 docs/PROVIDER-CONTRACT.md。下方版本號為歷史證據。
 
 最新發布：d529d07 確定性法庭核心已部署為 8681a49b-afb9-4234-8aaa-a68ee1f622db；CI 36341479597 成功。保留原 API，核心明確接收伺服器時間，隨機序列測試比對完整狀態；詳見 docs/COURT-DETERMINISM.md。未修改前端／Unity／正式資料；以下舊版發布記錄為歷史證據。

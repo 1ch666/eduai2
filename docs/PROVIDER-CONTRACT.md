@@ -1,6 +1,6 @@
 # Server provider contract v1
 
-## Stage dialogue extraction (2026-09-28, local verification)
+## Stage dialogue extraction (2026-09-28, deployed)
 
 `src/court-dialogue.ts` now takes an `LLMProvider` and an explicit public-view
 input, returning a text proposal or null. The route keeps authentication, CSRF,
@@ -15,7 +15,16 @@ stage/score are never applied. Tests cover private-field canaries, immutable
 input, malformed/oversized replies and every provider failure code without
 retry. 16 focused tests, TypeScript and the full local fast gate passed. No
 live inference or semantic-grounding claim. No schema/binding/Secret/UI/Unity
-changes; rollback needs no data conversion. CI and deployment remain pending.
+changes; rollback needs no data conversion.
+Source `29e94c09c24f4f3db7a78b42077cb9234bcfbfaa` passed CI fast/local-api
+https://github.com/1ch666/eduai2/actions/runs/36342509102 . Dry-run and strict
+Worker deploy with preserved variables succeeded, version
+`83550073-3205-4cbd-9f57-c2327a313278`. No updated static assets. Read-only
+production capabilities/cases returned 200, anonymous sessions 401; trace
+headers present. No live model inference or authenticated production mutation.
+Rollback baseline: `9084a8ca-bd34-4e07-a115-ff5ea7c36031`.
+Repository scan still finds a direct Ollama call in `src/photo.ts`; the photo
+explanation route must be migrated before claiming complete provider isolation.
 Stage dialogue still has only per-version result caching, not a durable
 in-flight provider reservation: concurrent calls can consume duplicate quota.
 Global backpressure and that reservation remain work, not claimed complete.
