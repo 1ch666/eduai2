@@ -209,10 +209,17 @@ namespace EduAI.Court.Editor
             animation["emote-no"].time=.25f;
             motion.ApplyPublicState("objecting","neutral","silent","idle",true);
             Require(Mathf.Abs(animation["emote-no"].time-.25f)<.001f, "Duplicate projection does not restart motion");
+            motion.ApplyPublicState("standing","neutral","silent","idle",true);
+            var standing=motion.transform.localPosition;
             motion.ApplyPublicState("sitting","nervous","speaking","idle",true);
+            Require(Vector3.Distance(standing,motion.transform.localPosition)>.1f, "Chair pose compensates audited floor-sit root drop");
+            var seated=motion.transform.localPosition;
+            motion.ApplyPublicState("sitting","nervous","speaking","idle",true);
+            Require(motion.transform.localPosition==seated, "Repeated sitting snapshot does not accumulate height");
             motion.Speak();
             Require(motion.ActiveClip=="sit", "Dialogue receipt cannot stand a hosted actor up");
             motion.ApplyPublicState("speaking","neutral","speaking","pending",true);
+            Require(motion.transform.localPosition==standing, "Leaving sit restores exact model baseline");
             Require(motion.ActiveClip=="idle", "Pending response does not simulate delivered speech");
             Require(!NpcMotionPlan.TryCreate("run-script","neutral","silent","idle",out _) &&
                 !NpcMotionPlan.TryCreate("idle","arbitrary","silent","idle",out _) &&

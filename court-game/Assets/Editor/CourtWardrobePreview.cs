@@ -9,6 +9,10 @@ namespace EduAI.Court.Editor
     public static class CourtWardrobePreview
     {
         public static void Render()
+        { RenderPose("idle"); }
+        public static void RenderSeated()
+        { RenderPose("sit"); }
+        private static void RenderPose(string pose)
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
             RenderSettings.ambientLight=new Color(.7f,.7f,.7f);
@@ -26,7 +30,15 @@ namespace EduAI.Court.Editor
                 foreach(var renderer in model.GetComponentsInChildren<Renderer>()) renderer.sharedMaterial=material;
                 var wardrobe=NpcWardrobe.Ensure(root.transform);wardrobe.Present(names[i],true);
                 var animation=model.GetComponentInChildren<Animation>();
-                animation["idle"].clip.SampleAnimation(model,.4f);
+                var head=System.Array.Find(model.GetComponentsInChildren<Transform>(),t=>t.name=="head");
+                var before=head.position;
+                animation[pose].clip.SampleAnimation(model,.4f);
+                if(pose=="sit")
+                {
+                    var motion=model.AddComponent<NpcActorMotion>();
+                    motion.ApplyPublicState("sitting","neutral","silent","idle",true);
+                }
+                Debug.Log("ROBE_POSE "+models[i]+" "+pose+" headBefore="+before.ToString("F4")+" after="+head.position.ToString("F4"));
             }
             var camera=new GameObject("PreviewCamera").AddComponent<Camera>();
             camera.transform.position=new Vector3(0,1.2f,7);camera.transform.LookAt(new Vector3(0,.9f,0));
@@ -34,7 +46,7 @@ namespace EduAI.Court.Editor
             var target=new RenderTexture(1440,900,24);camera.targetTexture=target;camera.Render();
             var prior=RenderTexture.active;RenderTexture.active=target;
             var image=new Texture2D(1440,900,TextureFormat.RGB24,false);image.ReadPixels(new Rect(0,0,1440,900),0,0);image.Apply();
-            Directory.CreateDirectory("Logs");File.WriteAllBytes("Logs/wardrobe-preview.png",image.EncodeToPNG());
+            Directory.CreateDirectory("Logs");File.WriteAllBytes("Logs/wardrobe-"+pose+".png",image.EncodeToPNG());
             RenderTexture.active=prior;camera.targetTexture=null;Object.DestroyImmediate(target);Object.DestroyImmediate(image);
             Debug.Log("COURT_WARDROBE_PREVIEW_RENDERED");
         }

@@ -23,3 +23,11 @@
 尚未宣稱正式發布、WebGL 服裝渲染、手機、全部坐姿／手勢穿模及完整美術驗收。模型是大頭比例的教育示意，不是寫實法院制服。領口可能被長鬍鬚遮住，屬模型造型；完整動作與場景配合仍需後續檢視。網格是簡化骨架蒙皮，不是布料物理模擬。
 
 下一步：最新 Play 結果 → Release WebGL → 比較大小 → 真實 browser 檢查法庭中的法袍／坐姿／對話與互動 → 發布既有平台 → 重建 Docker。不得把單張離線渲染當成手機／線上驗收。
+
+## WebGL 實測發現與修正（尚未發布）
+
+第一份含法袍的 Release WebGL 建置 exit 0，五項資源共 21,325,583 bytes，下載門檻通過；53 項 Node 測試通過。本機 Worker 8792 已透過真實瀏覽器建立成人刑事／法官測試場次、恢復、載入、開始、切全景／走動，當次讀取的 error / warn 為空。服裝確實進入 WebGL，不是只在 Editor 出現。
+
+但瀏覽器觀察到坐姿使角色過低，桌面遮住大部分法袍，法官幾乎看不到，因此沒有發布該候選。截圖 outputs/wardrobe-seated-height-defect.png。官方 Unity 再量測三款模型：以 scale=2.7，sit 令 head y 由 .9268 變 .5218，落差 .405，即 .15 模型單位。
+
+NpcActorMotion 現在對 sit 補償此已量測的根骨架下降，只移動視覺模型，保留 NPC root / collider / 伺服器 seat mapping。離開坐姿或失同步恢復精確基準；重複快照不累加。新增真實 Play 斷言已通過（outputs/npc-seated-height-play.log，Scene / Play exit 0）。高度修正版仍需新的 WebGL 與瀏覽器驗證，前一份成品不能算已包含修正。

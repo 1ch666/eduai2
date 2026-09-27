@@ -1,4 +1,5 @@
 【2026-09-27 使用者追加角色法袍與領帶：原始碼／離線渲染批次】
+追加真實 WebGL 載入與走動觀察發現 sit 動畫下移導致人物被桌面遮住，未發布該候選。已量測三款模型一致下移 .15 模型單位並補償視覺模型；不改 NPC root/collider。高度補正 Scene／Play exit 0；修正版重建與 browser 尚待確認，詳見 docs/UNITY-ROLE-WARDROBE.md。
 最新領帶版官方 Unity Scene／Play 已 exit 0（outputs/npc-wardrobe-tie-play.log）；Release WebGL 接續建置，尚未發布。下列未加領帶版測試保留為過程紀錄。
 新增 NpcWardrobe 原創蒙皮幾何：黑袍、法官藍邊／檢察官紫邊／律師白邊、寬袖袖口、白襯衫領口與黑領帶。服裝跟隨公開角色，不讓民事原告／一般輔佐人誤穿職業袍。三款人物已由官方 Unity 渲染檢視並修正尺寸；未加領帶版 Play exit 0，最新版 Play 另記。尚未完成本批 WebGL、場景／手機、發布或 Docker。詳見 docs/UNITY-ROLE-WARDROBE.md。
 
