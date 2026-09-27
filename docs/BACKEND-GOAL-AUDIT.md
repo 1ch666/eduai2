@@ -63,6 +63,13 @@ complete the full validator/research/production goal. See CASE-GRAPH-CONTRACT.md
 
 ## Next implementation batches and closure criteria
 
+2026-09-28 persisted admission contract: exact JSON shape schema plus safe
+data-property restore validator now reject malformed/cross-field-invalid ledgers
+without resetting budgets. Sixteen focused groups pass, including 512 seeded
+shape mutations and restore checks on 3,000 reducer transitions. Durable host,
+bounded serialized decoding and endpoint integration remain unimplemented; this
+does not change production behavior. See AI-ADMISSION-CONTRACT.md.
+
 2026-09-28 admission core candidate: providers/admission.ts defines deterministic
 bounded FIFO, concurrency leases, attempt budgets (UTC global/user/session/day),
 kill switch, quota/failure circuit epochs, nullable token accounting and explicit

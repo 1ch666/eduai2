@@ -40,7 +40,8 @@ The reducer is internal, not safe to expose as an unvalidated public RPC.
 
 ## Integration/migration plan (still required)
 
-- Add machine-readable persisted-state schema and restore validation.
+- Shape schema: `contracts/ai-admission-v1-state.schema.json`; restore validator:
+  `src/providers/admission-state.ts` (implemented, host integration still required).
 - Add a narrow provider-credential admission coordinator; do not route all app
   state or inference content through one global application object.
 - Durable atomically persisted reservations, schema version and bounded retention;
@@ -67,3 +68,27 @@ fencing, nullable usage, record cap, malformed policy/command/time and pruning.
 state, assert no ID receives two grants, and check queue/concurrency/budget caps.
 These are pure-function tests, not storage concurrency, live provider or production
 evidence. No timing sleeps or provider calls. TypeScript typecheck passes.
+
+## Persisted-state boundary
+
+`parseAdmissionState(unknown)` accepts only exact data-property shapes and copies
+validated values. It enforces version 1, unique request IDs, insertion chronology,
+day/creation consistency, bounded deadlines and circuit generations, active queue/
+lease limits and phase/outcome/usage relationships. Machine schema validates JSON
+shape; cross-field checks remain mandatory in the runtime validator. Unknown or
+corrupt existing state returns null: the host must fail closed, NOT call
+emptyAdmission and overwrite the record. Missing storage on a genuinely new
+coordinator is distinct from invalid existing data.
+
+The input is already parsed data. A future host must bound serialized bytes before
+JSON parsing; the 100,000-record absolute schema cap is not a recommended free-tier
+policy or permission to buffer arbitrary input. No public import endpoint exists.
+No getter/iterator execution, unknown fields, inherited data or sparse arrays are
+accepted. The validator does not prove authenticated ownership or historical
+integrity; those are host/storage responsibilities.
+
+Verification: 16 combined groups (admission/state), 512 seeded shape mutations
+compared with Ajv plus runtime cross-field checks, and all 3,000 reducer states
+round-trip through restore validation. Tests cover late/unknown usage remaining
+null, non-mutating restore, duplicate IDs and future/invalid versions. No storage
+migration or production deployment is implied by these tests.

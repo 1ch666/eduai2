@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyAdmission,reduceAdmission,pruneAdmission} from '../src/providers/admission.ts';
+import {parseAdmissionState} from '../src/providers/admission-state.ts';
 const policy={concurrency:2,queue:2,daily:20,userDaily:10,sessionDaily:5,queueMs:5000,leaseMs:10000,
  failureThreshold:2,cooldownMs:1000,quotaCooldownMs:2000,maxRecords:100};
 const request=(id,extra={})=>({id,fingerprint:'hash_'+id,userKey:'user',sessionKey:'session',...extra});
@@ -109,6 +110,7 @@ test('seeded random commands preserve caps and never grant an ID twice, without 
    type===1?{type:'poll',id}:type===2?{type:'cancel',id}:type===3?finish(id,next()%3===0?'quota':'success'):{type:'tick'};
   const previous=structuredClone(h.state),enabled=next()%20!==0,r=h.run(command,now,enabled);
   assert.deepEqual(reduceAdmission(previous,command,now,{...policy,daily:100,userDaily:50,sessionDaily:20,maxRecords:1000},enabled),r);
+  assert.deepEqual(parseAdmissionState(r.state),r.state,'every real transition must be restorable');
   if(r.start){assert.ok(!granted.has(r.start.id));granted.add(r.start.id);}
   assert.ok(h.state.records.filter(v=>v.phase==='running'||v.phase==='unknown'&&now<v.deadline).length<=policy.concurrency);
   assert.ok(h.state.records.filter(v=>v.phase==='queued').length<=policy.queue);

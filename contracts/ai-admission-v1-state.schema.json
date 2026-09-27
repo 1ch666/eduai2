@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:eduai:ai-admission:v1:state",
+  "title": "Server-only admission ledger v1; relational checks also required",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "clock", "failures", "openUntil", "circuitVersion", "records"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "clock": {"type": "integer", "minimum": 0, "maximum": 8000000000000000},
+    "failures": {"type": "integer", "minimum": 0, "maximum": 100},
+    "openUntil": {"type": "integer", "minimum": 0, "maximum": 8000000086400000},
+    "circuitVersion": {"$ref": "#/definitions/counter"},
+    "records": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/definitions/record"}}
+  },
+  "definitions": {
+    "counter": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "key": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9:_-]+$"},
+    "usage": {
+      "type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens"],
+      "properties": {
+        "inputTokens": {"anyOf": [{"type": "null"}, {"$ref": "#/definitions/counter"}]},
+        "outputTokens": {"anyOf": [{"type": "null"}, {"$ref": "#/definitions/counter"}]}
+      }
+    },
+    "record": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "fingerprint", "userKey", "sessionKey", "day", "created", "deadline", "phase", "circuitVersion", "outcome", "usage"],
+      "properties": {
+        "id": {"$ref": "#/definitions/key"}, "fingerprint": {"$ref": "#/definitions/key"},
+        "userKey": {"$ref": "#/definitions/key"}, "sessionKey": {"$ref": "#/definitions/key"},
+        "day": {"$ref": "#/definitions/counter"},
+        "created": {"type": "integer", "minimum": 0, "maximum": 8000000000000000},
+        "deadline": {"type": "integer", "minimum": 0, "maximum": 8000000000060000},
+        "phase": {"enum": ["queued", "running", "succeeded", "failed", "cancelled", "unknown"]},
+        "circuitVersion": {"$ref": "#/definitions/counter"},
+        "outcome": {"enum": [null, "success", "failure", "quota"]},
+        "usage": {"anyOf": [{"type": "null"}, {"$ref": "#/definitions/usage"}]}
+      }
+    }
+  }
+}
