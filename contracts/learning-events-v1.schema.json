@@ -1,0 +1,21 @@
+{
+ "$schema":"http://json-schema.org/draft-07/schema#","$id":"urn:eduai:learning-events:v1",
+ "type":"object","additionalProperties":false,"required":["schemaVersion","clock","events"],
+ "properties":{"schemaVersion":{"const":1},"clock":{"$ref":"#/definitions/time"},
+  "events":{"type":"array","maxItems":1000,"items":{"$ref":"#/definitions/event"}}},
+ "definitions":{
+  "time":{"type":"integer","minimum":0,"maximum":8000000000000000},
+  "uuid":{"type":"string","pattern":"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+  "id":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,79}$"},
+  "event":{"type":"object","additionalProperties":false,
+   "required":["schemaVersion","eventVersion","eventId","anonymousId","occurredAt","kind","conceptId","value","sampleSize"],
+   "properties":{
+    "schemaVersion":{"const":1},"eventVersion":{"const":1},"eventId":{"$ref":"#/definitions/uuid"},"anonymousId":{"$ref":"#/definitions/uuid"},
+    "occurredAt":{"$ref":"#/definitions/time"},
+    "kind":{"enum":["concept_mastery","repeated_error","evidence_reasoning_error","procedure_error","hint_dependency","completion"]},
+    "conceptId":{"anyOf":[{"type":"null"},{"$ref":"#/definitions/id"}]},
+    "value":{"type":"integer","minimum":0,"maximum":1000},"sampleSize":{"type":"integer","minimum":1,"maximum":1000}
+   }
+  }
+ }
+}
