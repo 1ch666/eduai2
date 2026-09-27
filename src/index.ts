@@ -12,6 +12,7 @@ import { handlePush } from './push';
 import { handleRankings } from './rankings';
 import { handlePhoto } from './photo';
 import { handleGroups } from './groups';
+import { observeApiRequest } from './telemetry';
 export { CourtRoom, Learner } from './court';
 export { Practice } from './practice';
 export { Planner } from './planner';
@@ -93,18 +94,20 @@ export default {
 
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/api/')) {
+      const origin = request.headers.get('Origin') || '';
+      const trustedOrigin = TRUSTED_WEB_ORIGINS.has(origin) || origin === url.origin ? origin : undefined;
+      return observeApiRequest(request, () => handleApi(request, env),
+        () => json({ error: '服務暫時無法使用' }, 500, trustedOrigin));
+    }
     try {
-      if (url.pathname.startsWith("/api/")) return await handleApi(request, env);
       const asset = await env.ASSETS.fetch(request);
       const headers = new Headers(asset.headers);
       for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
       return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
-    } catch (error) {
+    } catch {
       console.error(JSON.stringify({
-        message: "request failed",
-        method: request.method,
-        path: url.pathname,
-        error: error instanceof Error ? error.message : String(error)
+        event: 'asset.request.failed', errorCode: 'INTERNAL_ERROR'
       }));
       return json({ error: "服務暫時無法使用" }, 500);
     }

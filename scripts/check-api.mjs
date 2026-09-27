@@ -33,15 +33,23 @@ async function call(path, { method = 'GET', body, cookie, csrf, headers = {} } =
     body: body ? JSON.stringify(body) : undefined,
     redirect: 'manual'
   });
+  assert.match(response.headers.get('X-Request-ID') || '', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.match(response.headers.get('X-Trace-ID') || '', /^[0-9a-f]{32}$/);
+  assert.match(response.headers.get('Access-Control-Expose-Headers') || '', /X-Request-ID/);
   const payload = await response.json().catch(() => ({}));
   return { response, payload };
 }
 
 // 1. Anonymous session lookup.
 {
-  const { response, payload } = await call('/api/auth/session');
+  const spoofed=crypto.randomUUID();
+  const { response, payload } = await call('/api/auth/session',{headers:{'X-Request-ID':spoofed}});
   assert.equal(response.status, 200);
   assert.equal(payload.user, null);
+  assert.notEqual(response.headers.get('X-Request-ID'),spoofed);
+  const preflight=await call('/api/auth/login',{method:'OPTIONS'});
+  assert.equal(preflight.response.status,204);
+  assert.equal(preflight.response.headers.get('Access-Control-Allow-Origin'),origin);
 }
 
 // 2. Weak or malformed registrations are refused.

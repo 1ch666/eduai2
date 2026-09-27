@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:eduai:telemetry:http:v1",
+  "title": "Privacy-limited HTTP completion record (not a court event)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "event", "requestId", "traceId", "timestamp", "safeSessionId", "endpoint", "method", "latencyMs", "status", "errorCode"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "event": {"const": "http.request.completed"},
+    "requestId": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "traceId": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
+    "safeSessionId": {"type": "null", "description": "Not yet connected to an authenticated pseudonymous session context; never substitute a raw or hashed Cookie."},
+    "endpoint": {"type": "string", "maxLength": 100, "pattern": "^/api/[A-Za-z0-9/:_-]+$", "description": "Must also pass the implementation's finite route-template allowlist. This pattern alone is NOT a privacy filter."},
+    "method": {"enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"]},
+    "latencyMs": {"type": "integer", "minimum": 0},
+    "status": {"type": "integer", "minimum": 200, "maximum": 599},
+    "errorCode": {"anyOf": [{"type": "null"}, {"const": "INTERNAL_ERROR"}, {"type": "string", "pattern": "^HTTP_[45][0-9]{2}$"}]}
+  }
+}
