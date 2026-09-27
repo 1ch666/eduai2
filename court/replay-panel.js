@@ -1,4 +1,5 @@
 import {CourtReplayLoader} from './replay-loader.js';
+import {createEvidenceViewer} from './evidence-viewer.js';
 
 const eventLabels={session_started:'建立場次',session_completed:'庭審完成',statement:'陳述',ruling:'程序裁定',stage_changed:'程序推進',checkpoint:'保存點',npc_utterance:'角色發言'};
 const roleLabels={judge:'法官',plaintiff:'原告',defendant:'被告',prosecutor:'檢察官',defense:'辯護人',witness:'證人',observer:'旁觀者'};
@@ -21,19 +22,23 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
  const fields={};for(const [key,label] of [['query','搜尋發言'],['roleId','角色 ID'],['stageId','階段 ID'],['evidenceId','證物 ID']]){
   const wrapper=make('label',label),input=make('input');input.maxLength=400;input.addEventListener('input',render);wrapper.append(input);filters.append(wrapper);fields[key]=input;
  }
- const current=make('section'),transcript=make('ol');transcript.className='replay-transcript';
- dialog.append(close,title,description,notice,bar,slider,current,filters,transcript);document.body.append(dialog);
+ const current=make('section'),transcript=make('ol');transcript.className='replay-transcript';transcript.tabIndex=-1;transcript.setAttribute('aria-label','符合篩選的庭審紀錄');
+ const clearFilters=button('清除篩選',()=>{for(const field of Object.values(fields))field.value='';render();});
+ const evidenceViewer=createEvidenceViewer({document,onTranscript:id=>{
+  for(const field of Object.values(fields))field.value='';fields.evidenceId.value=id;
+  render();transcript.focus();
+ }});
+ dialog.append(close,title,description,notice,bar,slider,current,evidenceViewer.element,filters,clearFilters,transcript);document.body.append(dialog);
  let context=null,loading=false,generation=0,lastTime=0,raf=0;
  function valid(){return context&&getAccount()?.id===context.owner&&getView()?.id===context.id;}
  function render(){
   const replay=loader.replay,event=replay.current;
+  evidenceViewer.setSnapshot(event?.snapshot);
   slider.max=String(Math.max(0,replay.length-1));slider.value=String(Math.max(0,replay.index));slider.disabled=!event;
   back.disabled=replay.index<=0;forward.disabled=replay.index>=replay.length-1;play.disabled=!event||replay.index>=replay.length-1;play.textContent=replay.playing?'暫停':'播放';more.disabled=loading;
   more.textContent=loader.caughtUp?'檢查新紀錄':'讀取下一頁';current.replaceChildren();transcript.replaceChildren();
   if(!event)return;
   current.append(make('h3',`${event.snapshot.state.stageLabel} · 版本 ${event.stateVersion}`),make('p',`${event.speaker} · ${event.timestamp}`),make('p',event.text));
-  const evidence=make('details');evidence.append(make('summary','當時可見的證物'));
-  for(const e of event.snapshot.state.evidence)evidence.append(make('h4',e.title),make('p',e.text));current.append(evidence);
   const rows=replay.transcript(Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])));
   if(!rows.length)transcript.append(make('li','目前播放位置之前，沒有符合篩選的紀錄。'));
   for(const row of rows){

@@ -1,4 +1,5 @@
 import {CourtTransport} from './transport.js';
+import {createEvidenceViewer} from './evidence-viewer.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
@@ -15,12 +16,14 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const refresh=make('button','更新狀態'),recover=make('button','查詢上次送出結果'),retry=make('button','重送同一筆操作');
  for(const b of [refresh,recover,retry])b.type='button';
  recovery.append(refresh,recover,retry);body.append(textLabel,targetLabel,actions);
- dialog.append(close,heading,notice,body,recovery);document.body.append(dialog);
+ const evidenceViewer=createEvidenceViewer({document});
+ dialog.append(close,heading,notice,evidenceViewer.element,body,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
  const valid=()=>context&&getView()?.id===context.session&&getAccount()?.id===context.owner;
  const messages={accepted:'已同步伺服器紀錄。',duplicate:'這筆操作已保存，未重複執行。',stale:'已保留較新的狀態。',conflict:'狀態已改變，請更新後重新確認。','login-required':'登入已失效，請重新登入。',forbidden:'沒有執行權限，請更新登入狀態。','rate-limited':'操作頻繁，請稍候再試。',timeout:'等待逾時；操作可能已保存，請先查詢結果。',network:'連線中斷；操作結果尚未確認。','outcome-unknown':'尚未取得結果，可稍後查詢；不要建立另一筆相同操作。','retry-exhausted':'已達重送上限，請繼續查詢結果。',malformed:'回覆格式不符，未套用資料。','not-allowed':'目前不能執行這個動作。','needs-snapshot':'請先更新伺服器狀態。'};
  function render(){
   const snapshot=transport.snapshot,pending=transport.pending;
+  evidenceViewer.setSnapshot(snapshot);
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;
   recover.hidden=retry.hidden=!pending;actions.replaceChildren();

@@ -4,6 +4,7 @@
 .session-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line)}#sessions .session-row>button:first-child{flex:1;min-width:0;overflow-wrap:anywhere}#sessions .delete-session{width:auto;flex:none;color:#773c30}
 .game-panel>button{position:sticky;top:0;z-index:1;background:#344b50;color:white;margin-bottom:16px}
 .game-panel h2{margin-top:8px}.game-panel #evidence:empty::before{content:'本場次尚未提供可查看的證物。'}
+.evidence-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:12px 0}.evidence-comparison>*{min-width:0;overflow-wrap:anywhere}.evidence-card{border:1px solid var(--line);padding:12px}.evidence-card dt{font-weight:600}.evidence-card dd{margin:0 0 8px}.evidence-text{white-space:pre-wrap}.evidence-viewer summary{min-height:44px;padding:8px 0;cursor:pointer}.evidence-viewer mark{color:#000;background:#ffe08a;text-decoration:underline;text-decoration-thickness:2px}@media(max-width:600px){.evidence-comparison{grid-template-columns:1fr}}
 .skip-link{position:fixed;left:12px;top:12px;transform:translateY(-200%);z-index:100;background:white;color:black;padding:12px;border:2px solid black}.skip-link:focus{transform:none}
 html[data-court-scale="125"]{font-size:20px}html[data-court-scale="150"]{font-size:24px}
 html[data-court-scale] h1{font-size:clamp(1.5625rem,4vw,2.375rem)}html[data-court-scale] h2{font-size:1.3125rem}html[data-court-scale] h3{font-size:1.0625rem}
