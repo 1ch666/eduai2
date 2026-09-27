@@ -1,10 +1,11 @@
 import {CourtTransport} from './transport.js';
 import {createEvidenceViewer} from './evidence-viewer.js';
+import {createPendingJournal} from './pending-journal.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
 export function installActionPanel({document,window,getView,getAccount,csrf,beforeOpen,onUpdated}){
- const transport=new CourtTransport({origin:window.location.origin,csrf});
+ const transport=new CourtTransport({origin:window.location.origin,csrf,journalFactory:createPendingJournal({getStorage:()=>window.sessionStorage,getOwner:()=>getAccount()?.id})});
  const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
  const dialog=make('dialog');dialog.className='game-panel';dialog.setAttribute('aria-label','伺服器程序操作');
  const close=make('button','關閉');close.type='button';close.onclick=()=>dialog.close();
@@ -49,7 +50,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   const started=generation;working=true;notice.textContent='正在與伺服器同步…';render();
   try{
    const result=await operation();if(started!==generation)return;if(!valid()){clear();return;}
-   notice.textContent=messages[result]||'操作尚未完成，請更新狀態或查詢結果。';
+   notice.textContent=result==='persistence-unavailable'?'瀏覽器無法保存或清除操作識別碼；已停止新操作，請恢復分頁儲存功能後重新開啟場次。':messages[result]||'操作尚未完成，請更新狀態或查詢結果。';
    if(['accepted','duplicate','stale'].includes(result)){
     if(mutation&&!transport.pending)text.value='';
     await onUpdated(transport.snapshot);
@@ -64,13 +65,18 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  dialog.addEventListener('close',()=>{if(!dialog.open&&returnFocus?.isConnected)returnFocus.focus();});
  window.addEventListener('pagehide',clear);
  document.getElementById('logout')?.addEventListener('click',clear,{capture:true});
- return {clear,get pending(){return !!transport.pending;},get working(){return working;},open(){
+ function resume(){
+  const v=getView(),a=getAccount();if(!v||!a)return;
+  if(!context||context.session!==v.id||context.owner!==a.id){clear();context={session:v.id,owner:a.id};transport.bind(v.id,v.config.caseId);}
+ }
+ return {clear,resume,get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;},open(){
   const v=getView(),a=getAccount();if(!v||!a)return;
   returnFocus=document.activeElement;beforeOpen();
-  if(!context||context.session!==v.id||context.owner!==a.id){clear();context={session:v.id,owner:a.id};transport.bind(v.id,v.config.caseId);}
+  resume();
   if(!dialog.open)dialog.showModal();render();
   // Preserve an uncertain request when reopening; never silently replace IDs.
-  if(transport.pending)notice.textContent='上次操作結果尚未確認，請先查詢結果。';
+  if(transport.recoveryBlocked)notice.textContent='無法讀取操作識別碼，已停止新操作；請恢復分頁儲存功能後重新載入。';
+  else if(transport.pending)notice.textContent='上次操作結果尚未確認，請先查詢結果。重新整理後只查詢，不自動重送。';
   else void execute(()=>transport.refresh());
  }};
 }
