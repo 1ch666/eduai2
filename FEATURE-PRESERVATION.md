@@ -4,7 +4,7 @@
 
 | 能力 | 現行主要實作 | 替代／遷移狀態 | 已有測試證據 | 相容性與正式狀態／缺口 |
 | --- | --- | --- | --- | --- |
-| 帳號 | src/accounts.ts、src/auth.ts、court/index.html | 保留 AccountStore，不更換 owner/database | check-api 本機註冊、登入、登出 | 正式既有功能；完整復原碼 race 尚未在 CI 驗證 |
+| 帳號 | src/accounts.ts、src/auth.ts、court/index.html | 保留 AccountStore，不更換 owner/database | check-api 註冊、登入、登出、一次性復原競爭、登入與復原競爭、舊 session 撤銷及進度保存 | 86d2cec 的 CI 36339421823 通過；並行 HTTP 不等於所有時序或實機驗證 |
 | 驗證／session | src/session.ts、auth-sync.js、src/http.ts | 保留 cookie／CSRF 與同源模式 | check-api、check-auth-sync | 不向 Unity 傳 session；跨裝置實機仍待驗收 |
 | 題目練習 | src/practice.ts、src/practice-data.ts、practice/ | 保留伺服器判分、一次性 token；升級確認式 UI | test-practice、test-practice-ui；本機瀏覽器 | 8bd1617 前端已發布；無判分回執重取 API，斷線不盲目重送 |
 | 弱點 | Practice.weakness、reinforce 端點 | 保留最近 20 次／至少 5 題與補強入口 | 舊 threshold 測試部分複製邏輯，證據有限 | 不因題數少冒稱成熟分析；需真實 DO 整合測試 |
@@ -22,6 +22,8 @@
 ## 證據與發布邊界
 
 - 快速 CI c42665c/run 36335039738 成功；新增隔離本機 API 的 f923753/run 36335235336 成功，172 項快速測試及三組本機 HTTP 檢查。
-- 正式 Worker 最近已驗證版：6dbb61e6-5e4a-41f8-b60f-90115eece3d9；遊戲 artifact 仍為 494dddb，不是 CI 每次都重建 Unity。
-- 多數新規格（完整 validator、統一 API 錯誤格式、provider 抽象、預算治理、可實際復原的備份、研究 metadata）仍不能由現有功能直接判為完成。
+- 正式 Worker 最近已驗證版：06bcf6ac-af81-432e-9336-9867c97537ad（來源 e28f5ff，案件流程可達性 gate）；公開 capabilities/cases 200、匿名 sessions 401。遊戲 artifact 仍為 494dddb，不是 CI 每次都重建 Unity。
+- 新增純草稿 validator、所有支援角色的完成路徑 gate、並行動作測試及復原競爭測試；詳細範圍見 docs/COURT-DRAFT-VALIDATION.md、COURT-REACHABILITY.md、COURT-CONCURRENCY-TESTS.md、AUTH-RECOVERY-CONCURRENCY.md。
+- provider 已有三種介面與 tutor/NPC adapter；研究 metadata 已有 schema/關係檢查，但仍無真正 benchmark/持久化研究紀錄。完整 validator、統一 API 錯誤格式、全管線 provider 解耦、預算治理、可實際復原的備份仍未完成。
+- 完整後端驗收追蹤見 docs/BACKEND-GOAL-AUDIT.md；安全風險與證據見 SECURITY-THREAT-MODEL.md。不要由局部 CI 綠燈宣稱整體 10/10。
 - 回滾原則：前端／遊戲使用相符版本的原始碼與 artifact；後端資料變更須 additive + dry run + restore 證據後才發布。不能為了回滾刪表或 reset migration。
