@@ -1,4 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
+import {parseBoundCourtGraph} from './court-graph';
+import {checkCaseReachability} from './court-reachability';
 import {canConverse,isNpcId,publicCourtCast} from './court-cast';
 import {appendJournal,checkpointJournal,publicCourtSnapshot,type JournalEvent} from './court-journal';
 import {parseMutation,canonical,type CourtMutation} from '../court/protocol.js';
@@ -28,12 +30,20 @@ export class CourtRoom extends DurableObject<AppEnv> {
       CREATE TABLE IF NOT EXISTS court_v1_npc_pending(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
     `);});
   }
-  init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number]){
+  init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number],graph?:unknown){
     if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return {error:'場次已刪除',status:404};
     const current=this.read();
     if(current) return current.owner===owner ? {view:courtView(current)} : {error:'場次不存在',status:404};
+    const configError=validateConfig(config);
+    if(configError)return {error:configError,status:400};
+    if(generated&&!checkCaseReachability(generated,config.caseId).ok)return {error:'案件範本驗證未通過',status:400};
     const state=newCourt(id,owner,config);
     if(generated){state.generatedCase=generated;state.generationVersion=GENERATION_VERSION;}
+    if(graph!==undefined){
+      const parsed=parseBoundCourtGraph(graph,state);
+      if(!parsed)return {error:'案件引用驗證未通過',status:400};
+      state.privateGraph=parsed;
+    }
     this.ctx.storage.transactionSync(()=>{
       this.ctx.storage.sql.exec('INSERT INTO state VALUES (1,?)',JSON.stringify(state));
       appendJournal(this.ctx.storage.sql,state,{kind:'session_started',requestId:crypto.randomUUID(),speaker:'系統',roleId:state.config.role,text:'建立虛構教學場次。'});
@@ -354,12 +364,14 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
       if(!await learner.allow('generate',4))return respond({error:'生成太頻繁'},429);
       const proposal=await learner.generate(b.requestId,config);
       if('error' in proposal)return respond({error:proposal.error},proposal.status);
-      return respond(await env.COURT_ROOM.getByName(proposal.id).init(proposal.id,session.user.id,config,proposal.template),201);
+      const result=await env.COURT_ROOM.getByName(proposal.id).init(proposal.id,session.user.id,config,proposal.template);
+      return respond(result,'status' in result?result.status:201);
     }
     if(!await learner.allow('create',6))return respond({error:'建立場次太頻繁'},429);
     const id=crypto.randomUUID();
     if(!await learner.addCourt(id,CASES.find(t=>t.id===config.caseId)!.title))return respond({error:'帳號場次上限100，請使用既有場次'},409);
-    return respond(await env.COURT_ROOM.getByName(id).init(id,session.user.id,config),201);
+    const result=await env.COURT_ROOM.getByName(id).init(id,session.user.id,config);
+    return respond(result,'status' in result?result.status:201);
   }
   const match=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})\/(actions|dialogue)$/);
   if(!match)return respond({error:'找不到端點'},404);

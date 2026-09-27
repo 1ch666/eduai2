@@ -1,4 +1,5 @@
 // Pure rules shared by tests and the authoritative court service.
+import type {CaseGraph} from './case-graph';
 // This is a bounded teaching simulation, NOT a jurisdiction/eligibility calculator.
 export const RULE_VERSION = 'tw-teaching-2026-09-24';
 export const LEGAL_SOURCES = [
@@ -104,7 +105,7 @@ export const PROCEDURAL_REQUESTS = [
   {id:'shortcut',text:'不再核對資料，直接把單一片段或一方主張當作已證明的爭議事實。',correct:'deny',reason:'這些範本都仍有待釐清的爭點，不能跳過查證。'}
 ] as const;
 export type CourtAction = { requestId: string; version: number; type: string; text?: string; evidenceId?: string; answer?: number; rulingId?:string; decision?:string };
-export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string; generatedCase?:CaseTemplate; generationVersion?:string };
+export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string; generatedCase?:CaseTemplate; generationVersion?:string; privateGraph?:CaseGraph };
 export function newCourt(id:string, owner:string, config:CourtConfig): CourtState {
   const error = validateConfig(config); if (error) throw new Error(error);
   return { id,owner,config,stage:0,version:0,reviewed:[],statements:[],attempts:0,completed:false,feedback:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),ruleVersion:RULE_VERSION };

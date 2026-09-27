@@ -45,18 +45,55 @@ modify the other. The copy is mutable for trusted server use, not an immutable
 authority token: any later server transformation still needs validation.
 TypeScript noEmit passes. These tests establish sampled parity, not a formal
 proof covering arbitrary JavaScript Proxies or every possible JSON input.
-No runtime route, case generation or persistence invokes it yet. Existing narrative
+`CourtRoom.init` now invokes it when an optional trusted-server graph is supplied.
+Public HTTP creation and case generation do not yet produce or accept graphs. Existing narrative
 cases have no explicit fact/witness/timeline graph; do not automatically invent
 these relationships or claim they were verified. Legal source membership is not
 legal accuracy, citation grounding or effective-date verification.
 
-Next integration gate: define a versioned structured draft envelope with trusted
-template identity; integrate the runtime validator and template/reachability checks
-before commit; persist the
-versioned graph server-side and project only authorized public references. Keep
-legacy saved cases readable and explicitly mark graph unavailable. Prove no hidden
-graph leaks through public view, journal, NPC context or export. Only then deploy.
-This contract-first commit does not itself require migration or deployment.
+Next integration gate: define the producer's versioned structured draft envelope,
+fact/role semantic hooks and rejection handling before enabling automatic graph
+generation. Legacy cases remain readable; absent graph means unavailable, not
+verified. No role-specific private graph projection is implemented or exposed.
+
+## Storage admission contract (implemented)
+
+`CourtRoom.init(id, owner, config, generated?, graph?)` accepts the graph only
+from a trusted server caller, never from the public HTTP creation body. Absent
+means legacy graph unavailable; null or malformed input is not absence.
+The selected config must pass existing role/age/assistance rules; a supplied
+generated template must pass reachability and immutable base-policy checks.
+Graph validation then binds against that exact selected template:
+
+- `fact-N` is the zero-based index in its facts array; all facts occur exactly once.
+- Evidence IDs equal the template evidence ID set, not a self-contained invented set.
+- Witness IDs must be NPC IDs with the server cast role `witness` (currently `Witness`).
+- Sources must belong to that procedure's existing server `LEGAL_SOURCES` allowlist.
+
+These bindings do not infer witness knowledge or establish legal truth. Authors
+still supply relationships and timeline; the checker only establishes structural
+validity and a bounded completion path. No synthetic graph is made for old cases.
+The detached graph is stored as optional `state.body.privateGraph`, with its own
+schemaVersion 1, in the same transaction as the initial public event. No SQL DDL,
+namespace, binding or migration changes. Existing init retries cannot replace an
+already-created graph; deleted IDs remain tombstoned. Public views/events and NPC
+knowledge omit it. Deletion removes it with the state row.
+
+Rollout: run SQLite boundary/rollback tests and existing API CI before deployment.
+Existing callers keep their four arguments. Do not enable an external graph
+producer until its own trusted envelope and semantic validation are reviewed.
+Rollback must retain the explicit public projection from `1fd7013` or later;
+older spread-based projections could disclose a stored private graph. Do not
+remove stored fields or recreate databases to roll back the code.
+
+Storage evidence: six additional `test-court-journal.mjs` groups use actual Node
+SQLite with mocked DO lifecycle. They cover rejected writes, policy/role/age/aid
+checks, restart/action persistence, owner isolation, init retry, content deletion,
+injected event-write rollback, all six templates with generated evidence IDs,
+and public event/AI request canaries. The AI test uses a fetch replacement, not
+real inference. Combined graph/journal/court/generation run: 48 passing tests;
+TypeScript noEmit passes. This is not proof of semantic correctness or a direct
+workerd RPC graph test; existing local API CI covers legacy HTTP compatibility.
 
 Local evidence: eight test groups pass, covering deterministic/nonmutating success,
 typed dangling refs, duplicate IDs, unknown sources, backwards/self/cyclic/equal
@@ -64,6 +101,6 @@ order dependencies, unknown authority fields, missing fields, malformed numbers,
 sparse arrays and bounds, array getter/iterator rejection and nested copy isolation.
 The new accessor regression failed against the preceding implementation with
 `array getter executed` from `Array.from`; descriptor-based validation fixes it.
-Existing fast CI automatically includes this test. This change does not wire the
-parser into an API or storage path, change SQL, or require a production migration.
+Existing fast CI automatically includes these tests. The storage integration
+changes only an optional JSON field, not SQL schema or a production migration.
 No live models, real case data or new services are used.

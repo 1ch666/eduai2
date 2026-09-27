@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {build} from 'esbuild';
 import {parseEvent,parseSnapshot} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
+import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
@@ -28,7 +29,7 @@ test('future private state and nested metadata never escape legacy view or v1 jo
   assert.ok(db.prepare('SELECT body FROM state').get().body.includes('PRIVATE_GRAPH_CANARY'));
  }finally{db.close();}
 });
-function setup(selectedConfig=config,env={}){
+function setup(selectedConfig=config,env={},initialize=true){
  const db=new DatabaseSync(':memory:');let fail=false;
  const sql={exec(query,...args){
   if(fail&&query.startsWith('INSERT INTO court_events'))throw Error('injected journal write failure');
@@ -36,9 +37,109 @@ function setup(selectedConfig=config,env={}){
   return {toArray:()=>rows,one:()=>{assert.equal(rows.length,1);return rows[0];}};
  }};
  const ctx={storage:{sql,transactionSync(fn){db.exec('BEGIN');try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}},blockConcurrencyWhile:fn=>fn()};
- const room=new CourtRoom(ctx,env),id=crypto.randomUUID();room.init(id,'owner',selectedConfig);
+ const room=new CourtRoom(ctx,env),id=crypto.randomUUID();if(initialize)room.init(id,'owner',selectedConfig);
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
+
+function graphFor(template){
+ return {schemaVersion:1,facts:template.facts.map((_,i)=>({id:`fact-${i}`})),
+  evidence:template.evidence.map(e=>({id:e.id,factIds:['fact-0']})),
+  witnesses:[{id:'Witness',factIds:['fact-0'],evidenceIds:[template.evidence[0].id]}],
+  timeline:[{id:'PRIVATE_TIMELINE_CANARY',order:0,factIds:['fact-0'],afterIds:[]}],
+  legalSourceIds:LEGAL_SOURCES.filter(s=>s.applies===template.procedure).map(s=>s.id)};
+}
+test('init rejects malformed or mismatched graphs before any state/event write',()=>{
+ const template=CASES.find(c=>c.id==='sale');
+ const invalid=[null,{}, {...graphFor(template),schemaVersion:2}];
+ for(const mutate of [g=>g.facts.pop(),g=>g.facts.push({id:'invented'}),
+  g=>g.evidence.pop(),g=>g.evidence[0].id='invented',g=>g.witnesses[0].id='Judge',
+  g=>g.evidence[0].factIds=['unknown'],g=>g.legalSourceIds=['defense'],
+  g=>g.timeline[0].afterIds=['PRIVATE_TIMELINE_CANARY']]){
+  const g=graphFor(template);mutate(g);invalid.push(g);
+ }
+ for(const graph of invalid){
+  const {room,db,id}=setup(config,{},false);try{
+   assert.equal(room.init(id,'owner',config,undefined,graph).status,400);
+   assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,0);
+   assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,0);
+  }finally{db.close();}
+ }
+});
+test('init validates template policy and role/age/assistance before graph storage',()=>{
+ const template=CASES.find(c=>c.id==='sale');
+ for(const [c,t] of [[{...config,respondentAge:100},undefined],
+  [{...config,caseId:'youth-property',role:'observer'},undefined],
+  [config,{...template,mandatory:true}],[config,{...template,correct:99}],
+  [config,{...template,evidence:[]}],
+  [{...config,role:'respondentCounsel',respondentAid:'none'},undefined]]){
+  const {room,db,id}=setup(config,{},false);try{
+   assert.equal(room.init(id,'owner',c,t,graphFor(template)).status,400);
+   assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,0);
+   assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,0);
+  }finally{db.close();}
+ }
+});
+test('private graph persists through recreation/actions but not public outputs; deletion removes it',async()=>{
+ const template=CASES.find(c=>c.id==='sale'),graph=graphFor(template),expected=structuredClone(graph);
+ const {room,db,ctx,id}=setup(config,{},false);try{
+  const first=room.init(id,'owner',config,undefined,graph);
+  assert.ok(first.view);graph.timeline[0].id='mutated';
+  const restored=new CourtRoom(ctx,{});
+  const outputs=[first,restored.get('owner'),restored.snapshotV1('owner',crypto.randomUUID()),
+   restored.action('owner',{requestId:crypto.randomUUID(),version:0,type:'acknowledge'}),
+   await restored.npc('owner','Witness',{requestId:crypto.randomUUID(),version:1,text:'你好'},false),
+   restored.events('owner',-1)];
+  for(const output of outputs){
+   const text=JSON.stringify(output);assert.ok(!text.includes('privateGraph'));assert.ok(!text.includes('PRIVATE_TIMELINE_CANARY'));
+  }
+  assert.deepEqual(JSON.parse(db.prepare('SELECT body FROM state').get().body).privateGraph,expected);
+  const before=db.prepare('SELECT body FROM state').get().body;
+  assert.ok(restored.init(id,'owner',config,undefined,{}).view,'init retry returns saved state, never replaces graph');
+  assert.equal(restored.init(id,'other',config,undefined,expected).status,404);
+  assert.equal(restored.get('other').status,404);assert.equal(db.prepare('SELECT body FROM state').get().body,before);
+  assert.ok(restored.remove('owner').ok);assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,0);
+  assert.equal(restored.init(id,'owner',config,undefined,expected).status,404);
+ }finally{db.close();}
+});
+test('graph creation and initial journal are one transaction and retry succeeds after rollback',()=>{
+ const {room,db,id,setFail}=setup(config,{},false),graph=graphFor(CASES.find(c=>c.id==='sale'));
+ try{
+  setFail(true);assert.throws(()=>room.init(id,'owner',config,undefined,graph),/injected journal/);
+  for(const table of ['state','court_events'])assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n,0);
+  setFail(false);assert.ok(room.init(id,'owner',config,undefined,graph).view);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,1);
+ }finally{db.close();}
+});
+test('all six templates bind graphs to the actual generated evidence IDs',()=>{
+ for(const base of CASES){
+  const c={...config,caseId:base.id,respondentAge:base.procedure==='juvenile'?15:20,
+   respondentHearingAge:base.procedure==='juvenile'?15:20,respondentAid:base.mandatory?'appointed':'none'};
+  const template={...structuredClone(base),id:'generated-test',evidence:base.evidence.map((e,i)=>({...e,id:`generated-${i}`}))};
+  const {room,db,id}=setup(c,{},false);try{
+   assert.equal(room.init(id,'owner',c,template,graphFor(base)).status,400);
+   assert.ok(room.init(id,'owner',c,template,graphFor(template)).view);
+   assert.deepEqual(JSON.parse(db.prepare('SELECT body FROM state').get().body).privateGraph,graphFor(template));
+  }finally{db.close();}
+ }
+});
+test('private graph is omitted from AI request context and v1 action results',async()=>{
+ const {room,db,id}=setup(config,{OLLAMA_API_KEY:'synthetic-test-key' },false);
+ const original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(_url,options)=>{
+  calls++;assert.ok(!options.body.includes('PRIVATE_TIMELINE_CANARY'));assert.ok(!options.body.includes('privateGraph'));
+  return Response.json({message:{content:JSON.stringify({reply:'你好，可以一起核對本案資料。',factIds:[],uncertain:true})}});
+ };
+ try{
+  room.init(id,'owner',config,undefined,graphFor(CASES.find(c=>c.id==='sale')));
+  const event=room.actionV1('owner',mutation(id));assert.ok(parseEvent(JSON.stringify(event)));
+  const m={...mutation(id,1,'npc.ask'),targetId:'Witness',text:'你好'};
+  const reply=await room.npcV1('owner',m,true);assert.equal(calls,1);assert.ok(parseEvent(JSON.stringify(reply)));
+  for(const output of [event,reply,room.outcomeV1('owner',m.requestId)]){
+   assert.ok(!JSON.stringify(output).includes('privateGraph'));assert.ok(!JSON.stringify(output).includes('PRIVATE_TIMELINE_CANARY'));
+  }
+ }finally{globalThis.fetch=original;db.close();}
+});
 test('journal stores real ordered versions and duplicate actions produce no event',()=>{
  const {room,db}=setup();try{
   const initial=room.events('owner',-1);assert.equal(initial.events.length,1);assert.equal(initial.events[0].kind,'session_started');
