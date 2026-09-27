@@ -1,6 +1,7 @@
 import '../auth-sync.js';
 import { installGamePanels } from './game-panels.js';
 import { npcNotice } from './npc-status.js';
+import { installReplayPanel } from './replay-panel.js';
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
@@ -14,6 +15,9 @@ let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null
 let sceneMode='seat';
 let npcBusy=false;
 const gamePanels=installGamePanels({window,document,getView:()=>view,getAccount:()=>account,onClose:()=>stopVoice(true)});
+const replayPanel=installReplayPanel({window,document,getView:()=>view,getAccount:()=>account,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();}});
+const replayButton=document.createElement('button');replayButton.type='button';replayButton.textContent='回看庭審紀錄';replayButton.addEventListener('click',()=>{if(!busy&&!npcBusy)replayPanel.open();});$('back').after(replayButton);
+$('logout').addEventListener('click',()=>replayPanel.clear(),{capture:true});
 window.addEventListener('message',async e=>{
  if(e.origin!==location.origin||e.source!==$('scene').contentWindow||e.data?.type!=='court-npc-request')return;
  const {operation,npcId,requestId,text}=e.data;
