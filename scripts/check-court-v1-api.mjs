@@ -59,4 +59,33 @@ assert.equal((await call(deletion,{confirm:true},a)).status,200);
 assert.equal((await call(deletion,{confirm:true},a)).status,200);
 assert.equal((await call('/api/court/sessions/'+id,undefined,a)).status,404);
 assert.ok(!(await call('/api/court/sessions',undefined,a)).data.sessions.some(s=>s.id===id));
-console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, NPC result/history deduplication, replay and deletion.');
+// Launch together, without timing sleeps or assuming which request wins. Real
+// local workerd/SQLite handles the requests; no mocked storage or production data.
+for(const mode of ['duplicate','competing-version','reused-key']){
+ const fresh=await call('/api/court/sessions',config,a);assert.equal(fresh.status,201);
+ const sessionId=fresh.data.view.id,route='/api/court/v1/sessions/'+sessionId;
+ const command={...m,sessionId,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID()};
+ const commands=mode==='duplicate'?Array.from({length:4},()=>({...command})):
+  [command,{...command,requestId:crypto.randomUUID(),idempotencyKey:mode==='reused-key'?command.idempotencyKey:crypto.randomUUID()}];
+ const responses=await Promise.all(commands.map(c=>call(route+'/actions',c,a)));
+ assert.deepEqual(responses.map(r=>r.status).sort(),mode==='duplicate'?[200,200,200,200]:[200,409],mode);
+ const winner=responses.find(r=>r.status===200).data;
+ assertCourtSchema('event',winner);assert.equal(winner.stateVersion,1);
+ for(let i=0;i<responses.length;i++){
+  if(responses[i].status===200){
+   assert.deepEqual(responses[i].data,winner);
+   const recovered=await call(route+'/requests/'+commands[i].requestId,undefined,a);
+   assert.equal(recovered.status,200);assert.deepEqual(recovered.data,winner);
+  }
+ }
+ const snapshot=await call(route+'?requestId='+crypto.randomUUID(),undefined,a);
+ assert.equal(snapshot.status,200);assertCourtSchema('snapshot',snapshot.data);
+ assert.equal(snapshot.data.stateVersion,1,mode+' must commit only once');
+ const events=await call('/api/court/sessions/'+sessionId+'/events',undefined,a);
+ assert.equal(events.status,200);assertCourtSchema('eventPage',events.data);
+ assert.equal(events.data.events.length,2,mode+' must append only one mutation');
+ assert.deepEqual(events.data.events[1],winner);
+ assert.equal((await call(route,undefined,b)).status,404);
+ assert.equal((await call('/api/court/sessions/'+sessionId+'/delete',{confirm:true},a)).status,200);
+}
+console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, NPC result/history deduplication, replay, deletion and three concurrent submission scenarios.');
