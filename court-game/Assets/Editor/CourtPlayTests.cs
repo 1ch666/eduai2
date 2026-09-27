@@ -41,6 +41,20 @@ namespace EduAI.Court.Editor
         }
         private static void Test()
         {
+            foreach(var role in new[]{"judge","prosecutor","counsel","claimantCounsel","respondentCounsel"})
+                Require(NpcWardrobe.TryTrim(role,out _), "Legal professional has explicit robe style");
+            foreach(var role in new[]{"claimant","respondent","witness","juvenile","assistant","investigator","unknown"})
+                Require(!NpcWardrobe.TryTrim(role,out _), "No robe inferred for civilian or unqualified role");
+            foreach(var actor in UnityEngine.Object.FindObjectsByType<NPCInteractable>(FindObjectsSortMode.None))
+            {
+                var wardrobe=actor.GetComponentInChildren<NpcWardrobe>();
+                Require(wardrobe, "Wardrobe initialized before renderer visibility cache");
+                Require(wardrobe.RobeVisible==(actor.name=="Judge"||actor.name=="Prosecutor"||actor.name=="Lawyer"), "Guest wardrobe retains actual character identity");
+                var robe=wardrobe.transform.Find("RoleRobe");
+                Require(robe && !robe.GetComponent<Collider>(), "Garment cannot block NPC or evidence rays");
+                var skin=robe.GetComponent<SkinnedMeshRenderer>();
+                Require(skin.sharedMesh.vertexCount>0 && skin.sharedMesh.subMeshCount==3 && skin.bones.Length==skin.sharedMesh.bindposes.Length, "Real robe, role edging, shirt and tie skinned geometry");
+            }
             var player = UnityEngine.Object.FindFirstObjectByType<FirstPersonController>();
             var controller = player.GetComponent<CharacterController>();
             Require(!player.TouchMode, "Desktop remains the default");
@@ -134,6 +148,8 @@ namespace EduAI.Court.Editor
             var snapshot = Networking.CourtWire.Snapshot(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(witness.CanInteract && witness.DisplayName == "證人", "Public NPC projection enables matching actor");
+            var wardrobe=witness.GetComponentInChildren<NpcWardrobe>();
+            Require(wardrobe && !wardrobe.RobeVisible, "Public witness stays in civilian clothing");
             var motion=witness.GetComponentInChildren<NpcActorMotion>();
             Require(motion && motion.HasPublicState && motion.PublicPlan.Pose==snapshot.state.npcs[0].pose, "Validated snapshot drives public motion state");
             TestMotionPlans(motion);
@@ -167,11 +183,13 @@ namespace EduAI.Court.Editor
             snapshot.state.npcs[0].seatId = "counsel-seat"; snapshot.state.npcs[0].roleId = "counsel";
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(witness.CanInteract && !NpcDialogueUI.IsOpen && witness.transform.position.x == -3, "Changed public role mapping moves actor and safely closes old closeup");
+            Require(wardrobe.RobeVisible && wardrobe.Role=="counsel" && wardrobe.TrimColor.r>.8f, "Server role change equips white-trim lawyer robe");
             var mappedPosition = witness.transform.position;
             snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
             snapshot.state.npcs[0].seatId = "unknown-seat";
             runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
             Require(!witness.CanInteract && witness.transform.position == mappedPosition, "Unknown seat disables actor without relocating to origin");
+            Require(!wardrobe.RobeVisible && wardrobe.Role==null, "Unavailable public identity cannot retain a visible robe");
             runtime.ClearState(); Require(!witness.CanInteract, "Clearing session disables old actor");
         }
         private static void TestMotionPlans(NpcActorMotion motion)

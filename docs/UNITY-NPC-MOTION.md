@@ -24,7 +24,7 @@ idle / standing 的 speakingState=speaking 且 requestState=idle 時使用 emote
 - 官方 Unity 6000.6.2f1：模型清單稽核 exit 0（outputs/npc-motion-audit.log）、匯入與 C# 編譯 exit 0（outputs/npc-motion-import.log）。
 - 真實 Scene / Play 測試 exit 0（outputs/npc-motion-play.log）：九種姿態乘四種 emotion 的固定選擇、實際 Animation clip 存在、重複投影不重設時間、坐姿不被 Speak 覆蓋、pending 不冒充回覆、非法詞彙拒絕、失同步／撤銷停止等斷言通過。原碰撞／互動／鏡頭／手機點擊測試同次執行。
 - Editor 仍有既知 SearchDatabase ArgumentOutOfRangeException，與遊戲斷言區分；不宣稱零 Editor 例外。
-- 尚未完成本批 WebGL、瀏覽器外觀、手機、正式发布及 Docker 更新；現有線上遊戲保持前版。
+- 本批純動畫接線的 Release WebGL 已 exit 0（outputs/npc-motion-build.log），Gzip／loader 配對及下載門檻通過；五項資源 21,307,033 bytes。尚未發布，後續新增法袍／領帶須重新建置，不把這份成品當作包含新衣物。瀏覽器外觀、手機、正式发布及 Docker 更新仍待完成；現有線上遊戲保持前版。
 
 ## 後續必要工作（不能以這批接線取代完整規格）
 

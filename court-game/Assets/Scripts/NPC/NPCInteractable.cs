@@ -13,6 +13,13 @@ namespace EduAI.Court
         private string publicDisplayName;
         private Renderer[] publicRenderers;
         private bool[] originalRendererEnabled;
+        private void Awake()
+        {
+            // Explicit legacy guest identities only. Hosted snapshots replace
+            // these immediately, including civil claimant / juvenile roles.
+            string role=name=="Judge"?"judge":name=="Prosecutor"?"prosecutor":name=="Lawyer"?"counsel":null;
+            NpcWardrobe.Ensure(transform)?.Present(role,!CourtPresentation.IsHosted);
+        }
         public bool CanInteract => !CourtPresentation.IsHosted || publicInteractionAllowed;
         // Presentation flags only; never retains the snapshot, facts or legal rules.
         public void ApplyPublicProjection(NpcDto projection, bool synchronized)
@@ -34,6 +41,7 @@ namespace EduAI.Court
             }
             publicInteractionAllowed = visible && projection.interactable && projection.requestState != "pending";
             publicDisplayName = visible ? projection.displayName : null;
+            NpcWardrobe.Ensure(transform)?.Present(projection?.roleId,visible);
             GetComponentInChildren<NpcActorMotion>(true)?.ApplyPublicState(
                 projection?.pose, projection?.emotion, projection?.speakingState, projection?.requestState, visible);
             if (publicRenderers == null)

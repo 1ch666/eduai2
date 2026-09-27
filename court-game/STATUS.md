@@ -1,3 +1,7 @@
+【2026-09-27 使用者追加角色法袍與領帶：原始碼／離線渲染批次】
+最新領帶版官方 Unity Scene／Play 已 exit 0（outputs/npc-wardrobe-tie-play.log）；Release WebGL 接續建置，尚未發布。下列未加領帶版測試保留為過程紀錄。
+新增 NpcWardrobe 原創蒙皮幾何：黑袍、法官藍邊／檢察官紫邊／律師白邊、寬袖袖口、白襯衫領口與黑領帶。服裝跟隨公開角色，不讓民事原告／一般輔佐人誤穿職業袍。三款人物已由官方 Unity 渲染檢視並修正尺寸；未加領帶版 Play exit 0，最新版 Play 另記。尚未完成本批 WebGL、場景／手機、發布或 Docker。詳見 docs/UNITY-ROLE-WARDROBE.md。
+
 【2026-09-27 NPC 動畫公開狀態接線：原始碼與 Play 已驗證】
 新增固定 NpcMotionPlan 與公開狀態同步，三款既有 CC0 模型增加 emote-no / interact-right，坐姿、說話、異議與展示對應實際 clip。重複快照不重播；失同步停止；雲端歷史／回覆不再擅自触發 Speak，guest 原行為保留。官方 Unity 6000.6.2f1 編譯、匯入、Scene／Play exit 0；Editor 既知 SearchDatabase 例外仍在。尚未完成本批 WebGL／外觀／手機／發布／Docker。情緒、傾聽、思考、轉頭專用動畫與 server 事件接線仍未完成，詳見 docs/UNITY-NPC-MOTION.md。下方為前版發布紀錄。
 
