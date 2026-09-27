@@ -15,12 +15,12 @@ const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,re
 // CI runs with AI disabled and no key. Exercise actual Worker -> CourtRoom RPC
 // and additive SQLite initialization without an inference or production account.
 {
- const auth=await register();assert.equal(auth.status,201);
+ const auth=b; // Reuse the second fixture; respect the real IP signup quota.
  const scene=await call('/api/court/sessions',config,auth);assert.equal(scene.status,201);
  const root='/api/court/sessions/'+scene.data.view.id;
  assert.equal((await call(root+'/dialogue',{},{})).status,401);
  assert.equal((await call(root+'/dialogue',{},{cookie:auth.cookie})).status,403);
- assert.equal((await call(root+'/dialogue',{},b)).status,404);
+ assert.equal((await call(root+'/dialogue',{},a)).status,404);
  const replies=await Promise.all(Array.from({length:3},()=>call(root+'/dialogue',{},auth)));
  for(const reply of replies){assert.equal(reply.status,200);assert.deepEqual(reply.data,scene.data.view.turn);}
  assert.equal((await call(root,undefined,auth)).data.view.version,0);
