@@ -35,4 +35,20 @@ Unity 現有 NpcDialogueUI／原生中文輸入／鏡頭／桌機與手機操作
 
 本輪重新執行 `node --test scripts/test-npc-action.mjs scripts/test-npc-bridge.mjs scripts/test-pending-recovery.mjs`：13 項通過。自動化結果不能代替上述尚未驗證的供應商、斷線、手機、完整程序與鏡頭不變量。
 
+## 真實本機 API 的回覆遺失整合測試
+
+新增 `scripts/check-npc-recovery-api.mjs`，執行方式：
+
+```sh
+node scripts/check-npc-recovery-api.mjs http://127.0.0.1:8792
+```
+
+前提：本機 Worker 已啟動，並明確設定 `COURT_AI_ENABLED=false`。腳本拒絕非 loopback HTTP origin，且在建立測試帳號前核對 NPC AI capability 關閉。只建立一次性本機帳號與三個場次；資料保留供檢查，不操作正式資料、不輸出 Cookie／CSRF，不呼叫模型。
+
+2026-09-27 實際執行通過三種情境：網路錯誤、損壞 JSON、逾時。每種情境都使用真正的 `CourtTransport`、`askNpcThroughTransport`、pending journal 與本機 workerd API，在伺服器成功寫入 NPC 事件後才注入回覆錯誤。重新建立 transport 模擬頁面重載，再模擬一次查詢斷線、恢復連線後以 GET 查回伺服器的原結果。
+
+驗證：未確認期間新提問被阻擋；重建後不能 POST retry；查詢失敗保持 pending；恢復後清除 request marker 並解鎖；每個場次實際只送一次 POST，版本只增加一次，事件與 NPC history 各只有一筆相同 requestId。marker 儲存只有 opaque requestId，沒有保存問題文字或認證資料。
+
+限制：錯誤由 Node fetch adapter 注入，pending storage 使用記憶體 Map；不代表真正瀏覽器 reload、作業系統斷網、Unity 逾時 UI、手機背景恢復或供應商成功回答已完成驗收。測試未修改後端與正式設定。
+
 下一步：在遊戲內驗證中斷並從程序面板恢復 → 驗證真實 AI 供應商回覆 → 部署同源前端 → Docker 重建。遊客固定案件路徑不修改。正式部署仍未包含此批接線。
