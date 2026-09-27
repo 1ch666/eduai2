@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {parseSnapshot,parseEvent} from '../court/protocol.js';
 import {CourtReplayLoader} from '../court/replay-loader.js';
 import {localApiTarget} from './local-api-target.mjs';
-import {assertCourtSchema} from './court-schema-check.mjs';
+import {assertCourtSchema,courtV2Response} from './court-schema-check.mjs';
 const base=localApiTarget(process.argv[2]);
 async function call(path,body,auth={},raw){
  const r=await fetch(base+path,{method:body||raw?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(20000),headers:{Origin:base,...(body||raw?{'Content-Type':'application/json'}:{}),...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{})},body:raw??(body?JSON.stringify(body):undefined)});
@@ -12,6 +12,29 @@ async function call(path,body,auth={},raw){
 const register=()=>call('/api/auth/register',{username:'v1_'+crypto.randomUUID().slice(0,8),password:'local-test-password-2026',displayName:'本機 v1 測試'});
 const a=await register(),b=await register();assert.equal(a.status,201);assert.equal(b.status,201);
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
+// v2 is additive transport around the SAME persisted v1 command/outcome.
+{
+ const created=await call('/api/court/sessions',config,b);assert.equal(created.status,201);
+ const id=created.data.view.id,v2='/api/v2/court/sessions/'+id,v1='/api/court/v1/sessions/'+id;
+ const get=v2+'?requestId='+crypto.randomUUID();
+ for(const [auth,status] of [[{},401],[a,404],[b,200]]){
+  const r=await call(get,undefined,auth);assert.equal(r.status,status);assert.equal(courtV2Response(r.data),true,JSON.stringify(courtV2Response.errors));
+ }
+ const command={apiVersion:1,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,caseId:'sale',expectedStateVersion:0,actionId:'acknowledge',targetId:'',text:''};
+ assert.equal((await call(v2+'/actions',command,{cookie:b.cookie})).status,403);
+ const malformed=await call(v2+'/actions',undefined,b,JSON.stringify(command).replace('"apiVersion":1','"apiVersion":1,"apiVersion":1'));
+ assert.equal(malformed.status,400);assert.equal(courtV2Response(malformed.data),true);
+ const replies=await Promise.all([call(v2+'/actions',command,b),call(v1+'/actions',command,b)]);
+ assert.ok(replies.every(r=>r.status===200));assert.equal(courtV2Response(replies[0].data),true);
+ assert.deepEqual(replies[0].data.data,replies[1].data);assert.equal(replies[0].data.stateVersion,1);
+ const recovery=await call(v2+'/requests/'+command.requestId,undefined,b);
+ assert.equal(courtV2Response(recovery.data),true);assert.deepEqual(recovery.data.data,replies[1].data);
+ assert.notEqual(recovery.data.requestId,replies[0].data.requestId,'HTTP IDs are not persisted mutation IDs');
+ const stale=await call(v2+'/actions',{...command,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID()},b);
+ assert.equal(stale.status,409);assert.equal(courtV2Response(stale.data),true);
+ assert.equal((await call('/api/court/sessions/'+id+'/events',undefined,b)).data.events.length,2);
+ assert.equal((await call('/api/court/sessions/'+id+'/delete',{confirm:true},b)).status,200);
+}
 // CI runs with AI disabled and no key. Exercise actual Worker -> CourtRoom RPC
 // and additive SQLite initialization without an inference or production account.
 {

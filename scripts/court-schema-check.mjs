@@ -6,6 +6,8 @@ for(const name of ['command','state']){
   const schema=JSON.parse(await readFile(new URL(`../contracts/court-v1-${name}.schema.json`,import.meta.url),'utf8'));
   ajv.addSchema(schema);
 }
+for(const name of ['trace-context-v1','court-v2-response'])ajv.addSchema(JSON.parse(await readFile(new URL(`../contracts/${name}.schema.json`,import.meta.url),'utf8')));
+export const courtV2Response=ajv.getSchema('urn:eduai:court:v2:response');
 export const courtSchemas=Object.fromEntries([
   ['mutation','command'],['notApplied','command'],['snapshot','state'],['event','state'],['eventPage','state']
 ].map(([kind,group])=>[kind,ajv.compile({$ref:`urn:eduai:court:v1:${group}#/definitions/${kind}`})]));

@@ -1,0 +1,19 @@
+{
+  "$schema":"http://json-schema.org/draft-07/schema#",
+  "$id":"urn:eduai:court:v2:response",
+  "$comment":"v2 HTTP envelope; public domain DTOs and POST command bodies retain their explicit v1 contracts. requestId here is server HTTP correlation, not a mutation ID. OPTIONS 204 has no body.",
+  "type":"object","additionalProperties":false,
+  "required":["ok","apiVersion","requestId","traceId","timestamp","errorCode","stateVersion","data"],
+  "properties":{
+    "ok":{"type":"boolean"},"apiVersion":{"const":2},
+    "requestId":{"$ref":"urn:eduai:trace-context:v1#/properties/requestId"},
+    "traceId":{"$ref":"urn:eduai:trace-context:v1#/properties/traceId"},
+    "timestamp":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
+    "errorCode":{"type":["string","null"],"pattern":"^(HTTP_[45][0-9]{2}|INTERNAL_ERROR)$"},
+    "stateVersion":{"type":["integer","null"],"minimum":0,"maximum":9007199254740991},
+    "data":{"anyOf":[{"type":"null"},{"$ref":"urn:eduai:court:v1:state#/definitions/snapshot"},{"$ref":"urn:eduai:court:v1:state#/definitions/event"},{"$ref":"urn:eduai:court:v1:command#/definitions/notApplied"}]}
+  },
+  "allOf":[
+    {"if":{"properties":{"ok":{"const":true}}},"then":{"properties":{"errorCode":{"type":"null"},"data":{"type":"object"}}},"else":{"properties":{"errorCode":{"type":"string"},"data":{"type":"null"},"stateVersion":{"type":"null"}}}}
+  ]
+}

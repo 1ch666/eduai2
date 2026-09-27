@@ -6,6 +6,7 @@ import { handleAiRequest } from "./ai";
 import { handleMessages } from "./messages";
 import type { AppEnv } from "./env";
 import { handleCourt } from './court';
+import {handleCourtV2} from './court-v2';
 import { handlePractice } from './practice';
 import { handlePlanner } from './planner';
 import { handlePush } from './push';
@@ -58,6 +59,7 @@ async function handleApi(request: Request, env: AppEnv,trace:TraceContext): Prom
   const requestOrigin = request.headers.get("Origin") || "";
   const trustedOrigin = TRUSTED_WEB_ORIGINS.has(requestOrigin) || requestOrigin === url.origin ? requestOrigin : undefined;
   const respond: Responder = (data, status = 200, cookies = []) => json(data, status, trustedOrigin, cookies);
+  if(url.pathname==='/api/v2/court'||url.pathname.startsWith('/api/v2/court/'))return handleCourtV2(request,env,respond,trace,trustedOrigin);
   if (!isApiPath(url.pathname)) return respond({ error: "找不到 API" }, 404);
 
   if (request.method === "OPTIONS") {

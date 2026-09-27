@@ -15,6 +15,9 @@ const STATIC_ENDPOINTS = new Set([
 ]);
 const ID = '[0-9a-f-]{36}';
 const ROUTES: ReadonlyArray<readonly [RegExp, string]> = [
+  [new RegExp(`^/api/v2/court/sessions/${ID}$`, 'i'), '/api/v2/court/sessions/:sessionId'],
+  [new RegExp(`^/api/v2/court/sessions/${ID}/actions$`, 'i'), '/api/v2/court/sessions/:sessionId/actions'],
+  [new RegExp(`^/api/v2/court/sessions/${ID}/requests/${ID}$`, 'i'), '/api/v2/court/sessions/:sessionId/requests/:requestId'],
   [new RegExp(`^/api/court/v1/sessions/${ID}$`, 'i'), '/api/court/v1/sessions/:sessionId'],
   [new RegExp(`^/api/court/v1/sessions/${ID}/actions$`, 'i'), '/api/court/v1/sessions/:sessionId/actions'],
   [new RegExp(`^/api/court/v1/sessions/${ID}/requests/${ID}$`, 'i'), '/api/court/v1/sessions/:sessionId/requests/:requestId'],
