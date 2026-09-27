@@ -35,6 +35,7 @@ namespace EduAI.Court.Core
             { MarkUnavailable(); return; }
             BuildHud();
             var snapshot = state.Snapshot;
+            SynchronizeActors(snapshot);
             if (!caption || snapshot == null) return;
             int enabledActions = 0;
             foreach (var action in snapshot.state.allowedActions) if (action.enabled) enabledActions++;
@@ -47,6 +48,7 @@ namespace EduAI.Court.Core
         public void MarkUnavailable()
         {
             if (!CourtPresentation.IsHosted) return;
+            SynchronizeActors(null);
             BuildHud();
             if (caption) caption.text = "場次狀態暫時無法同步\n請回到網頁更新狀態；不在遊戲內推測下一階段。";
             if (canvasObject) canvasObject.SetActive(true);
@@ -55,8 +57,21 @@ namespace EduAI.Court.Core
         public void ClearState()
         {
             state.Clear(); sessionId = null;
+            SynchronizeActors(null);
             if (caption) caption.text = "";
             if (canvasObject) canvasObject.SetActive(false);
+        }
+        private static void SynchronizeActors(CourtSnapshot snapshot)
+        {
+            if (!CourtPresentation.IsHosted) return;
+            foreach (var actor in FindObjectsByType<NPCInteractable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                NpcDto projection = null;
+                if (snapshot != null)
+                    foreach (var candidate in snapshot.state.npcs)
+                        if (candidate.npcId == actor.name) { projection = candidate; break; }
+                actor.ApplyPublicProjection(projection, snapshot != null);
+            }
         }
         private void BuildHud()
         {

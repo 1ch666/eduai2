@@ -1,3 +1,6 @@
+【2026-09-27 NPC 公開投影：原始碼與 Play 通過，成品待驗證】
+CourtRuntimeState 已將公開 NPC 名稱／可見／互動狀態同步到既有角色，未同步或撤銷時停止交談；保留 guest 原操作。官方 Unity 6000.6.2f1 編譯、場景驗證與新增角色投影 Play 測試通過，exit 0。Editor 仍有既知 SearchDatabase 例外。Release WebGL 正在隔離副本建置，尚未替換 play 或發布；詳見 docs/UNITY-NPC-PROJECTION.md。完整角色座位、動畫與私有資料隔離尚未完成。
+
 【2026-09-27 HUD 成品建置完成，發布另記】
 官方 Unity 6000.6.2f1 正常使用者環境 Release WebGL exit 0、場景驗證通過；不需重新授權。play/ 已同步。四項下載 21,270,030 bytes（另 touch 5,172），較前版增加 21,199 bytes；詳見 docs/UNITY-HUD-PROGRESS.md。新增 HUD 橋接3項與模板／觸控／面板13項測試通過；真實瀏覽器／手機與 Docker 尚待本批驗證。使用者最新要求改為邊開發邊測試並推送。
 

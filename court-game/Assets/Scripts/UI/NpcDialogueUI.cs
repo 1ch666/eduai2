@@ -114,9 +114,13 @@ namespace EduAI.Court
             closeRect=(RectTransform)ButtonAt("Close","關閉",.68f,1,20,Close).transform;
             panel.SetActive(false);
         }
+        public void CloseFor(NPCInteractable target)
+        {
+            if (IsOpen && npc == target) Close();
+        }
         public void Open(NPCInteractable target)
         {
-            if (!target) return;
+            if (!target || !target.CanInteract) return;
             BuildUI(); if (IsOpen) Close(); evidenceMode=false; npc = target; generation++;
             IsOpen = true;
             FirstPersonController.Active?.ResetTouchInput(); FirstPersonController.Active?.Capture(false);

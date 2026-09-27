@@ -11,7 +11,8 @@ namespace EduAI.Court
         [SerializeField] private LayerMask layers = ~0;
         private IInteractable target;
         private MonoBehaviour targetComponent;
-        public static bool AllowedInCurrentMode(MonoBehaviour item) => !CourtPresentation.IsHosted || item is NPCInteractable || item is EvidenceInteractable || item is CourtButton;
+        public static bool AllowedInCurrentMode(MonoBehaviour item) => !CourtPresentation.IsHosted ||
+            (item is NPCInteractable npc && npc.CanInteract) || item is EvidenceInteractable || item is CourtButton;
         public void Configure(Camera camera, InteractionUI hud, ChoiceSystem choiceSystem)
         { viewCamera = camera; ui = hud; choices = choiceSystem; }
         public void TouchInteract(string payload)

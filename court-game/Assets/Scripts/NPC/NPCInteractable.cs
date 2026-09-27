@@ -1,4 +1,5 @@
 using UnityEngine;
+using EduAI.Court.Protocol;
 
 namespace EduAI.Court
 {
@@ -8,12 +9,38 @@ namespace EduAI.Court
         [SerializeField] private bool isJudge;
         [SerializeField] private InteractionUI ui;
         [SerializeField] private CourtSession session;
+        private bool publicInteractionAllowed;
+        private string publicDisplayName;
+        private Renderer[] publicRenderers;
+        private bool[] originalRendererEnabled;
+        public bool CanInteract => !CourtPresentation.IsHosted || publicInteractionAllowed;
+        // Presentation flags only; never retains the snapshot, facts or legal rules.
+        public void ApplyPublicProjection(NpcDto projection, bool synchronized)
+        {
+            if (!CourtPresentation.IsHosted) return;
+            bool visible = synchronized && projection != null && projection.npcId == name && projection.visible;
+            publicInteractionAllowed = visible && projection.interactable && projection.requestState != "pending";
+            publicDisplayName = visible ? projection.displayName : null;
+            if (publicRenderers == null)
+            {
+                publicRenderers = GetComponentsInChildren<Renderer>(true);
+                originalRendererEnabled = new bool[publicRenderers.Length];
+                for (int i = 0; i < publicRenderers.Length; i++) originalRendererEnabled[i] = publicRenderers[i].enabled;
+            }
+            for (int i = 0; i < publicRenderers.Length; i++)
+                if (publicRenderers[i]) publicRenderers[i].enabled = visible && originalRendererEnabled[i];
+            // Keep physical colliders as occluders: a hidden actor must not let
+            // a ray interact through a desk/wall or another occupied position.
+            if (!publicInteractionAllowed)
+                FindFirstObjectByType<NpcDialogueUI>()?.CloseFor(this);
+        }
         public void Configure(string npcName, bool judge, InteractionUI hud, CourtSession court)
         { displayName = npcName; isJudge = judge; ui = hud; session = court; }
-        public string GetInteractionText() => "與" + displayName + "交談";
-        public string DisplayName => displayName;
+        public string GetInteractionText() => CanInteract ? "與" + DisplayName + "交談" : "";
+        public string DisplayName => CourtPresentation.IsHosted ? publicDisplayName ?? "角色" : displayName;
         public void Interact()
         {
+            if (!CanInteract) return;
             var dialogue = FindFirstObjectByType<NpcDialogueUI>();
             if (dialogue) dialogue.Open(this);
             else ContinueInvestigation();

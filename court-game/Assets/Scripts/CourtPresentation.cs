@@ -58,6 +58,10 @@ namespace EduAI.Court
                 foreach (var text in FindObjectsByType<UnityEngine.UI.Text>(FindObjectsSortMode.None)) if(!text.GetComponentInParent<NpcDialogueUI>())text.gameObject.SetActive(false);
                 var choices = FindFirstObjectByType<ChoiceSystem>(); if (choices) choices.enabled = false;
                 BuildCharacters();
+                // Do not expose scene-default roles until a validated public
+                // snapshot arrives. Guest practice keeps its original actors.
+                foreach (var actor in FindObjectsByType<NPCInteractable>(FindObjectsSortMode.None))
+                    actor.ApplyPublicProjection(null, false);
             }
             Vector3 target = request.role == "judge" ? new Vector3(0, 1.3f, 2) : new Vector3(0, 1.6f, 8);
             if (request.mode == "overview") { seat = new Vector3(7, 4, -7); target = new Vector3(0, 1, 4); }

@@ -95,6 +95,7 @@ namespace EduAI.Court.Editor
             Require(Mathf.Abs(player.transform.position.z - 8.8f) < .01f, "Judge seat position");
             hosted.SetView("{\"mode\":\"walk\",\"role\":\"judge\",\"procedure\":\"civil\"}");
             Require(FirstPersonController.InputActive, "Hosted walking restores movement");
+            TestPublicActors(dialogue);
             player.enabled = false;
             player.GetComponent<PlayerInteractor>().enabled = false;
             Teleport(controller, new Vector3(0, 2, 0));
@@ -123,6 +124,35 @@ namespace EduAI.Court.Editor
             Require(PlayerInteractor.AllowedInCurrentMode(cloudEvidence) && PlayerInteractor.AllowedInCurrentMode(button), "Hosted ray and touch allow both boxes");
             cloudEvidence.Interact();
             Require(CourtPresentation.LastPanelRequest == "evidence" && !NpcDialogueUI.IsOpen, "Hosted evidence uses current case panel, not legacy tablet evidence");
+        }
+        private static void TestPublicActors(NpcDialogueUI dialogue)
+        {
+            var runtime = Core.CourtRuntimeState.Active;
+            var witness = GameObject.Find("Witness").GetComponent<NPCInteractable>();
+            Require(runtime && !witness.CanInteract, "Hosted actor fails closed before snapshot");
+            Require(!PlayerInteractor.AllowedInCurrentMode(witness), "Ray and touch reject unsynchronized NPC");
+            var snapshot = Networking.CourtWire.Snapshot(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
+            runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
+            Require(witness.CanInteract && witness.DisplayName == "證人", "Public NPC projection enables matching actor");
+            Require(!GameObject.Find("Judge").GetComponent<NPCInteractable>().CanInteract, "Unlisted NPC stays disabled");
+            dialogue.Open(witness); Require(NpcDialogueUI.IsOpen, "Visible NPC can open dialogue");
+            snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
+            snapshot.state.npcs[0].visible = false; snapshot.state.npcs[0].interactable = false;
+            runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
+            Require(!witness.CanInteract && !NpcDialogueUI.IsOpen, "Revoked NPC closes dialogue and blocks interaction");
+            foreach (var renderer in witness.GetComponentsInChildren<Renderer>(true)) Require(!renderer.enabled, "Invisible NPC renderers hidden");
+            runtime.ApplySnapshot(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
+            Require(!witness.CanInteract, "Stale visible snapshot cannot restore revoked actor");
+            snapshot.stateVersion++; snapshot.eventSequence++; snapshot.eventId = Guid.NewGuid().ToString();
+            snapshot.state.npcs[0].visible = snapshot.state.npcs[0].interactable = true;
+            snapshot.state.npcs[0].displayName = "本案證人";
+            runtime.ApplySnapshot(JsonUtility.ToJson(snapshot));
+            Require(witness.CanInteract && witness.DisplayName == "本案證人", "New projection restores actor with server label");
+            bool rendered = false; foreach (var renderer in witness.GetComponentsInChildren<Renderer>(true)) rendered |= renderer.enabled;
+            Require(rendered, "Model renderers restored after temporary hiding");
+            runtime.MarkUnavailable(); Require(!witness.CanInteract, "Unavailable sync blocks NPC");
+            runtime.ApplySnapshot(JsonUtility.ToJson(snapshot)); Require(witness.CanInteract, "Same validated snapshot restores availability");
+            runtime.ClearState(); Require(!witness.CanInteract, "Clearing session disables old actor");
         }
         private static void Teleport(CharacterController controller, Vector3 position)
         {
