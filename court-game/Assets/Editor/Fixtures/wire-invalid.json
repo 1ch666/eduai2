@@ -1,0 +1,19 @@
+{"edits":[
+ {"name":"version overflow","find":"\"apiVersion\": 1","replace":"\"apiVersion\": 4294967297"},
+ {"name":"duplicate version","find":"\"apiVersion\": 1,","replace":"\"apiVersion\": 1, \"apiVersion\": 1,"},
+ {"name":"escaped duplicate","find":"\"apiVersion\": 1,","replace":"\"apiVersion\": 1, \"apiVersi\\u006fn\": 1,"},
+ {"name":"missing scalar","find":"\"completed\": false,","replace":""},
+ {"name":"unknown secret","find":"\"completed\": false,","replace":"\"completed\": false, \"hiddenTruth\": \"private\","},
+ {"name":"wrong boolean","find":"\"completed\": false","replace":"\"completed\": 0"},
+ {"name":"null boolean","find":"\"completed\": false","replace":"\"completed\": null"},
+ {"name":"exponent","find":"\"stateVersion\": 0","replace":"\"stateVersion\": 0e0"},
+ {"name":"fraction token","find":"\"stateVersion\": 0","replace":"\"stateVersion\": 0.0"},
+ {"name":"negative zero","find":"\"stateVersion\": 0","replace":"\"stateVersion\": -0"},
+ {"name":"leading zero","find":"\"stateVersion\": 0","replace":"\"stateVersion\": 00"},
+ {"name":"unsafe integer","find":"\"stateVersion\": 0","replace":"\"stateVersion\": 9007199254740992"},
+ {"name":"lone surrogate","find":"虛構契約測試","replace":"\\ud800"},
+ {"name":"invalid escape","find":"虛構契約測試","replace":"\\x41"},
+ {"name":"raw newline in string","find":"虛構契約測試","replace":"bad\ntext"},
+ {"name":"nested extra key","find":"\"name\":\"來源\"","replace":"\"prompt\":\"private\",\"name\":\"來源\""},
+ {"name":"duplicate nested key","find":"\"name\":\"來源\"","replace":"\"name\":\"來源\",\"name\":\"來源\""}
+]}

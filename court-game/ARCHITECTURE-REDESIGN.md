@@ -154,3 +154,8 @@ docs/API-CONTRACT-UNITY.md 已建立v1契約；court/protocol.js 已提供嚴格
 新增 Networking/DTO/CourtSnapshot.cs（公開 DTO 與型別驗證）、Core/CourtClientState.cs（快照／事件 reducer），以及 Editor/CourtProtocolTests.cs。輸入／輸出深複製；拒絕舊版本、同版衝突、錯場次、舊登入世代與不連續事件。事件缺口保留目前快照，需 transport 主動補讀；不由 client 推算程序。
 Editor/Fixtures/court-v1.json 由 Node 與 Unity 共用，含巢狀中文、NPC、證物 metadata；不含私人資料，不打包進 player。Node 6 項通過；Unity 6000.6.2f1 真正編譯及自訂 Editor 斷言通過、退出碼 0。詳見 TESTING.md。不是完整 NUnit／PlayMode 或正式網路驗收。
 重要：JsonUtility 忽略未知欄位，缺少 scalar 時會補預設值；型別驗證不能代替嚴格 wire JSON 驗證。尚未接入網路或 SendMessage，不可宣稱已封鎖所有原始 payload。下一步須完成有大小／深度限制的 C# wire gate、跨語言負例、request correlation／timeout／retry，再接後端原子事件與角色投影。伺服器尚未發布 v1 前不開新 client 能力。
+
+### 嚴格 wire gate（2026-09-27，更新上一段待辦）
+
+Networking/CourtWire.cs 與 court/protocol.js 已採有界、拒絕重複鍵的解析。C# 在 JsonUtility 前驗證完整欄位及型別；store 新增 raw JSON 入口。共享17項負例、合法中文／Unicode、事件及mutation驗證通過：Node 7項，Unity6000.6.2f1 compile／Editor測試exit0。詳見 TESTING.md。
+尚未完成：網路request correlation／timeout／retry、真正後端v1事件／角色投影、presenter、replay與完整新場景。現有遊戲保持原樣；本批解析器不能等同端到端安全驗收。

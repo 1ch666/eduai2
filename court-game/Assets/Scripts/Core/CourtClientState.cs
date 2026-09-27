@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using EduAI.Court.Protocol;
+using EduAI.Court.Networking;
 
 namespace EduAI.Court.Core
 {
@@ -19,6 +20,11 @@ namespace EduAI.Court.Core
             Clear(); sessionId=session; caseId=selectedCase; return Generation;
         }
         public void Clear() { sessionId=caseId=null; current=null; Generation++; }
+        // Network adapters must use these raw entry points, never bare JsonUtility.
+        public ApplyResult AcceptSnapshotJson(string raw,long generation) =>
+            generation!=Generation||sessionId==null?ApplyResult.ObsoleteContext:AcceptSnapshot(CourtWire.Snapshot(raw),generation);
+        public ApplyResult AcceptEventJson(string raw,long generation) =>
+            generation!=Generation||sessionId==null?ApplyResult.ObsoleteContext:AcceptEvent(CourtWire.Event(raw),generation);
         private static CourtSnapshot Clone(CourtSnapshot s) => s==null?null:JsonUtility.FromJson<CourtSnapshot>(JsonUtility.ToJson(s));
         private static string Identity(CourtSnapshot s) { var copy=Clone(s);copy.requestId="";return JsonUtility.ToJson(copy); }
         private ApplyResult Check(CourtSnapshot s,long generation)

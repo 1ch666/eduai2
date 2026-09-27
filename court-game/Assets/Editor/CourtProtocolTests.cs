@@ -3,11 +3,14 @@ using UnityEditor;
 using UnityEngine;
 using EduAI.Court.Core;
 using EduAI.Court.Protocol;
+using EduAI.Court.Networking;
 
 namespace EduAI.Court.Editor
 {
     public static class CourtProtocolTests
     {
+        [Serializable] private sealed class Edit { public string name, find, replace; }
+        [Serializable] private sealed class Edits { public Edit[] edits; }
         private static CourtSnapshot Fixture(long version=0) => new CourtSnapshot {
             apiVersion=1,requestId=Guid.NewGuid().ToString(),sessionId="10000000-0000-4000-8000-000000000000",caseId="sale",stateVersion=version,eventSequence=version,eventId=Guid.NewGuid().ToString(),timestamp="2026-09-26T00:00:00.000Z",
             state=new CourtViewDto{title="虛構測試",procedure="civil",roleId="judge",stageId="opening",stageLabel="開庭",feedback="",allowedActions=new[]{new ActionDto{actionId="acknowledge",label="確認",category="procedure",enabled=true,reasonDisabled="",requiredTarget="none"}},npcs=Array.Empty<NpcDto>(),evidence=Array.Empty<EvidenceDto>()}
@@ -15,12 +18,22 @@ namespace EduAI.Court.Editor
         private static void Require(bool ok,string label){if(!ok)throw new InvalidOperationException("Protocol: "+label);}
         public static void Run()
         {
-            var shared=JsonUtility.FromJson<CourtSnapshot>(System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json"));
+            string raw=System.IO.File.ReadAllText("Assets/Editor/Fixtures/court-v1.json");
+            var shared=CourtWire.Snapshot(raw);
+            var edits=JsonUtility.FromJson<Edits>(System.IO.File.ReadAllText("Assets/Editor/Fixtures/wire-invalid.json"));
+            foreach(var edit in edits.edits){Require(raw.Contains(edit.find),"fixture edit exists: "+edit.name);Require(CourtWire.Snapshot(raw.Replace(edit.find,edit.replace))==null,"wire: "+edit.name);}
+            Require(CourtWire.Snapshot(raw+"{}")==null,"trailing data");
+            Require(CourtWire.Snapshot(new string('[',10000))==null,"nested invalid data");
+            Require(CourtWire.Snapshot(raw.Replace("虛構契約測試","\\ud83d\\udcd6"))!=null,"Unicode surrogate pair");
+            Require(CourtWire.Snapshot(new string('中',100000))==null,"UTF8 limit");
             Require(CourtProjectionValidator.Valid(shared),"shared JS/C# fixture");
             Require(shared.state.evidence[0].metadata[0].value=="測試資料","Chinese nested DTO serialization");
             var store=new CourtClientState();var a=Fixture();long g=store.Bind(a.sessionId,a.caseId);
             Require(CourtProjectionValidator.Valid(a),"valid fixture");
             Require(store.AcceptSnapshot(a,g)==ApplyResult.Accepted,"initial snapshot");
+            Require(store.AcceptSnapshotJson(JsonUtility.ToJson(a),g)==ApplyResult.Duplicate,"raw store entry");
+            Require(store.AcceptSnapshotJson("{}",g)==ApplyResult.Malformed,"raw rejection");
+            Require(store.Snapshot.stateVersion==0,"raw rejection keeps state");
             a.state.title="external mutation";Require(store.Snapshot.state.title=="虛構測試","input clone");
             var copy=store.Snapshot;copy.state.title="external read";Require(store.Snapshot.state.title=="虛構測試","output clone");
             var same=store.Snapshot;same.requestId=Guid.NewGuid().ToString();Require(store.AcceptSnapshot(same,g)==ApplyResult.Duplicate,"duplicate read");
@@ -37,6 +50,9 @@ namespace EduAI.Court.Editor
             Require(store.Snapshot.stateVersion==2,"gap preserves state");
             e.stateVersion=s.stateVersion=3;e.eventSequence=s.eventSequence=3;
             Require(store.AcceptEvent(e,g)==ApplyResult.Accepted,"contiguous event");
+            Require(CourtWire.Event(JsonUtility.ToJson(e))!=null,"wire event");
+            var mutation=new CourtMutation{apiVersion=1,requestId=Guid.NewGuid().ToString(),idempotencyKey=Guid.NewGuid().ToString(),sessionId=s.sessionId,caseId=s.caseId,expectedStateVersion=3,actionId="acknowledge",targetId="",text="確認"};
+            Require(CourtWire.Mutation(JsonUtility.ToJson(mutation))!=null,"wire mutation");
             Require(store.AcceptEvent(e,g)==ApplyResult.Duplicate,"duplicate event");
             e.evidenceIds=new[]{"hidden"};Require(!CourtProjectionValidator.Valid(e),"unknown evidence link");
             store.Clear();Require(store.Snapshot==null,"logout clears");store.Bind(a.sessionId,a.caseId);

@@ -27,9 +27,37 @@ function validState(v) {
 const snapshot = record({...envelope,state:validState});
 const event = record({...envelope,kind:one('session_started','statement','npc_utterance','evidence_presented','objection','ruling','stage_changed','session_completed','checkpoint'),speaker:text(80),roleId:id,stageId:id,text:text(12000),evidenceIds:list(id,40),citationIds:list(id,30),snapshot});
 const mutation = record({apiVersion:one(API_VERSION),requestId:uuid,idempotencyKey:uuid,sessionId:uuid,caseId:id,expectedStateVersion:integer,actionId:id,targetId:v=>v===''||id(v),text:text(600)});
+// JSON.parse alone loses duplicate keys. Match the bounded Unity wire dialect:
+// unsigned integer tokens, valid Unicode, no nulls, no duplicate object keys.
+function readWire(raw) {
+ let at=0,nodes=0;
+ const bad=()=>{throw new Error('Invalid court payload');};
+ const space=()=>{while(/[ \t\r\n]/.test(raw[at]??'!'))at++;};
+ const take=c=>{space();if(raw[at]===c){at++;return true;}return false;};
+ const need=c=>{if(!take(c))bad();};
+ const string=()=>{
+  space();const start=at;need('"');let closed=false;
+  while(at<raw.length){const c=raw[at++];if(c==='"'){closed=true;break;}if(c==='\\')at++;}
+  if(!closed)bad();const s=JSON.parse(raw.slice(start,at));if(s.length>12000)bad();
+  for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c>=0xd800&&c<=0xdbff){const d=s.charCodeAt(++i);if(!(d>=0xdc00&&d<=0xdfff))bad();}else if(c>=0xdc00&&c<=0xdfff)bad();}
+  return s;
+ };
+ const value=depth=>{
+  if(depth>12||++nodes>10000)bad();space();
+  if(raw[at]==='"')return string();
+  if(take('{')){const o=Object.create(null);let count=0;if(take('}'))return o;
+   do{const k=string();if(++count>32||Object.hasOwn(o,k))bad();need(':');o[k]=value(depth+1);}while(take(','));need('}');return o;}
+  if(take('[')){const a=[];if(take(']'))return a;do{if(a.length>=40)bad();a.push(value(depth+1));}while(take(','));need(']');return a;}
+  for(const [word,b] of [['true',true],['false',false]])if(raw.startsWith(word,at)){at+=word.length;return b;}
+  const start=at;while(raw[at]>='0'&&raw[at]<='9')at++;
+  const token=raw.slice(start,at);if(!token||token.length>16||(token.length>1&&token[0]==='0'))bad();
+  const n=Number(token);if(!Number.isSafeInteger(n))bad();return n;
+ };
+ const result=value(0);space();if(at!==raw.length)bad();return result;
+}
 function parse(raw, check) {
  if (typeof raw !== 'string' || raw.length > MAX_PROTOCOL_BYTES || new TextEncoder().encode(raw).byteLength > MAX_PROTOCOL_BYTES) return null;
- try { const value=JSON.parse(raw); return check(value)?value:null; } catch { return null; }
+ try { const value=readWire(raw); return check(value)?value:null; } catch { return null; }
 }
 export const parseSnapshot = raw => parse(raw,snapshot);
 export const parseMutation = raw => parse(raw,mutation);

@@ -6,6 +6,14 @@ import {CourtClientState} from '../court/client-state.js';
 const sessionId='10000000-0000-4000-8000-000000000000';
 const fixture=(version=0)=>({apiVersion:1,requestId:crypto.randomUUID(),caseId:'sale',sessionId,stateVersion:version,eventId:crypto.randomUUID(),eventSequence:version,timestamp:'2026-09-26T00:00:00.000Z',state:{title:'虛構測試',procedure:'civil',roleId:'judge',stageId:'opening',stageLabel:'開庭',completed:false,allowedActions:[{actionId:'acknowledge',label:'確認',category:'procedure',enabled:true,reasonDisabled:'',requiredTarget:'none'}],npcs:[],evidence:[],feedback:''}});
 const raw=JSON.stringify;
+test('shared raw wire negatives reject ambiguous fields and numeric/Unicode forms',async()=>{
+ const base=await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8');
+ const {edits}=JSON.parse(await readFile(new URL('../court-game/Assets/Editor/Fixtures/wire-invalid.json',import.meta.url),'utf8'));
+ for(const e of edits){assert.ok(base.includes(e.find),e.name);assert.equal(parseSnapshot(base.replace(e.find,e.replace)),null,e.name);}
+ assert.equal(parseSnapshot(base+'{}'),null);
+ assert.equal(parseSnapshot('['.repeat(10000)),null);
+ assert.ok(parseSnapshot(base.replace('虛構契約測試','\\ud83d\\udcd6')));
+});
 test('Unity Editor and browser share the same nested public fixture',async()=>{
  const s=parseSnapshot(await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8'));
  assert.ok(s);assert.equal(s.state.evidence[0].metadata[0].value,'測試資料');

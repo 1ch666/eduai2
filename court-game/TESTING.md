@@ -14,6 +14,12 @@ Local evidence (2026-09-26, rechecked 2026-09-27): both the first compile/reduce
 
 ## Required next gates
 
-Strict C# wire gate negative fixtures (JsonUtility is permissive); actual bridge transport correlation/timeout/retry; server event transactions and visibility projection; real Unity PlayMode presenter/scene tests; WebGL build and HTTP resource sanity; Chrome/Edge full flows; iPhone Safari and Android Chrome real devices; measured load/FPS/memory. None of these is established by the foundation tests.
+Actual bridge transport correlation/timeout/retry; server event transactions and visibility projection; real Unity PlayMode presenter/scene tests; WebGL build and HTTP resource sanity; Chrome/Edge full flows; iPhone Safari and Android Chrome real devices; measured load/FPS/memory. None of these is established by the foundation tests.
+
+## Strict wire reader — 2026-09-27
+
+CourtWire validates raw snapshot/event/mutation JSON before JsonUtility. Shared wire-invalid.json contains 17 negative edits covering missing/extra/duplicate/escaped duplicate fields, types, invalid Unicode, unsafe numbers and version overflow. Node and Unity execute the same edits. Additional checks cover UTF-8 size, malformed nesting, trailing data, valid surrogate pairs and rejected input preserving current state. This is a closed protocol reader, not a general-purpose JSON library; see API-CONTRACT-UNITY.md for limits and integer token restrictions.
+
+Node: 7 tests passed. Real Unity 6000.6.2f1: outputs/protocol-wire-final.log records COURT_PROTOCOL_TESTS_PASSED and exit 0. No scene or WebGL build was replaced; no real transport, browser or mobile acceptance is implied.
 
 Existing `CourtSmokeTests`, `CourtPlayTests` and tools/test-*.mjs must remain and run before replacing scenes or player builds. CI currently does not compile Unity or establish a license. Its Docker job cannot be reported as C# or phone validation.
