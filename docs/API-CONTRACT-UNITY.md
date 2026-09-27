@@ -42,6 +42,19 @@ Proposed `/api/court/v1/sessions/:id/snapshot`, `/actions`, `/events?after=<sequ
 
 Replay reducer is a separate read-only instance. Jump rebuilds from authenticated recorded snapshots; never calls mutations, current-state transition rules or AI. Replay cannot add previously-hidden evidence based on its visibility today. A missing sequence pauses replay and requests missing data; never interpolates legal state.
 
+Implemented source: `court/replay.js` is an independent read-only event store with
+atomic pages (20 events), duplicate/conflict/gap validation, a 200-event/8 MiB bound,
+play/pause/step/seek/event-ID jump, and historical transcript filters for role,
+stage, evidence, kind and literal keyword. It accepts strict v1 events only and has
+no fetch or mutation dependency. Getters return copies. Playback uses display pacing
+(one event/second), not invented judicial timing; a long background frame advances
+at most one event. A nonzero initial checkpoint explicitly marks an incomplete prefix.
+Transcript only includes records through the playhead; historical snapshot evidence
+is never merged with live evidence. The authenticated event loader, timeline UI and
+Unity replay presenter remain unimplemented. Five Node tests in
+`scripts/test-court-replay.mjs` cover these data-layer behaviors with synthetic events;
+they do not prove a live full-session or Unity replay.
+
 ## Synchronization and recovery
 
 1. Bind store to sessionId+caseId after authenticated server selection. Capture its local generation with every async operation. Logout, account/session change and iframe replacement increment generation, cancel pending work and clear state. Generation is not authorization.
