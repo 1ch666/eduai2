@@ -19,6 +19,7 @@ export { Planner } from './planner';
 export { PushStore } from './push';
 export { Rankings } from './rankings';
 export { Groups } from './groups';
+export { AIAdmission } from './providers/admission-coordinator';
 
 export { MessageRoom } from "./messages";
 export { AccountStore } from "./accounts";

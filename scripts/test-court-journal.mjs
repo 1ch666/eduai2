@@ -9,14 +9,21 @@ import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
-const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key'};
+const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_ADMISSION:{getByName(name){
+ assert.equal(name,'ollama-account-v1');return {
+  async admit(){return {code:'ACCEPTED',phase:'running',start:true,deadline:Date.now()+60000};},
+  async cancel(){return {code:'SETTLED',start:false};},async finish(){return {code:'SETTLED',start:false};}
+ };
+}}};
+const gate=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const stageResponse=()=>Response.json({message:{content:JSON.stringify({text:'測試公開程序台詞'})}});
 test('stage dialogue concurrent tabs and lost response share one durable provider attempt',async()=>{
- const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;
- globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;});};
+ const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;const entered=gate();
+ globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;entered.resolve();});};
  try{
   const before=db.prepare('SELECT body FROM state').get().body;
   const first=room.stageDialogue('owner',0,true);
+  await entered.promise;
   assert.equal(calls,1);
   assert.equal((await room.stageDialogue('owner',0,true)).status,409);
   const restarted=new CourtRoom(ctx,stageEnv);
@@ -30,11 +37,12 @@ test('stage dialogue concurrent tabs and lost response share one durable provide
  }finally{globalThis.fetch=original;db.close();}
 });
 test('stage dialogue expired reservation seals fallback across restart and fences late response',async()=>{
- const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;
- globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;});};
+ const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;const entered=gate();
+ globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;entered.resolve();});};
  try{
   const fallback=room.get('owner').view.turn;
   const first=room.stageDialogue('owner',0,true);
+  await entered.promise;
   db.prepare('UPDATE court_dialogue_attempts SET created=?').run(Date.now()-21000);
   const restarted=new CourtRoom(ctx,stageEnv);
   const recovered=await restarted.stageDialogue('owner',0,true);
@@ -45,19 +53,21 @@ test('stage dialogue expired reservation seals fallback across restart and fence
 });
 test('stage dialogue late provider without recovery cannot win after its deadline',async()=>{
  const {room,db}=setup(config,stageEnv);const original=globalThis.fetch,clock=Date.now;
- const start=clock();let release;Date.now=()=>start;
- globalThis.fetch=()=>new Promise(resolve=>{release=resolve;});
+ const start=clock();let release;Date.now=()=>start;const entered=gate();
+ globalThis.fetch=()=>new Promise(resolve=>{release=resolve;entered.resolve();});
  try{
   const fallback=room.get('owner').view.turn,first=room.stageDialogue('owner',0,true);
+  await entered.promise;
   Date.now=()=>start+21000;release(stageResponse());assert.deepEqual(await first,{cached:fallback});
  }finally{Date.now=clock;globalThis.fetch=original;db.close();}
 });
 test('stage dialogue revalidates version and deletion after provider I/O',async()=>{
  for(const remove of [false,true]){
-  const {room,db,id}=setup(config,stageEnv);const original=globalThis.fetch;let release;
-  globalThis.fetch=()=>new Promise(resolve=>{release=resolve;});
+  const {room,db,id}=setup(config,stageEnv);const original=globalThis.fetch;let release;const entered=gate();
+  globalThis.fetch=()=>new Promise(resolve=>{release=resolve;entered.resolve();});
   try{
    const first=room.stageDialogue('owner',0,true);
+   await entered.promise;
    if(remove)room.remove('owner');else assert.ok(room.actionV1('owner',mutation(id)).eventId);
    release(stageResponse());assert.equal((await first).status,remove?404:409);
    assert.equal(db.prepare('SELECT count(*) AS n FROM dialogue').get().n,0);
@@ -102,6 +112,38 @@ test('stage dialogue additive schema preserves old state, journal and cached rep
   assert.deepEqual(migrated.events('owner',-1),journal);assert.equal(calls,0);
   assert.equal(db.prepare('SELECT count(*) AS n FROM court_dialogue_attempts').get().n,0);
  }finally{globalThis.fetch=original;db.close();}
+});
+
+test('stage admission failure cannot bypass to raw provider; fallback remains durably cached',async()=>{
+ for(const behavior of ['missing','throw','BUDGET','DISABLED','CIRCUIT_OPEN','EXISTING']){
+  let admits=0;const env={...stageEnv,AI_ADMISSION:behavior==='missing'?undefined:{getByName(){return {
+   async admit(){admits++;if(behavior==='throw')throw Error('private admission failure');return {code:behavior,start:false};}
+  };}}};
+  const {room,db,ctx}=setup(config,env),original=globalThis.fetch;let calls=0;
+  globalThis.fetch=async()=>{calls++;throw Error('must not call provider');};
+  try{
+   const expected={cached:room.get('owner').view.turn};
+   assert.deepEqual(await room.stageDialogue('owner',0,true),expected);
+   assert.deepEqual(await new CourtRoom(ctx,env).stageDialogue('owner',0,true),expected);
+   assert.equal(calls,0);assert.equal(admits,behavior==='missing'?0:1);
+   assert.equal(db.prepare('SELECT count(*) AS n FROM court_dialogue_attempts').get().n,1);
+  }finally{globalThis.fetch=original;db.close();}
+ }
+});
+
+test('stage admission identity is bound to persisted timestamp before async I/O',async()=>{
+ const clock=Date.now,start=86400000*20000+86399999;Date.now=()=>start;
+ let captured;const env={...stageEnv,AI_ADMISSION:{getByName(){return {async admit(request){
+  captured=request;return {code:'BUDGET',start:false};
+ }};}}};
+ const {room,db}=setup(config,env);
+ try{
+  const pending=room.stageDialogue('owner',0,true);
+  assert.equal(db.prepare('SELECT created FROM court_dialogue_attempts').get().created,start);
+  Date.now=()=>start+2;await pending;
+  assert.match(captured.id,/^20000:[a-f0-9]{64}$/);
+  assert.equal(JSON.stringify(captured).includes('owner'),false);
+ }finally{Date.now=clock;db.close();}
 });
 test('future private state and nested metadata never escape legacy view or v1 journal',()=>{
  const {room,db}=setup();

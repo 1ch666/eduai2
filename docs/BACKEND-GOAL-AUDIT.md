@@ -108,6 +108,12 @@ focused groups pass; local workerd fixture gains wrapper+SQLite composition.
 This is not yet endpoint adoption or a production binding/deployment. See
 AI-ADMISSION-CONTRACT.md for timing, settlement uncertainty and rollout gaps.
 
+Next candidate adds `AI_ADMISSION` SQLite class/binding (v9) and adopts it in
+stageDialogue using original persisted timestamps plus domain-separated scope
+hashes. All other inference endpoints still require adoption. Full fast checks
+and Wrangler 4.136.3 dry run passed locally; deployment/CI evidence is tracked in
+AI-ADMISSION-ROLLOUT.md. Do not infer all-platform cost control from this stage.
+
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
    order with bounded deterministic checks, then integrate before commit without

@@ -201,3 +201,12 @@ Next: preserve each domain's original persisted issuance identity, bind one glob
 coordinator, verify fallback compatibility across all endpoints, additive deploy
 and production probes. No new DB migration, deployment or production data changes
 in this wrapper batch. Do not label global governance complete from unit tests.
+
+## First handler adoption candidate
+
+The next batch wires `CourtRoom.stageDialogue` to the governed provider using its
+persisted reservation timestamp/version, adds the AI_ADMISSION binding/class
+(additive migration v9), and leaves other routes unchanged. This supersedes the
+earlier "no production binding in source" statement, not the rollout status.
+See [AI-ADMISSION-ROLLOUT.md](AI-ADMISSION-ROLLOUT.md) for limits, compatibility,
+rollback, verification and the still-unmigrated NPC/generation/tutor/photo routes.

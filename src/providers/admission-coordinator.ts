@@ -3,8 +3,8 @@ import {initializeAdmissionStore,executeAdmission} from './admission-store';
 import type {AdmissionPolicy,AdmissionRequest,AdmissionOutcome} from './admission';
 import type {TokenUsage} from './contracts';
 
-// Candidate policy, disabled by default. Not a promise of vendor free quota.
-// No class binding or public route is enabled until full integration is tested.
+// Explicit opt-in policy. Not a promise of vendor free quota. Only stage
+// dialogue currently adopts this binding; other routes are being migrated.
 const policy:AdmissionPolicy={concurrency:2,queue:8,daily:100,userDaily:20,sessionDaily:12,
   queueMs:5000,leaseMs:60000,failureThreshold:3,cooldownMs:30000,quotaCooldownMs:60000,maxRecords:2048};
 interface AdmissionEnvironment {AI_ADMISSION_ENABLED?:string}

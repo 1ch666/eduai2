@@ -17,6 +17,8 @@ export type AppEnv = Env & {
   OLLAMA_MODEL?: string;
   /** NPC defaults to auto with an existing key; false disables it. Stage dialogue still requires true. Check provider free quota; never auto-upgrade. */
   COURT_AI_ENABLED?: string;
+  /** Explicit account-wide model admission switch; false/absent rejects new grants. */
+  AI_ADMISSION_ENABLED?: string;
   /** PBKDF2 rounds for new passwords. Do not reduce merely to fit a quota. */
   PASSWORD_ITERATIONS?: string;
   /** Idle session lifetime in days (default 14, capped at 30). */

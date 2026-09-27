@@ -11,7 +11,7 @@ import { NPC_IDS, npcKnowledge, npcHistory, npcResponse, validNpcInput, type Npc
 import { generatedCandidates, generateModelCase, randomLibraryCase, similarCase, GENERATION_VERSION } from './court-generation';
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 import {proposeStageDialogue} from './court-dialogue';
-import {createOllamaProvider} from './providers/ollama';
+import {createGovernedOllamaProvider} from './providers/governed-ollama';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -226,8 +226,12 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(!allowAI||this.env.COURT_AI_ENABLED!=='true'||!this.env.OLLAMA_API_KEY)return this.dialogue(owner,version,fallback);
     const started=Date.now();
     this.ctx.storage.sql.exec('INSERT INTO court_dialogue_attempts VALUES (?,?)',version,started);
-    const provider=createOllamaProvider({apiKey:this.env.OLLAMA_API_KEY,model:this.env.OLLAMA_MODEL||'gpt-oss:20b',thinking:false});
-    const text=await proposeStageDialogue(provider,view);
+    let text:string|null=null;
+    try{
+      const provider=await createGovernedOllamaProvider(this.env,{kind:'stage-dialogue',owner,
+        sessionId:state.id,requestKey:String(version),issuedAt:started},false);
+      text=await proposeStageDialogue(provider,view);
+    }catch{/* Admission unavailable: preserve the reservation and scripted result. */}
     // dialogue rechecks owner/deletion/version and INSERT OR IGNORE prevents a
     // late provider completion from replacing an already recovered fallback.
     return this.dialogue(owner,version,text===null||Date.now()-started>=20000?fallback:

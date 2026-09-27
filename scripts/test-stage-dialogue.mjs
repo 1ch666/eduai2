@@ -24,7 +24,7 @@ test('malformed, empty, oversized and authority-only proposals fall back',async(
  assert.equal(await proposeStageDialogue({async generate(){return success(JSON.stringify({text:'字'.repeat(240)}));}},view),'字'.repeat(240));
 });
 test('every provider failure and exception chooses fallback without retry or leakage',async()=>{
- for(const code of ['NOT_CONFIGURED','INVALID_INPUT','CANCELLED','TIMEOUT','NETWORK','QUOTA','PROVIDER_AUTH','MODEL_NOT_FOUND','UPSTREAM','RESPONSE_TOO_LARGE','INVALID_ENCODING','RESPONSE_FORMAT','OUTPUT_TRUNCATED','EMPTY_CONTENT']){
+ for(const code of ['NOT_CONFIGURED','INVALID_INPUT','CANCELLED','TIMEOUT','NETWORK','QUOTA','PROVIDER_AUTH','MODEL_NOT_FOUND','UPSTREAM','RESPONSE_TOO_LARGE','INVALID_ENCODING','RESPONSE_FORMAT','OUTPUT_TRUNCATED','EMPTY_CONTENT','ADMISSION_DENIED','ADMISSION_UNAVAILABLE']){
   let calls=0;assert.equal(await proposeStageDialogue({async generate(){calls++;return {ok:false,code};}},view),null);assert.equal(calls,1);
  }
  assert.equal(await proposeStageDialogue({async generate(){throw Error('PRIVATE_SECRET');}},view),null);
