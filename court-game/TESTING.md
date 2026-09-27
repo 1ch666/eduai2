@@ -23,3 +23,7 @@ CourtWire validates raw snapshot/event/mutation JSON before JsonUtility. Shared 
 Node: 7 tests passed. Real Unity 6000.6.2f1: outputs/protocol-wire-final.log records COURT_PROTOCOL_TESTS_PASSED and exit 0. No scene or WebGL build was replaced; no real transport, browser or mobile acceptance is implied.
 
 Existing `CourtSmokeTests`, `CourtPlayTests` and tools/test-*.mjs must remain and run before replacing scenes or player builds. CI currently does not compile Unity or establish a license. Its Docker job cannot be reported as C# or phone validation.
+
+## Shell transport — 2026-09-27
+
+`node --test scripts/test-court-protocol.mjs scripts/test-court-transport.mjs`: 17 tests pass. Injected-fetch tests cover matching request IDs, stable retry bytes, timeout (including stalled body), stream cancellation, logout cancellation, 401/403/409/429/500, retry cap and recorded-outcome recovery without another POST. The test clock/short timeout is not a real 500ms/2s/10s network or browser chaos test. No real v1 server exists yet. API-INTEGRATION.md lists endpoint requirements and remaining reload/bridge work.
