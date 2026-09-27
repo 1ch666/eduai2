@@ -10,6 +10,7 @@ const before = { data: 18702452, wasm: 16189274, framework: 403992, loader: 2698
 const definitions = { data: /dataUrl:\s*'([^']+)'/, wasm: /codeUrl:\s*'([^']+)'/,
   framework: /frameworkUrl:\s*'([^']+)'/, loader: /loader.src\s*=\s*'([^']+)'/, touch: /<script src="(touch-controls.js)">/ };
 const rows = [];
+let loaderText = '';
 for (const [type, regex] of Object.entries(definitions)) {
   const file = html.match(regex)?.[1];
   assert(file && /^(Build\/[\w.-]+|touch-controls\.js)$/.test(file), `Safe ${type} URL required`);
@@ -17,12 +18,17 @@ for (const [type, regex] of Object.entries(definitions)) {
   const compressed = file.endsWith('.unityweb');
   if (['data', 'wasm', 'framework'].includes(type)) assert(compressed, `${type} must use compression fallback`);
   const raw = compressed ? gunzipSync(bytes) : bytes;
+  if (type === 'loader') loaderText = raw.toString('utf8');
   if (type === 'wasm') assert.equal(raw.subarray(0, 4).toString('hex'), '0061736d');
   if (type === 'data') assert(raw.subarray(0, 32).toString().includes('UnityWebData'));
   rows.push({ type, file: basename(file), beforeBytes: before[type], downloadBytes: bytes.length,
     decodedBytes: raw.length, brotliEstimateBytes: compareBrotli ? brotliCompressSync(raw,
       { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length : undefined });
 }
+const declaredWasmSize = loaderText.match(/\bwasmFileSize\s*:\s*(\d+)/);
+assert(declaredWasmSize, 'Unity loader must declare wasmFileSize');
+assert.equal(Number(declaredWasmSize[1]), rows.find(row => row.type === 'wasm').decodedBytes,
+  'Loader and WASM must come from the same build: decoded size mismatch');
 const beforeTotal = Object.values(before).reduce((a, b) => a + b, 0);
 const total = rows.reduce((n, r) => n + r.downloadBytes, 0);
 console.log(JSON.stringify({ rows, beforeTotal, downloadTotal: total,
