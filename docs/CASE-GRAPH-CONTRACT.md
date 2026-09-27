@@ -27,15 +27,23 @@ Independent events may have equal order; unknown real-world ordering must not be
 fabricated to satisfy this checker. Empty timeline/witness lists are permitted;
 passing an empty list does not claim the case has a complete timeline or cast.
 
-Current status: schema and standalone authoring validator/test foundation only.
+Current status: schema, standalone authoring validator and dependency-free Worker
+module `src/case-graph.ts` exist. Runtime validation accepts unknown inputs and
+returns fixed error codes; it does not use Ajv, eval, filesystem or network.
+Authoring and runtime share typed relationship validation after their independent
+shape checks. Six test groups pass, including 1,024 seeded nested mutations that
+compare runtime acceptance/error codes with Ajv schema validation. Runtime also
+rejects inherited record fields and getters (outside the normal JSON boundary).
+TypeScript noEmit passes. These tests establish sampled parity, not a formal
+proof covering arbitrary JavaScript Proxies or every possible JSON input.
 No runtime route, case generation or persistence invokes it yet. Existing narrative
 cases have no explicit fact/witness/timeline graph; do not automatically invent
 these relationships or claim they were verified. Legal source membership is not
 legal accuracy, citation grounding or effective-date verification.
 
 Next integration gate: define a versioned structured draft envelope with trusted
-template identity; compile or port this validator for Worker execution with schema
-parity tests; validate graph and template/reachability before commit; persist the
+template identity; integrate the runtime validator and template/reachability checks
+before commit; persist the
 versioned graph server-side and project only authorized public references. Keep
 legacy saved cases readable and explicitly mark graph unavailable. Prove no hidden
 graph leaks through public view, journal, NPC context or export. Only then deploy.

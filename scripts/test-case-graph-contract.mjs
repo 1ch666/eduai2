@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateCaseGraph as validate} from './case-graph-contract.mjs';
+import {validateCaseGraph as authoring} from './case-graph-contract.mjs';
+import {validateCaseGraph as runtime} from '../src/case-graph.ts';
+function validate(graph,policy){
+ const result=runtime(graph,policy);
+ assert.deepEqual(result,authoring(graph,policy),'runtime shape must match JSON schema');
+ return result;
+}
 const fixture=()=>({schemaVersion:1,facts:[{id:'f1'},{id:'f2'}],
  evidence:[{id:'e1',factIds:['f1']}],witnesses:[{id:'w1',factIds:['f2'],evidenceIds:['e1']}],
  timeline:[{id:'t1',order:0,factIds:['f1'],afterIds:[]},{id:'t2',order:1,factIds:['f2'],afterIds:['t1']}],legalSourceIds:['reviewed-source']});
@@ -32,4 +38,22 @@ test('schema fails closed for unknown authority, malformed fields and collection
   const g=fixture();g[key]=Array(limit+1).fill(g[key][0]);assert.equal(validate(g,policy).code,'GRAPH_SCHEMA');
  }
  assert.equal(validate(fixture(),['reviewed-source','reviewed-source']).code,'SOURCE_POLICY');
+});
+
+test('runtime/schema parity for seeded nested JSON mutations',()=>{
+ let seed=0x20260928;
+ const next=n=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return (seed>>>0)%n;};
+ const values=[null,false,0,1,-1,1.5,'',{},[],['f1','f1'],['missing'],['f1'],1000001];
+ for(let i=0;i<1024;i++){
+  const g=fixture(),group=['facts','evidence','witnesses','timeline'][next(4)];
+  const key=Object.keys(g[group][0])[next(Object.keys(g[group][0]).length)];
+  if(next(4)===0)delete g[group][0][key];else g[group][0][key]=structuredClone(values[next(values.length)]);
+  validate(g,policy);
+ }
+});
+
+test('runtime rejects non-JSON record prototypes and getters without executing them',()=>{
+ assert.equal(runtime(Object.create(fixture()),policy).code,'GRAPH_SCHEMA');
+ const g=fixture();Object.defineProperty(g,'facts',{get(){throw Error('not JSON');}});
+ assert.equal(runtime(g,policy).code,'GRAPH_SCHEMA');
 });
