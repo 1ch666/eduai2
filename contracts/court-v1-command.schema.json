@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "urn:eduai:court:v1:command",
   "title": "Court v1 mutation and terminal not-applied receipt",
-  "$comment": "Structural contract only. The raw wire parser additionally rejects duplicate keys, unsafe numeric spellings, invalid Unicode and over-limit UTF-16 text. This schema does not authorize actions. Snapshot, event and HTTP error schemas are not included yet.",
+  "$comment": "Structural contract only. The raw wire parser additionally rejects duplicate keys, unsafe numeric spellings, invalid Unicode and over-limit UTF-16 text. This schema does not authorize actions. Snapshot/events are in court-v1-state.schema.json; HTTP error schemas are not included yet.",
   "oneOf": [
     { "$ref": "#/definitions/mutation" },
     { "$ref": "#/definitions/notApplied" }
