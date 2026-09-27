@@ -16,6 +16,21 @@ export function validateRegistry(value){
   return {ok:true};
 }
 
+// Published (kind, version) identities are append-only. Reordering is harmless;
+// corrections must get a new version so historical run references stay stable.
+export function validateRegistryTransition(previous,next){
+  for(const value of [previous,next]){
+    const result=validateRegistry(value);if(!result.ok)return result;
+  }
+  const proposed=new Map(next.entries.map(e=>[`${e.kind}/${e.version}`,e.contentSha256]));
+  for(const e of previous.entries){
+    const key=`${e.kind}/${e.version}`;
+    if(!proposed.has(key))return {ok:false,code:'REMOVED_VERSION'};
+    if(proposed.get(key)!==e.contentSha256)return {ok:false,code:'MODIFIED_VERSION'};
+  }
+  return {ok:true};
+}
+
 export function validateExperiment(run,registry){
   const validRegistry=validateRegistry(registry);
   if(!validRegistry.ok)return validRegistry;

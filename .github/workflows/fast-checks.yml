@@ -26,6 +26,10 @@ jobs:
           node-version: '24.14.0'
           cache: npm
       - run: npm ci
+      - name: Published research version immutability
+        env:
+          REGISTRY_BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+        run: node scripts/check-registry-history.mjs --fetch-base
       - run: node scripts/ci-fast.mjs
       # Editor/PlayMode/device tests are NOT covered by these Node checks.
       # Docker remains the separate Court Docker handoff workflow.
