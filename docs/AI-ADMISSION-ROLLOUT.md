@@ -66,3 +66,10 @@ The shared wrapper has independent real workerd + SQLite RPC coverage (commit
 9e5ffe6, CI 36345950622). That is not proof of this handler's production rollout.
 Record final CI, dry run, deployment version and read-only probes after completion.
 Authenticated production inference is not exercised by anonymous health probes.
+
+CI 36346379828 passed local-api but caught timer ordering/classification defects
+in the wrapper on Linux. Deployment was withheld. Follow-up replaces competing
+sleep/deadline timers with one abortable delay and carries typed timeout causes
+instead of guessing from Date.now. The deadline regression now freezes wall time
+to assert that a real elapsed timeout is still classified as TIMEOUT. No test
+assertions were relaxed to accept the wrong outcome.

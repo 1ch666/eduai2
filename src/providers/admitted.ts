@@ -17,16 +17,31 @@ const key=(s:string)=>typeof s==='string'&&/^[a-zA-Z0-9:_-]{1,128}$/.test(s);
 
 // A lost RPC can still commit remotely. Observe late rejection, but never use a
 // late grant or retry it. The persisted lease, not this timer, fences duplicates.
-function bounded<T>(operation:()=>Promise<T>,ms:number,signal?:AbortSignal):Promise<T> {
+class WaitError extends Error {
+  constructor(readonly code:'TIMEOUT'|'CANCELLED'|'ADMISSION_UNAVAILABLE'){super(code);}
+}
+function bounded<T>(operation:()=>Promise<T>,ms:number,signal?:AbortSignal,
+  timeoutCode:'TIMEOUT'|'ADMISSION_UNAVAILABLE'='TIMEOUT'):Promise<T> {
   return new Promise((resolve,reject)=>{
-    if(ms<=0||signal?.aborted){reject(Error('Interrupted'));return;}
+    if(ms<=0||signal?.aborted){reject(new WaitError(signal?.aborted?'CANCELLED':timeoutCode));return;}
     let settled=false;
     const done=(run:()=>void)=>{if(settled)return;settled=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);run();};
-    const abort=()=>done(()=>reject(Error('Interrupted')));
-    const timer=setTimeout(abort,ms);
+    const abort=()=>done(()=>reject(new WaitError('CANCELLED')));
+    const timer=setTimeout(()=>done(()=>reject(new WaitError(timeoutCode))),ms);
     signal?.addEventListener('abort',abort,{once:true});
     Promise.resolve().then(()=>{if(settled||signal?.aborted)throw Error('Interrupted');return operation();})
-      .then(value=>done(()=>resolve(value)),()=>done(()=>reject(Error('Unavailable'))));
+      .then(value=>done(()=>resolve(value)),()=>done(()=>reject(new WaitError('ADMISSION_UNAVAILABLE'))));
+  });
+}
+
+// One timer, not a sleep raced against a second almost-identical timeout.
+// Timer callbacks can run early/late relative to Date.now on different runtimes.
+function delay(ms:number,signal?:AbortSignal):Promise<void>{
+  return new Promise((resolve,reject)=>{
+    if(signal?.aborted){reject(new WaitError('CANCELLED'));return;}
+    const abort=()=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);reject(new WaitError('CANCELLED'));};
+    const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve();},Math.max(0,ms));
+    signal?.addEventListener('abort',abort,{once:true});
   });
 }
 
@@ -51,8 +66,10 @@ export function createAdmittedProvider(provider:LLMProvider,port:AdmissionPort,s
       1,provider.id,provider.model,copy,context.maxResponseBytes??65536
     ])));
     const request:AdmissionRequest={...identity,fingerprint:Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')};
-    const interrupted=()=>context.signal?.aborted?'CANCELLED' as const:Date.now()>=end?'TIMEOUT' as const:'ADMISSION_UNAVAILABLE' as const;
-    const rpc=(operation:()=>Promise<AdmissionReceipt>)=>bounded(operation,Math.min(1000,end-Date.now()),context.signal);
+    const rpc=(operation:()=>Promise<AdmissionReceipt>)=>{
+      const left=end-Date.now();
+      return bounded(operation,Math.min(1000,left),context.signal,left<=1000?'TIMEOUT':'ADMISSION_UNAVAILABLE');
+    };
     let owned=false;
     const cancel=async()=>{if(owned)try{await bounded(()=>port.cancel(request),1000);}catch{/* lease remains charged until expiry */}};
     let receipt:AdmissionReceipt;
@@ -65,10 +82,11 @@ export function createAdmittedProvider(provider:LLMProvider,port:AdmissionPort,s
       const queueEnd=Math.min(end,Date.now()+5000);
       let polls=0;
       while(receipt?.code==='QUEUED'&&receipt.phase==='queued'&&receipt.start===false&&polls++<20&&Date.now()<queueEnd){
-        await bounded(()=>new Promise<void>(resolve=>setTimeout(resolve,250)),Math.min(251,queueEnd-Date.now()),context.signal);
+        await delay(Math.min(250,queueEnd-Date.now()),context.signal);
+        if(Date.now()>=queueEnd)break;
         receipt=await rpc(()=>port.poll(request));
       }
-    }catch{await cancel();return fail(interrupted());}
+    }catch(error){await cancel();return fail(error instanceof WaitError?error.code:'ADMISSION_UNAVAILABLE');}
     if(receipt?.code!=='ACCEPTED'||receipt.phase!=='running'||receipt.start!==true){
       await cancel();return fail('ADMISSION_DENIED');
     }
@@ -85,7 +103,7 @@ export function createAdmittedProvider(provider:LLMProvider,port:AdmissionPort,s
     let result:Answer;
     try {
       result=await bounded(()=>provider.generate(copy,{...context,timeoutMs:remaining,signal:controller.signal}),remaining,context.signal);
-    }catch{result=fail(context.signal?.aborted?'CANCELLED':Date.now()>=now+remaining?'TIMEOUT':'NETWORK');}
+    }catch(error){result=fail(context.signal?.aborted?'CANCELLED':error instanceof WaitError&&error.code==='TIMEOUT'?'TIMEOUT':'NETWORK');}
     finally{controller.abort();context.signal?.removeEventListener('abort',abort);}
     if(!result.ok&&['NETWORK','TIMEOUT','CANCELLED'].includes(result.code)){
       await cancel(); // Unknown inference outcome: keep charge/slot, no refund.

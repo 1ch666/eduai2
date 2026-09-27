@@ -109,9 +109,14 @@ test('invalid bounds/pre-abort cost no reservation; payload and scope pinned bef
 test('unresponsive admission times out without late inference',async()=>{
   const entered=gate(),release=gate();
   const f=fixture({admit:async()=>{entered.resolve();await release.promise;return grant();}});
-  const pending=f.create().generate(input(),{timeoutMs:30});await entered.promise;
-  assert.equal((await pending).code,'TIMEOUT');release.resolve();await Promise.resolve();
-  assert.equal(f.count(),0);assert.equal(f.calls.length,1);
+  const clock=Date.now,now=clock();Date.now=()=>now;
+  try{
+    // A timeout is identified by its cause, even if wall time has not advanced
+    // (as can happen at a timer boundary in workerd or on another OS).
+    const pending=f.create().generate(input(),{timeoutMs:30});await entered.promise;
+    assert.equal((await pending).code,'TIMEOUT');release.resolve();await Promise.resolve();
+    assert.equal(f.count(),0);assert.equal(f.calls.length,1);
+  }finally{Date.now=clock;release.resolve();}
 });
 
 test('two wrappers sharing actual reducer state issue at most one inference; changed payload conflicts',async()=>{
