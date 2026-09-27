@@ -101,6 +101,13 @@ full production gate. Source 8945286 passed CI 36343636660 (fast/local-api) and
 deployed as e37d0a79-a856-4378-a40c-bb1ac466e2d4. Read-only public/auth probes
 passed; authenticated production inference/migration under load not exercised.
 
+2026-09-28 provider wrapper candidate: `providers/admitted.ts` now composes the
+admission RPC with LLMProvider, bounds queue/RPC/inference/cancellation, hashes
+the pinned payload and never starts from an ambiguous/existing grant. Twelve
+focused groups pass; local workerd fixture gains wrapper+SQLite composition.
+This is not yet endpoint adoption or a production binding/deployment. See
+AI-ADMISSION-CONTRACT.md for timing, settlement uncertainty and rollout gaps.
+
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
    order with bounded deterministic checks, then integrate before commit without

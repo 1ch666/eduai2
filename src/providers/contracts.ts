@@ -3,7 +3,7 @@
 export type ProviderErrorCode = 'NOT_CONFIGURED' | 'INVALID_INPUT' | 'CANCELLED' |
   'TIMEOUT' | 'NETWORK' | 'QUOTA' | 'PROVIDER_AUTH' | 'MODEL_NOT_FOUND' |
   'UPSTREAM' | 'RESPONSE_TOO_LARGE' | 'INVALID_ENCODING' | 'RESPONSE_FORMAT' |
-  'OUTPUT_TRUNCATED' | 'EMPTY_CONTENT';
+  'OUTPUT_TRUNCATED' | 'EMPTY_CONTENT' | 'ADMISSION_DENIED' | 'ADMISSION_UNAVAILABLE';
 export type ProviderResult<T> = {ok: true; value: T} | {ok: false; code: ProviderErrorCode};
 export interface ProviderContext {
   signal?: AbortSignal;

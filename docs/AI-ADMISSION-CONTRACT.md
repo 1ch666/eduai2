@@ -160,3 +160,44 @@ reactivate the prior age-unchecked host against a ledger already pruned: disable
 admission or forward-fix it, otherwise removed IDs could be re-admitted. No
 production host has yet been enabled. Provider wrapper/endpoint adoption still
 must preserve the original issuance ID and be verified before rollout.
+
+## Provider wrapper candidate (2026-09-28)
+
+`providers/admitted.ts` implements LLMProvider v1 over the private admission RPC
+port. The trusted caller supplies a stable dated scope; the wrapper snapshots the
+bounded input and hashes provider/model/input/response cap into its fingerprint.
+No prompt, response, raw account token or key enters the admission ledger. Only
+a newly committed ACCEPTED/running/start grant with a live lease runs inference.
+EXISTING never takes over another caller's queued/running request. The domain
+still owns authorization, original issuance identity and cached result recovery.
+
+RPC waits are bounded to one second, queue polling to twenty polls/five seconds;
+both consume the caller timeout. Inference receives the smaller remaining caller
+and lease budget, with a 50ms lease guard. No inference or ambiguous RPC retries.
+Lost admit receipts never start inference. Lost poll receipts cancel only this
+caller's known reservation; a started lease becomes unknown, not refunded.
+Cancellation/network/timeout after inference keep the charged slot until expiry.
+Definite quota/failure settles the circuit; successful usage remains nullable.
+Cleanup/settlement is awaited and bounded to an additional one second. If final
+settlement is lost, a valid answer is returned but the ledger remains conservatively
+charged/unknown on expiry. No successful accounting acknowledgement is claimed.
+
+Provider contract adds ADMISSION_DENIED / ADMISSION_UNAVAILABLE (not vendor quota).
+Tutor has explicit compatibility messages/status mapping; existing providers and
+routes otherwise remain unchanged. Twelve Node test groups include gated races,
+real reducer dedup, immutable payload fingerprint, lost receipts, cancellation,
+quota, lease bounds and a provider ignoring abort. The isolated workerd fixture
+also composes the wrapper with actual SQLite DO RPC and a synthetic no-network
+provider; its CI checker asserts one inference for eight duplicates and zero
+inference after quota opens the circuit. Runtime verification is recorded after
+the corresponding CI run, not implied by the fixture's existence. Local run on
+2026-09-28 with Wrangler 4.136.3 at 127.0.0.1:8798 passed both RPC and wrapper
+checks (separate outputs/admitted-provider-state, no production credentials or
+inference). `node scripts/ci-fast.mjs` passed 281 tests, typecheck, frontend and
+unchanged Unity artifact contract; remote CI is verified after push.
+
+Not yet production-bound or adopted by tutor/photo/NPC/generation/stage endpoints.
+Next: preserve each domain's original persisted issuance identity, bind one global
+coordinator, verify fallback compatibility across all endpoints, additive deploy
+and production probes. No new DB migration, deployment or production data changes
+in this wrapper batch. Do not label global governance complete from unit tests.

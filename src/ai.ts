@@ -135,13 +135,15 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   if (!result.ok) {
     const messages:Record<ProviderErrorCode,string>={
       NOT_CONFIGURED:'Ollama 服務尚未完成設定',INVALID_INPUT:'助教請求設定錯誤',CANCELLED:'本次提問已取消',
+      ADMISSION_DENIED:'本次 AI 請求未獲准，請稍後再試',ADMISSION_UNAVAILABLE:'AI 流量控管暫時無法確認，本次不會呼叫模型',
       TIMEOUT:'Ollama 回答逾時，請稍後再試',NETWORK:'Ollama 目前無法連線，請稍後再試',
       QUOTA:'Ollama 額度或請求速率暫時受限，請稍後再試',PROVIDER_AUTH:'Ollama 授權失敗，請管理者確認服務金鑰',
       MODEL_NOT_FOUND:'Ollama 找不到指定模型，請管理者確認模型設定',UPSTREAM:'Ollama 暫時無法回答',
       RESPONSE_TOO_LARGE:'Ollama 回應資料過大',INVALID_ENCODING:'Ollama 回應文字編碼錯誤',RESPONSE_FORMAT:'Ollama 回應格式錯誤',
       OUTPUT_TRUNCATED:'Ollama 尚未完成回答就達到輸出上限，請縮短問題後再試',EMPTY_CONTENT:'Ollama 未產生最終答案，請稍後再試'
     };
-    return failed(result.code,messages[result.code],result.code==='QUOTA'?429:result.code==='CANCELLED'?503:502);
+    return failed(result.code,messages[result.code],result.code==='QUOTA'?429:
+      ['CANCELLED','ADMISSION_DENIED','ADMISSION_UNAVAILABLE'].includes(result.code)?503:502);
   }
   return respond({ answer: result.value.text.slice(0,5000), provider: "Ollama", model, mode });
 }
