@@ -1,7 +1,9 @@
 // Ollama-backed tutor. Two prompts share one endpoint: the civics study tutor
 // used by the website, and the in-character courtroom NPC used by the Unity
 // build. The API key stays in Worker secrets and never reaches a client.
-import { networkKeyFor, readJsonObject, readTextWithLimit, type Responder } from "./http";
+import { networkKeyFor, readJsonObject, type Responder } from "./http";
+import { createOllamaProvider } from './providers/ollama';
+import type { ProviderErrorCode } from './providers/contracts';
 import { messageRoom } from "./messages";
 import { resolveSession } from "./session";
 import type { AppEnv } from "./env";
@@ -118,7 +120,6 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
     return respond({ error: "提問太頻繁，請一分鐘後再試" }, 429);
   }
 
-  let upstream: Response;
   const dictionary = await lookupDictionary(env, candidate.question);
   if (dictionary) return respond({ answer: dictionaryAnswer(dictionary), provider: 'MOE dictionary', mode, source: dictionary.source_url, sourceVersion: dictionary.version });
   if (!env.OLLAMA_API_KEY) return respond({ error: "Ollama 服務尚未完成設定" }, 503);
@@ -126,58 +127,21 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
     console.warn(JSON.stringify({ event: 'tutor_provider_failure', requestId: candidate.requestId, code }));
     return respond({ error: `${error} [${code}]`, code }, status);
   };
-  try {
-    upstream = await fetch("https://ollama.com/api/chat", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.OLLAMA_API_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      body: JSON.stringify({
-        model,
-        stream: false,
-        think: model.startsWith('gpt-oss') ? 'low' : false,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...candidate.history,
-          { role: "user", content: candidate.question.trim() }
-        ],
-        options: { temperature: 0.2, num_predict: mode === "court" ? 1024 : 2048 }
-      }),
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
-    });
-  } catch (error) {
-    return error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)
-      ? failed('TIMEOUT', 'Ollama 回答逾時，請稍後再試')
-      : failed('NETWORK', 'Ollama 目前無法連線，請稍後再試');
+  const provider=createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model});
+  const result=await provider.generate({
+    messages:[{role:'system',content:systemPrompt},...candidate.history,{role:'user',content:candidate.question.trim()}],
+    temperature:0.2,maxOutputTokens:mode==='court'?1024:2048,output:'text'
+  },{timeoutMs:UPSTREAM_TIMEOUT_MS,signal:request.signal});
+  if (!result.ok) {
+    const messages:Record<ProviderErrorCode,string>={
+      NOT_CONFIGURED:'Ollama 服務尚未完成設定',INVALID_INPUT:'助教請求設定錯誤',CANCELLED:'本次提問已取消',
+      TIMEOUT:'Ollama 回答逾時，請稍後再試',NETWORK:'Ollama 目前無法連線，請稍後再試',
+      QUOTA:'Ollama 額度或請求速率暫時受限，請稍後再試',PROVIDER_AUTH:'Ollama 授權失敗，請管理者確認服務金鑰',
+      MODEL_NOT_FOUND:'Ollama 找不到指定模型，請管理者確認模型設定',UPSTREAM:'Ollama 暫時無法回答',
+      RESPONSE_TOO_LARGE:'Ollama 回應資料過大',INVALID_ENCODING:'Ollama 回應文字編碼錯誤',RESPONSE_FORMAT:'Ollama 回應格式錯誤',
+      OUTPUT_TRUNCATED:'Ollama 尚未完成回答就達到輸出上限，請縮短問題後再試',EMPTY_CONTENT:'Ollama 未產生最終答案，請稍後再試'
+    };
+    return failed(result.code,messages[result.code],result.code==='QUOTA'?429:result.code==='CANCELLED'?503:502);
   }
-  if (!upstream.ok) {
-    console.error(JSON.stringify({ message: "ollama upstream failed", status: upstream.status, requestId: candidate.requestId }));
-    await upstream.body?.cancel();
-    if (upstream.status === 429) return failed('QUOTA', 'Ollama 額度或請求速率暫時受限，請稍後再試', 429);
-    if ([401,403].includes(upstream.status)) return failed('PROVIDER_AUTH', 'Ollama 授權失敗，請管理者確認服務金鑰');
-    if (upstream.status === 404) return failed('MODEL_NOT_FOUND', 'Ollama 找不到指定模型，請管理者確認模型設定');
-    return failed('UPSTREAM', 'Ollama 暫時無法回答');
-  }
-  const responseLength = Number(upstream.headers.get("content-length") || 0);
-  if (responseLength > 65_536) {
-    await upstream.body?.cancel();
-    return failed('RESPONSE_TOO_LARGE', 'Ollama 回應資料過大');
-  }
-  let result: unknown;
-  try {
-    const raw = await readTextWithLimit(upstream.body, 65_536);
-    if (raw.tooLarge) return failed('RESPONSE_TOO_LARGE', 'Ollama 回應資料過大');
-    if (raw.invalidEncoding) return failed('INVALID_ENCODING', 'Ollama 回應文字編碼錯誤');
-    result = JSON.parse(raw.text);
-  } catch (error) {
-    if (error instanceof Error && ['TimeoutError','AbortError'].includes(error.name)) return failed('TIMEOUT', 'Ollama 回答逾時，請稍後再試');
-    return failed('RESPONSE_FORMAT', 'Ollama 回應格式錯誤');
-  }
-  if ((result as { done_reason?: unknown })?.done_reason === 'length') return failed('OUTPUT_TRUNCATED', 'Ollama 尚未完成回答就達到輸出上限，請縮短問題後再試');
-  const answer = (result as { message?: { content?: unknown } })?.message?.content;
-  // Never substitute private reasoning (message.thinking) for an answer.
-  if (typeof answer !== "string" || !answer.trim()) return failed('EMPTY_CONTENT', 'Ollama 未產生最終答案，請稍後再試');
-  return respond({ answer: answer.trim().slice(0, 5000), provider: "Ollama", model, mode });
+  return respond({ answer: result.value.text.slice(0,5000), provider: "Ollama", model, mode });
 }
