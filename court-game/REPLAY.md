@@ -12,10 +12,12 @@ Snapshots explicitly select public fields; no owner, generatedCase object, answe
 
 - v0 stage dialogue cache is not yet recorded as a versioned event. Player NPC question and response need a richer transcript contract; current NPC event records the response only. This is not a complete transcript.
 - No timeline UI, scrubbing, playback scheduler, research overlay or replay Unity presenter exists yet.
-- v1 mutations, stable idempotency keys and recorded outcome endpoint needed by court/transport.js remain unimplemented. Existing v0 request caching is unchanged.
+- v1 mutations and recorded outcome lookup now exist in source, using additive court_v1_requests with unique request/idempotency keys. State, event and outcome commit together; exact retries return the original event. Existing v0 request caching is unchanged. Rejected outcomes are not yet persisted for reload discovery.
 - Current schema/limits must be reviewed before production deployment. No destructive migration, new DO binding, secret or account change is required. Existing tables and data remain. Deploying this source would create the additive table; do not describe it as no database change.
 - Rolling back to an older Worker can leave recording gaps. Resuming journaling creates a checkpoint rather than inventing the intervening events. Clients must display these gaps.
 
 ## Verification
 
-`node --test scripts/test-court-journal.mjs`: actual in-memory Node SQLite transactions, with a mocked DurableObject base/lifecycle. Covers ordering, request deduplication, rollback on injected write failure, wrong owner, old-session checkpoint, object reconstruction, NPC fallback and bounded pagination. It is NOT a workerd, production, WebGL or real-device test. TypeScript passes. Workerd integration and all seven final E2E scenarios remain required.
+`node --test scripts/test-court-journal.mjs`: 9 tests using actual in-memory Node SQLite transactions, with a mocked DurableObject base/lifecycle. Covers ordering, request deduplication, rollback on event/outcome write failure, wrong owner, checkpoints, NPC fallback, pagination, v1 civil-judge completion and response-loss recovery. TypeScript passes.
+
+`node scripts/check-court-v1-api.mjs http://127.0.0.1:8792`: passed on real local workerd with isolated local persistence, disposable accounts and AI disabled. Covers HTTP authentication, CSRF, owner isolation, raw duplicate field rejection, stable result retrieval and one-event-per-operation. This does not prove full courtroom E2E, browser, production or real-device behavior. All seven final E2E scenarios remain required.

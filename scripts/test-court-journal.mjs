@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {build} from 'esbuild';
-import {parseEvent} from '../court/protocol.js';
+import {parseEvent,parseSnapshot} from '../court/protocol.js';
+import {CourtTransport} from '../court/transport.js';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
@@ -67,5 +68,49 @@ test('bounded pagination and illegal stage do not invent or mutate history',()=>
   const a=room.events('owner',-1),b=room.events('owner',a.nextAfter);assert.equal(a.events.length,20);assert.equal(b.events.length,6);
   assert.deepEqual([...a.events,...b.events].map(e=>e.eventSequence),Array.from({length:26},(_,i)=>i));
   assert.equal(room.get('owner').view.version,25);
+ }finally{db.close();}
+});
+const mutation=(id,version=0,actionId='acknowledge')=>({apiVersion:1,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,caseId:'sale',expectedStateVersion:version,actionId,targetId:'',text:''});
+test('v1 snapshot correlation, owner checks and stable idempotent outcomes',()=>{
+ const {room,db,id}=setup();try{
+  const requestId=crypto.randomUUID(),s=room.snapshotV1('owner',requestId);assert.ok(parseSnapshot(JSON.stringify(s)));assert.equal(s.requestId,requestId);
+  const again=room.snapshotV1('owner',crypto.randomUUID());assert.equal(again.eventId,s.eventId);assert.equal(again.timestamp,s.timestamp);
+  const m=mutation(id),e=room.actionV1('owner',m);assert.ok(parseEvent(JSON.stringify(e)));
+  assert.deepEqual(room.actionV1('owner',m),e);assert.deepEqual(room.outcomeV1('owner',m.requestId),e);
+  assert.equal(room.actionV1('owner',{...m,text:'changed'}).status,409);
+  assert.equal(room.actionV1('owner',{...m,requestId:crypto.randomUUID()}).status,409);
+  assert.equal(room.actionV1('owner',{...m,idempotencyKey:crypto.randomUUID()}).status,409);
+  assert.equal(room.actionV1('other',m).status,404);assert.equal(room.outcomeV1('other',m.requestId).status,404);assert.equal(room.snapshotV1('other',requestId).status,404);
+  assert.equal(room.actionV1('owner',mutation(id,0)).status,409);assert.equal(room.actionV1('owner',{...mutation(id,1),score:100}).status,400);
+  assert.equal(room.events('owner',-1).events.length,2);
+ }finally{db.close();}
+});
+test('v1 result write failure cannot commit state or event',()=>{
+ const {room,db,ctx,id}=setup();try{
+  const original=ctx.storage.sql.exec;ctx.storage.sql.exec=(query,...args)=>{if(query.startsWith('INSERT INTO court_v1_requests'))throw Error('injected outcome failure');return original(query,...args);};
+  const m=mutation(id);assert.throws(()=>room.actionV1('owner',m),/outcome failure/);
+  assert.equal(room.get('owner').view.version,0);assert.equal(room.events('owner',-1).events.length,1);assert.equal(room.outcomeV1('owner',m.requestId).status,404);
+  ctx.storage.sql.exec=original;assert.ok(parseEvent(JSON.stringify(room.actionV1('owner',m))));
+ }finally{db.close();}
+});
+test('real server rules complete a v1 civil judge flow using descriptors',()=>{
+ const {room,db,id}=setup();try{
+  let version=0;
+  function act(actionId,options={}){const r=room.actionV1('owner',{...mutation(id,version,actionId),...options});assert.ok(parseEvent(JSON.stringify(r)),JSON.stringify(r));version++;return r;}
+  act('acknowledge');act('speak',{text:'請核對双方證據'});
+  act('review',{targetId:'payment'});act('review',{targetId:'chat'});act('rule.heard.allow');act('rule.shortcut.deny');act('closeEvidence');act('speak',{text:'付款不能單獨證明寄件或詐欺'});
+  const result=act('answer.1');assert.equal(result.snapshot.state.completed,true);assert.equal(result.kind,'session_completed');assert.deepEqual(result.snapshot.state.allowedActions,[]);
+ }finally{db.close();}
+});
+test('shell transport recovers an actual committed SQLite outcome after response loss',async()=>{
+ const {room,db,id}=setup();let posts=0;try{
+  const transport=new CourtTransport({origin:'https://court.test',csrf:()=> 'test',fetchImpl:async(url,o)=>{
+   const u=new URL(url);let result;
+   if(o.method==='POST'){posts++;result=room.actionV1('owner',JSON.parse(o.body));throw new TypeError('response lost AFTER commit');}
+   if(u.pathname.includes('/requests/'))result=room.outcomeV1('owner',u.pathname.split('/').at(-1));else result=room.snapshotV1('owner',u.searchParams.get('requestId'));
+   return Response.json(result,{status:result.status||200});
+  }});
+  transport.bind(id,'sale');assert.equal(await transport.refresh(),'accepted');assert.equal(await transport.act('acknowledge'),'network');assert.equal(transport.canAct,false);
+  assert.equal(await transport.recoverPending(),'accepted');assert.equal(transport.snapshot.stateVersion,1);assert.equal(posts,1);assert.equal(room.events('owner',-1).events.length,2);
  }finally{db.close();}
 });

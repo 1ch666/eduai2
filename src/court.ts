@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
-import {appendJournal,checkpointJournal,type JournalEvent} from './court-journal';
+import {appendJournal,checkpointJournal,publicCourtSnapshot,type JournalEvent} from './court-journal';
+import {parseMutation,canonical,type CourtMutation} from '../court/protocol.js';
 import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
@@ -19,6 +20,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       CREATE TABLE IF NOT EXISTS dialogue(version INTEGER PRIMARY KEY,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS npc_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
       CREATE TABLE IF NOT EXISTS court_events(version INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS court_v1_requests(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,event TEXT NOT NULL);
     `);});
   }
   init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number]){
@@ -39,6 +41,48 @@ export class CourtRoom extends DurableObject<AppEnv> {
     checkpointJournal(this.ctx.storage.sql,state);
     const events=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version>? ORDER BY version LIMIT 20',after).toArray().map(r=>JSON.parse(r.body) as JournalEvent);
     return {events,nextAfter:events.at(-1)?.eventSequence??after,currentVersion:state.version};
+  }
+  snapshotV1(owner:string,requestId:string){
+    const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
+    if(!validProtocolUuid(requestId))return {error:'請求識別錯誤',status:400};
+    checkpointJournal(this.ctx.storage.sql,s);
+    const row=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version=?',s.version).one();
+    const event=JSON.parse(row.body) as JournalEvent;
+    return {...event.snapshot,requestId};
+  }
+  outcomeV1(owner:string,requestId:string){
+    const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
+    if(!validProtocolUuid(requestId))return {error:'請求識別錯誤',status:400};
+    const row=this.ctx.storage.sql.exec<{event:string}>('SELECT event FROM court_v1_requests WHERE request_id=?',requestId).toArray()[0];
+    return row?JSON.parse(row.event) as JournalEvent:{error:'尚無已提交結果',status:404};
+  }
+  actionV1(owner:string,input:CourtMutation){
+    // Validate again at RPC boundary; callers cannot inject score/state fields.
+    const m=parseMutation(JSON.stringify(input));if(!m)return {error:'動作格式錯誤',status:400};
+    const s=this.read();if(!s||s.owner!==owner||s.id!==m.sessionId)return {error:'場次不存在',status:404};
+    if(s.config.caseId!==m.caseId)return {error:'案件不符',status:409};
+    const payload=canonical(m);
+    const previous=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
+    if(previous.length)return previous.length===1&&previous[0].payload===payload?JSON.parse(previous[0].event) as JournalEvent:{error:'請求識別已用於不同內容',status:409};
+    if(s.version!==m.expectedStateVersion||s.version>=100)return {error:'場次版本已變更或操作上限已達',status:409};
+    const descriptor=publicCourtSnapshot(s,m.requestId,crypto.randomUUID(),new Date().toISOString()).state.allowedActions.find(a=>a.actionId===m.actionId);
+    if(!descriptor||!descriptor.enabled)return {error:'目前階段不允許此動作',status:409};
+    if(descriptor.requiredTarget==='none'&&m.targetId!==''||descriptor.requiredTarget==='evidence'&&!m.targetId)return {error:'目標格式錯誤',status:400};
+    if(m.actionId!=='speak'&&m.text!=='')return {error:'此動作不接受陳述內容',status:400};
+    const a:CourtAction={requestId:m.requestId,version:m.expectedStateVersion,type:m.actionId,text:m.text,evidenceId:m.targetId};
+    if(m.actionId.startsWith('answer.')){a.type='answer';a.answer=Number(m.actionId.slice(7));}
+    if(m.actionId.startsWith('rule.')){const [,rulingId,decision]=m.actionId.split('.');a.type='rule';a.rulingId=rulingId;a.decision=decision;}
+    let next:CourtState;
+    try{next=transition(s,a);}catch(e){return {error:e instanceof Error?e.message:'動作不合法',status:409};}
+    // No await between validation and transaction; event + result + state commit
+    // together. Storage failures propagate as 500, not a false legal rejection.
+    return this.ctx.storage.transactionSync(()=>{
+      checkpointJournal(this.ctx.storage.sql,s);
+      this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
+      const event=appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==s.stage?'stage_changed':'checkpoint',requestId:m.requestId,speaker:'玩家',roleId:s.config.role,text:a.type==='speak'?m.text.trim():m.actionId,evidenceIds:a.type==='review'?[m.targetId]:[]});
+      this.ctx.storage.sql.exec('INSERT INTO court_v1_requests VALUES(?,?,?,?)',m.requestId,m.idempotencyKey,payload,JSON.stringify(event));
+      return event;
+    });
   }
   async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean){
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
@@ -151,12 +195,30 @@ export class Learner extends DurableObject<AppEnv>{
   }
 }
 
+const validProtocolUuid=(s:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 export async function handleCourt(request:Request,env:AppEnv,respond:Responder,trustedOrigin?:string):Promise<Response>{
   const path=new URL(request.url).pathname;
   if(path==='/api/court/cases' && request.method==='GET')return respond({version:RULE_VERSION,sources:LEGAL_SOURCES,ageLimits:AGE_LIMITS,cases:CASES.map(({correct,...t})=>({...t,roles:rolesFor(t.procedure),limits:AGE_LIMITS[t.procedure]}))});
   const session=await resolveSession(request,env);
   if(!session)return respond({error:'請登入以建立或恢復雲端場次；遊客可玩既有固定練習。'},401);
   const learner=env.LEARNER.getByName(session.user.id);
+  const v1=path.match(/^\/api\/court\/v1\/sessions\/([0-9a-f-]{36})(?:\/(actions|requests\/([0-9a-f-]{36})))?$/i);
+  if(v1){
+    if(!validProtocolUuid(v1[1]))return respond({error:'場次識別錯誤'},400);
+    const room=env.COURT_ROOM.getByName(v1[1]);
+    if(request.method==='GET'&&v1[2]!=='actions'){
+      const result=v1[3]?await room.outcomeV1(session.user.id,v1[3]):await room.snapshotV1(session.user.id,new URL(request.url).searchParams.get('requestId')||'');
+      return respond(result,'status' in result?result.status:200);
+    }
+    if(request.method!=='POST'||v1[2]!=='actions')return respond({error:'方法不支援'},405);
+    if(!trustedOrigin||!csrfTokenMatches(request,session))return respond({error:'請重新登入後再試'},403);
+    if(!await learner.allow('court',40))return respond({error:'操作太頻繁，請稍候'},429);
+    const raw=await readTextWithLimit(request.body,8192);
+    const input=raw.tooLarge||raw.invalidEncoding?null:parseMutation(raw.text);
+    if(!input||input.sessionId!==v1[1])return respond({error:'動作格式或場次錯誤'},400);
+    // Strict parser uses null-prototype records; DO RPC serializes plain objects.
+    const result=await room.actionV1(session.user.id,{...input});return respond(result,'status' in result?result.status:200);
+  }
   if(request.method==='GET'){
     if(path==='/api/court/sessions')return respond({sessions:await learner.list()});
     const eventId=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})\/events$/)?.[1];
