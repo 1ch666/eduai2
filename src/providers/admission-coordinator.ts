@@ -1,5 +1,5 @@
 import {DurableObject} from 'cloudflare:workers';
-import {initializeAdmissionStore,executeAdmission} from './admission-store';
+import {initializeAdmissionStore,executeAdmission,readAdmissionStatus} from './admission-store';
 import type {AdmissionPolicy,AdmissionRequest,AdmissionOutcome} from './admission';
 import type {TokenUsage} from './contracts';
 
@@ -9,6 +9,9 @@ const policy:AdmissionPolicy={concurrency:2,queue:8,daily:100,userDaily:20,sessi
   queueMs:5000,leaseMs:60000,failureThreshold:3,cooldownMs:30000,quotaCooldownMs:60000,maxRecords:2048};
 interface AdmissionEnvironment {AI_ADMISSION_ENABLED?:string}
 export class AIAdmission extends DurableObject<AdmissionEnvironment> {
+  inspect(){
+    return readAdmissionStatus(this.ctx.storage,Date.now(),policy,this.env.AI_ADMISSION_ENABLED==='true');
+  }
   constructor(ctx:DurableObjectState,env:AdmissionEnvironment){
     super(ctx,env);
     ctx.blockConcurrencyWhile(async()=>initializeAdmissionStore(ctx.storage));

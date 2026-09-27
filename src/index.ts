@@ -13,6 +13,7 @@ import { handleRankings } from './rankings';
 import { handlePhoto } from './photo';
 import { handleGroups } from './groups';
 import { observeApiRequest } from './telemetry';
+import {aiAvailability} from './ai-availability';
 export { CourtRoom, Learner } from './court';
 export { Practice } from './practice';
 export { Planner } from './planner';
@@ -65,7 +66,8 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
 
   if (url.pathname === '/api/capabilities') {
     if (request.method !== 'GET') return respond({error:'此端點只接受 GET'},405);
-    return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&Boolean(env.OLLAMA_API_KEY),npcAi:env.COURT_AI_ENABLED!=='false'&&Boolean(env.OLLAMA_API_KEY),caseGenerationAi:env.COURT_AI_ENABLED!=='false'&&Boolean(env.OLLAMA_API_KEY),textAi:Boolean(env.OLLAMA_API_KEY),practice:true,photo:Boolean(env.OLLAMA_API_KEY),photoOcr:false,push:true,planner:true,rankings:true,groups:true});
+    const availability=await aiAvailability(env);
+    return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&availability.canAttempt,npcAi:env.COURT_AI_ENABLED!=='false'&&availability.canAttempt,caseGenerationAi:env.COURT_AI_ENABLED!=='false'&&availability.canAttempt,textAi:availability.canAttempt,availability,practice:true,photo:availability.canAttempt,photoOcr:false,push:true,planner:true,rankings:true,groups:true});
   }
   if (url.pathname.startsWith('/api/court/')) return handleCourt(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/practice/')) return handlePractice(request,env,respond,trustedOrigin);

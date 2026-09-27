@@ -9,7 +9,7 @@ async function module(path){
    b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject {constructor(ctx,env){this.ctx=ctx;this.env=env}}'}));}}]});
  return import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
 }
-const {initializeAdmissionStore,executeAdmission,ADMISSION_STORE_MAX_BYTES}=await module('src/providers/admission-store.ts');
+const {initializeAdmissionStore,executeAdmission,readAdmissionStatus,ADMISSION_STORE_MAX_BYTES}=await module('src/providers/admission-store.ts');
 const {AIAdmission}=await module('src/providers/admission-coordinator.ts');
 const policy={concurrency:1,queue:2,daily:10,userDaily:5,sessionDaily:3,queueMs:1000,leaseMs:5000,
  failureThreshold:2,cooldownMs:1000,quotaCooldownMs:2000,maxRecords:100};
@@ -36,6 +36,18 @@ test('persistent admission commits before grant and survives recreation/lost res
   f.run(request('one'),{type:'finish',id:'one',outcome:'success',usage:{inputTokens:null,outputTokens:1}});
   assert.equal(f.run(request('two'),{type:'poll',id:'two'}).start,true);
   assert.equal(f.run(request('two'),{type:'poll',id:'two'}).start,false);
+ }finally{f.db.close();}
+});
+test('status uses only SELECT, keeps ledger bytes intact and rejects corrupted state',()=>{
+ const f=fixture();try{
+  f.admit('one');const before=f.raw();
+  const readonly={sql:{exec(q,...args){assert.ok(q.startsWith('SELECT'));return f.storage.sql.exec(q,...args);}},transactionSync(){throw Error('unexpected transaction');}};
+  assert.equal(readAdmissionStatus(readonly,101,policy,true).providerHealth,'not-probed');
+  assert.equal(readAdmissionStatus(readonly,5200,policy,true).scope,'provider-account');
+  assert.equal(f.raw(),before);
+  f.db.prepare('UPDATE ai_admission_state SET body=?').run('{}');
+  assert.throws(()=>readAdmissionStatus(readonly,5300,policy,true),/unavailable/);
+  assert.equal(f.raw(),'{}');
  }finally{f.db.close();}
 });
 test('failed atomic write produces no grant and no partial record; retry may safely admit',()=>{

@@ -8,6 +8,7 @@ export default {async fetch(request:Request,env:{ADMISSION:DurableObjectNamespac
   if(request.method==='GET')return Response.json({fixture:'admission-local-only'});
   const body=await request.json() as {room:string;op:string;request:Parameters<AIAdmission['admit']>[0]};
   const room=env.ADMISSION.getByName(body.room);
+  if(body.op==='inspect')return Response.json(await room.inspect());
   if(body.op==='study-reserve')return Response.json(await env.LEARNER.getByName(body.room)
     .reserveStudyAi('tutor',body.request.id,body.request.fingerprint));
   if(body.op==='generate'||body.op==='generate-quota'){

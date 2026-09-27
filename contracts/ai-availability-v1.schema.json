@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI account eligibility attached to legacy capability responses",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "scope", "configured", "canAttempt", "reason", "providerHealth"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "scope": {"const": "provider-account"},
+    "configured": {"type": "boolean"},
+    "canAttempt": {"type": "boolean"},
+    "reason": {"enum": ["READY", "DISABLED", "CIRCUIT_OPEN", "BUDGET", "QUEUE_FULL", "CAPACITY", "NOT_CONFIGURED", "UNAVAILABLE"]},
+    "providerHealth": {"const": "not-probed"}
+  },
+  "allOf": [{"if": {"properties": {"reason": {"const": "READY"}}}, "then": {"properties": {"canAttempt": {"const": true}, "configured": {"const": true}}}, "else": {"properties": {"canAttempt": {"const": false}}}}]
+}

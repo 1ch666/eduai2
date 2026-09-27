@@ -8,6 +8,7 @@ import { messageRoom } from "./messages";
 import { resolveSession } from "./session";
 import type { AppEnv } from "./env";
 import { lookupDictionary, dictionaryAnswer } from './dictionary';
+import {aiAvailability} from './ai-availability';
 
 const MAX_BODY_BYTES = 16_384;
 const UPSTREAM_TIMEOUT_MS = 50_000;
@@ -60,7 +61,8 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   const model = env.OLLAMA_MODEL || "gpt-oss:20b";
   if (url.pathname === "/api/ai/status") {
     if (request.method !== "GET") return respond({ error: "此端點只接受 GET" }, 405);
-    return respond({ available: Boolean(env.OLLAMA_API_KEY), provider: "Ollama", model, modes: ["civics", "court"] });
+    const availability=await aiAvailability(env);
+    return respond({ available: availability.canAttempt, availability, provider: "Ollama", model, modes: ["civics", "court"] });
   }
   if (url.pathname !== "/api/ai/ask") return respond({ error: "找不到 API" }, 404);
   if (request.method !== "POST") return respond({ error: "此端點只接受 POST" }, 405);

@@ -1,5 +1,6 @@
 import {emptyAdmission,reduceAdmission,pruneAdmission,type AdmissionCommand,type AdmissionPolicy,type AdmissionRequest,type AdmissionResult} from './admission';
 import {parseAdmissionState} from './admission-state';
+import {admissionStatus,type AdmissionStatus} from './admission-status';
 
 export const ADMISSION_STORE_MAX_BYTES=1048576;
 export interface AdmissionStorage {
@@ -16,6 +17,22 @@ function validRequest(r:AdmissionRequest){
       const d=Object.getOwnPropertyDescriptor(r,k);
       return d&&'value' in d&&typeof d.value==='string'&&/^[a-zA-Z0-9:_-]{1,128}$/.test(d.value);
     });
+}
+
+function readAdmissionState(storage:AdmissionStorage){
+  const meta=storage.sql.exec('SELECT version FROM ai_admission_meta WHERE id=1').toArray();
+  if(meta.length!==1||meta[0].version!==1)invalid();
+  const row=storage.sql.exec('SELECT body FROM ai_admission_state WHERE id=1').toArray()[0];
+  if(!row||typeof row.body!=='string'||row.body.length>ADMISSION_STORE_MAX_BYTES||encoded(row.body)>ADMISSION_STORE_MAX_BYTES)invalid();
+  let parsed:unknown;try{parsed=JSON.parse(row.body as string);}catch{invalid();}
+  const state=parseAdmissionState(parsed);if(!state)return invalid();
+  return state;
+}
+
+export function readAdmissionStatus(storage:AdmissionStorage,now:number,policy:AdmissionPolicy,enabled:boolean):AdmissionStatus {
+  // Synchronous SELECTs only. No read-side tick write, quota spend or identity
+  // disclosure. Initialization remains the host constructor's responsibility.
+  return admissionStatus(readAdmissionState(storage),now,policy,enabled);
 }
 
 /** Durable synchronous transaction boundary; no provider call inside it.
@@ -47,12 +64,7 @@ export function executeAdmission(storage:AdmissionStorage,identity:AdmissionRequ
   const day=Math.floor(now/86400000),issuedDay=Number(issued[1]);
   if(issuedDay>day||issuedDay<day-1)return {code:'STALE',start:false};
   return storage.transactionSync(()=>{
-    const meta=storage.sql.exec('SELECT version FROM ai_admission_meta WHERE id=1').toArray();
-    if(meta.length!==1||meta[0].version!==1)invalid();
-    const row=storage.sql.exec('SELECT body FROM ai_admission_state WHERE id=1').toArray()[0];
-    if(!row||typeof row.body!=='string'||row.body.length>ADMISSION_STORE_MAX_BYTES||encoded(row.body)>ADMISSION_STORE_MAX_BYTES)invalid();
-    let parsed:unknown;try{parsed=JSON.parse(row.body as string);}catch{invalid();}
-    let state=parseAdmissionState(parsed);if(!state)return invalid();
+    let state=readAdmissionState(storage);
     // Expire leases/queued work before pruning, in the same transaction as the
     // next decision. Preserve today and yesterday, including charged attempts.
     state=reduceAdmission(state,{type:'tick'},now,policy,enabled).state;

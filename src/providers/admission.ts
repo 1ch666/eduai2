@@ -70,15 +70,18 @@ export function reduceAdmission(previous:AdmissionState,command:AdmissionCommand
   if(!validPolicy(policy)||!validCommand(command)||!integer(now,0,8e15)||
     now<previous.clock||previous.schemaVersion!==1||typeof enabled!=='boolean')throw Error('Invalid admission input');
   const state=structuredClone(previous),day=Math.floor(now/DAY);state.clock=now;
-  const fail=(quota=false)=>{
+  const fail=(quota=false,failedAt=now)=>{
     state.failures=quota?policy.failureThreshold:Math.min(policy.failureThreshold,state.failures+1);
     if(quota||state.failures>=policy.failureThreshold){
-      state.openUntil=Math.max(state.openUntil,now+(quota?policy.quotaCooldownMs:policy.cooldownMs));
+      state.openUntil=Math.max(state.openUntil,failedAt+(quota?policy.quotaCooldownMs:policy.cooldownMs));
       state.circuitVersion++;
     }
   };
   for(const row of state.records){
-    if(row.phase==='running'&&now>=row.deadline){row.phase='unknown';fail();}
+    // Expiry occurred at the lease deadline, not whenever a status reader next
+    // happens to inspect it. Otherwise read-only probes perpetually project a
+    // fresh cooldown after idle periods and clients can never attempt recovery.
+    if(row.phase==='running'&&now>=row.deadline){row.phase='unknown';fail(false,row.deadline);}
     else if(row.phase==='queued'&&(!enabled||now>=row.deadline||row.day!==day))row.phase='cancelled';
   }
   const result=(code:AdmissionCode,row?:AdmissionRecord,start?:AdmissionRequest):AdmissionResult=>

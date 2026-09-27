@@ -9,6 +9,9 @@ async function call(op,request,targetRoom=room){
  assert.equal(r.status,200);return r.json();
 }
 const results=await Promise.all(Array.from({length:8},()=>call('admit',identity('one'))));
+const status=await call('inspect',identity('not-used'));
+assert.equal(status.scope,'provider-account');assert.equal(status.providerHealth,'not-probed');
+assert.equal(status.code,'READY');assert.equal('records' in status,false);
 assert.equal(results.filter(r=>r.start).length,1);
 assert.equal((await call('admit',identity('two'))).start,true);
 assert.equal((await call('admit',identity('three'))).code,'QUEUED');
@@ -27,6 +30,7 @@ assert.equal(generated.filter(r=>r.result.ok).length,1);
 assert.equal(generated.filter(r=>r.result.code==='ADMISSION_DENIED').length,7);
 const quotaRoom=room+'-quota';
 assert.equal((await call('generate-quota',identity('quota'),quotaRoom)).result.code,'QUOTA');
+assert.equal((await call('inspect',identity('not-used'),quotaRoom)).code,'CIRCUIT_OPEN');
 const stopped=await call('generate',identity('after-quota'),quotaRoom);
 assert.equal(stopped.result.code,'ADMISSION_DENIED');assert.equal(stopped.calls,0);
 console.log('Local workerd admitted provider passed: one inference across eight duplicate requests; quota opens durable circuit without new inference.');

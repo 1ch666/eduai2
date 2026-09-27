@@ -6,6 +6,7 @@ import { resolveSession, csrfTokenMatches } from './session';
 import type { AppEnv } from './env';
 import type { ChatInput, LLMProvider } from './providers/contracts';
 import { studyProvider, STUDY_RESERVATION_MESSAGES } from './providers/study-provider';
+import {aiAvailability} from './ai-availability';
 
 const EXPLAIN_SYSTEM_PROMPT = [
   '你是「公民法律研究室」的題目講解助教。',
@@ -29,8 +30,10 @@ export async function handlePhoto(
 
   // GET /api/photo/status – report capability without login
   if (pathname === '/api/photo/status' && request.method === 'GET') {
+    const availability=await aiAvailability(env);
     return respond({
-      available: Boolean(env.OLLAMA_API_KEY),
+      available: availability.canAttempt,
+      availability,
       ocrAvailable: false, // client-side only; server vision model not configured
       dataNotice: '題目文字由你的裝置提取後傳至 Ollama AI 服務進行講解，不儲存原始照片，不寫入排行榜。',
     });
