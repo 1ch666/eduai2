@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import {grantedAdmission,studyFixture} from './helpers/study-fixture.mjs';
 const bundle=await build({entryPoints:['src/ai.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{
  name:'local-rate-limit-stub',setup(b){
   b.onResolve({filter:/^\.\/messages$/},()=>({path:'messages',namespace:'test'}));
@@ -8,7 +9,8 @@ const bundle=await build({entryPoints:['src/ai.ts'],bundle:true,platform:'node',
  }
 }]});
 const {handleAiRequest}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
-const env={OLLAMA_API_KEY:'test-secret-not-real',testRoom:{allowAiRequest:async()=>true}};
+const env={OLLAMA_API_KEY:'test-secret-not-real',testRoom:{allowAiRequest:async()=>true},
+ LEARNER:{getByName:()=>({reserveStudyAi:async()=>({code:'RESERVED',issuedAt:Date.now()})})},AI_ADMISSION:grantedAdmission()};
 const respond=(body,status=200)=>Response.json(body,{status});
 function ask(){return handleAiRequest(new Request('https://local.test/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'說明權力分立的優點',history:[],clientId:'local-test-client-0001',requestId:crypto.randomUUID()})}),env,respond);}
 test('tutor uses supported gpt-oss thinking level and returns only final answer',async()=>{
@@ -40,4 +42,20 @@ test('tutor distinguishes empty, truncated, malformed, oversized and HTTP errors
   for(const [reply,code] of cases){globalThis.fetch=async()=>reply();const r=await ask();assert.ok(r.status>=400);const p=await r.json();assert.equal(p.code,code);assert.equal(p.answer,undefined);assert.ok(!JSON.stringify(p).includes('private reasoning'));}
   assert.ok(!logs.join('').includes('test-secret'));assert.ok(!logs.join('').includes('權力分立'));assert.ok(!logs.join('').includes('private reasoning'));
  }finally{globalThis.fetch=old;console.warn=oldWarn;console.error=oldError;}
+});
+test('tutor concurrent duplicate and changed text cannot spend again; clientId cannot split guest budget',async()=>{
+ const f=studyFixture(),old=globalThis.fetch;let calls=0,release,entered;const ready=new Promise(r=>entered=r),owners=[];
+ const configured={...env,LEARNER:{getByName(o){owners.push(o);return f;}}};
+ const body={question:'說明權力分立的優點',history:[],clientId:'local-test-client-0001',requestId:crypto.randomUUID()};
+ const send=(extra={})=>handleAiRequest(new Request('https://local.test/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json','CF-Connecting-IP':'192.0.2.1'},body:JSON.stringify({...body,...extra})}),configured,respond);
+ globalThis.fetch=async()=>{calls++;entered();return new Promise(r=>release=r);};
+ try{
+  const first=send();await ready;
+  assert.equal((await send()).status,409);
+  const changed=await send({question:'另一題'});assert.equal((await changed.json()).code,'AI_REQUEST_CONFLICT');
+  assert.equal((await send({clientId:'another-client-00002'})).status,409);
+  release(Response.json({message:{content:'回答'}}));assert.equal((await first).status,200);
+  assert.equal((await send()).status,409);assert.equal(calls,1);
+  assert.equal(new Set(owners).size,1);assert.ok(owners[0].startsWith('guest:'));assert.ok(!owners[0].includes('192.0.2.1'));
+ }finally{globalThis.fetch=old;f.db.close();}
 });

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
+import {grantedAdmission,studyFixture} from './helpers/study-fixture.mjs';
 const b=await build({entryPoints:['src/photo.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {handlePhoto}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
 const respond=(body,status=200)=>Response.json(body,{status});
@@ -11,7 +12,8 @@ test('default adapter retains model parameters and rejects oversized or truncate
  const old=globalThis.fetch;let calls=0;
  try{
   globalThis.fetch=async(url,init)=>{calls++;const wire=JSON.parse(init.body);assert.equal(wire.think,false);assert.equal(wire.options.num_predict,700);assert.equal(wire.format,undefined);assert.equal(init.redirect,'error');return Response.json({message:{content:'民主的核心是人民參與。'}});};
-  const configured={...env,OLLAMA_API_KEY:'offline-not-real'};
+  const configured={...env,OLLAMA_API_KEY:'offline-not-real',AI_ADMISSION:grantedAdmission(),
+   LEARNER:{getByName:()=>({allow:async()=>true,reserveStudyAi:async()=>({code:'RESERVED',issuedAt:Date.now()})})}};
   assert.equal((await handlePhoto(request(),configured,respond,'trusted')).status,200);assert.equal(calls,1);
   globalThis.fetch=async()=>new Response('x'.repeat(65537));
   assert.equal((await handlePhoto(request(),configured,respond,'trusted')).status,502);
@@ -50,4 +52,19 @@ test('provider failure codes and exceptions are sanitized without retry',async()
  }
  const r=await handlePhoto(request(),env,respond,'trusted',{async generate(){throw Error('PRIVATE_KEY');}});
  assert.equal(r.status,502);assert.ok(!JSON.stringify(await r.json()).includes('PRIVATE'));
+});
+test('production composition reserves by authenticated owner and never repeats unknown inference',async()=>{
+ const f=studyFixture(),old=globalThis.fetch;let calls=0,owner;
+ const configured={...env,OLLAMA_API_KEY:'synthetic',AI_ADMISSION:grantedAdmission(),LEARNER:{getByName(o){owner=o;return {...f,allow:async()=>true};}}};
+ const body={text:'說明權力分立的優點',requestId:crypto.randomUUID(),owner:'attacker'};
+ globalThis.fetch=async()=>{calls++;throw Error('unknown PRIVATE');};
+ try{
+  assert.equal((await handlePhoto(request(body),configured,respond,'trusted')).status,502);
+  const duplicate=await handlePhoto(request(body),configured,respond,'trusted');
+  assert.equal(duplicate.status,409);assert.equal((await duplicate.json()).code,'AI_ATTEMPT_ALREADY_USED');
+  assert.equal(owner,'user');assert.equal(calls,1);
+  configured.AI_ADMISSION={getByName:()=>({admit:async()=>({code:'DISABLED',start:false})})};
+  const disabled=await handlePhoto(request(),configured,respond,'trusted');
+  assert.equal(disabled.status,503);assert.equal((await disabled.json()).code,'ADMISSION_DENIED');assert.equal(calls,1);
+ }finally{globalThis.fetch=old;f.db.close();}
 });

@@ -4,8 +4,8 @@
 import { readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
 import type { AppEnv } from './env';
-import type { LLMProvider } from './providers/contracts';
-import { createOllamaProvider } from './providers/ollama';
+import type { ChatInput, LLMProvider } from './providers/contracts';
+import { studyProvider, STUDY_RESERVATION_MESSAGES } from './providers/study-provider';
 
 const EXPLAIN_SYSTEM_PROMPT = [
   '你是「公民法律研究室」的題目講解助教。',
@@ -72,12 +72,21 @@ export async function handlePhoto(
   const questionText = b.text.trim();
 
   // Server-only composition; callers cannot choose credentials/model via JSON.
-  const engine=provider??createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:env.OLLAMA_MODEL||'gpt-oss:20b',thinking:false});
-  const result=await engine.generate({output:'text',temperature:.2,maxOutputTokens:700,
-    messages:[{role:'system',content:EXPLAIN_SYSTEM_PROMPT},{role:'user',content:`題目文字：\n${questionText}`}]},
+  const input:ChatInput={output:'text',temperature:.2,maxOutputTokens:700,
+    messages:[{role:'system',content:EXPLAIN_SYSTEM_PROMPT},{role:'user',content:`題目文字：\n${questionText}`}]};
+  // Explicit provider injection is a server-internal test/research seam, never
+  // selected by request JSON. Production always reserves and governs inference.
+  let engine=provider;
+  if(!engine){
+    const prepared=await studyProvider(env,'photo',session.user.id,b.requestId,input,false);
+    if(!prepared.ok)return respond({error:STUDY_RESERVATION_MESSAGES[prepared.code],code:prepared.code},prepared.status);
+    engine=prepared.provider;
+  }
+  const result=await engine.generate(input,
     {timeoutMs:30000,maxResponseBytes:65536,signal:request.signal})
     .catch(()=>({ok:false as const,code:'NETWORK' as const}));
   if(!result.ok){
+    if(['ADMISSION_DENIED','ADMISSION_UNAVAILABLE'].includes(result.code))return respond({error:'AI 暫時無法取得呼叫許可，請稍後再試',code:result.code},503);
     if(result.code==='QUOTA')return respond({error:'AI 額度暫時已達上限，請稍後再試'},429);
     if(['TIMEOUT','NETWORK','CANCELLED'].includes(result.code))return respond({error:'AI 服務目前無法連線，請稍後再試'},502);
     if(result.code==='EMPTY_CONTENT')return respond({error:'AI 未傳回答案'},502);

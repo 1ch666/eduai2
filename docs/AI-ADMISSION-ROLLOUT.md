@@ -50,12 +50,11 @@ circuit control. Daily windows are UTC. This counts inference attempts, not mone
 or a guarantee of Ollama's free quota. No billing/paid feature is activated.
 
 NPC and case generation adopted this wrapper in the release recorded below.
-Tutor and photo are NOT yet routed through it. They retain their existing local
-rate guards, but can bypass this coordinator's limits. Therefore this is NOT a
-completed global kill switch or all-platform cost cap. Their rollout must
-preserve the original persisted request identity;
-tutor/photo need an issuance/reservation design before adoption. Availability
-capability responses are still configuration-based, not live quota health.
+The subsequent tutor/photo candidate adds durable reservations and adoption;
+see STUDY-AI-ADMISSION.md for its compatibility limits and separate release
+evidence. Do not infer candidate deployment from the earlier release records.
+Availability capability responses are still configuration-based, not live quota
+health; full cost accounting and retention gates remain incomplete.
 
 ## Rollback / incident procedure
 

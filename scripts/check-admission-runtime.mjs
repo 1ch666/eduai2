@@ -30,3 +30,11 @@ assert.equal((await call('generate-quota',identity('quota'),quotaRoom)).result.c
 const stopped=await call('generate',identity('after-quota'),quotaRoom);
 assert.equal(stopped.result.code,'ADMISSION_DENIED');assert.equal(stopped.calls,0);
 console.log('Local workerd admitted provider passed: one inference across eight duplicate requests; quota opens durable circuit without new inference.');
+const studyId={id:'a'.repeat(64),fingerprint:'b'.repeat(64)};
+const studies=await Promise.all(Array.from({length:8},()=>call('study-reserve',studyId,room+'-study')));
+assert.equal(studies.filter(r=>r.code==='RESERVED').length,1);
+assert.equal(studies.filter(r=>r.code==='EXISTING').length,7);
+assert.ok(Number.isSafeInteger(studies.find(r=>r.code==='RESERVED').issuedAt));
+assert.deepEqual(await call('study-reserve',{...studyId,fingerprint:'c'.repeat(64)},room+'-study'),{code:'CONFLICT'});
+assert.equal((await call('study-reserve',studyId,room+'-other-owner')).code,'RESERVED');
+console.log('Local workerd Learner study reservation passed: additive SQLite schema, eight-way dedup, conflict and owner isolation.');

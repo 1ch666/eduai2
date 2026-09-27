@@ -12,6 +12,7 @@ import { generatedCandidates, generateModelCase, randomLibraryCase, similarCase,
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 import {proposeStageDialogue} from './court-dialogue';
 import {createGovernedOllamaProvider} from './providers/governed-ollama';
+import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -269,6 +270,9 @@ export class CourtRoom extends DurableObject<AppEnv> {
 
 /** Per-user scene index and request budget; no global game state or client scores. */
 export class Learner extends DurableObject<AppEnv>{
+  reserveStudyAi(kind:StudyKind,id:string,fingerprint:string){
+    return reserveStudyAttempt(this.ctx.storage,kind,id,fingerprint,Date.now());
+  }
   constructor(ctx:DurableObjectState,env:AppEnv){super(ctx,env);ctx.blockConcurrencyWhile(async()=>{this.ctx.storage.sql.exec(`
     CREATE TABLE IF NOT EXISTS courts(id TEXT PRIMARY KEY,title TEXT NOT NULL,created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS limits(key TEXT PRIMARY KEY,window INTEGER NOT NULL,count INTEGER NOT NULL);

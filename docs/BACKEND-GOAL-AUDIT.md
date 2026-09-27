@@ -133,6 +133,13 @@ probes returned 200/200/401 with request IDs. No assets or migrations changed.
 These probes do not verify authenticated production inference, live quota,
 tutor/photo admission, recovery or the remaining goal gates.
 
+Next candidate: tutor/photo now use per-owner persisted reservations and the
+shared governed provider. Local fast gate passed 298 tests; real workerd Learner
+RPC passed concurrent dedup/conflict/owner isolation; dry run passed. See
+STUDY-AI-ADMISSION.md: finite 4,096-entry legacy tombstones, no answer cache,
+versioned expiring-ticket retention still needed, and live availability is still
+configuration-based. Do not treat this as completing all cost/recovery gates.
+
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
    order with bounded deterministic checks, then integrate before commit without

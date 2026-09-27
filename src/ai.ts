@@ -2,8 +2,8 @@
 // used by the website, and the in-character courtroom NPC used by the Unity
 // build. The API key stays in Worker secrets and never reaches a client.
 import { networkKeyFor, readJsonObject, type Responder } from "./http";
-import { createOllamaProvider } from './providers/ollama';
-import type { ProviderErrorCode } from './providers/contracts';
+import { studyProvider, STUDY_RESERVATION_MESSAGES } from './providers/study-provider';
+import type { ChatInput, ProviderErrorCode } from './providers/contracts';
 import { messageRoom } from "./messages";
 import { resolveSession } from "./session";
 import type { AppEnv } from "./env";
@@ -127,11 +127,15 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
     console.warn(JSON.stringify({ event: 'tutor_provider_failure', requestId: candidate.requestId, code }));
     return respond({ error: `${error} [${code}]`, code }, status);
   };
-  const provider=createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model});
-  const result=await provider.generate({
+  const input:ChatInput={
     messages:[{role:'system',content:systemPrompt},...candidate.history,{role:'user',content:candidate.question.trim()}],
     temperature:0.2,maxOutputTokens:mode==='court'?1024:2048,output:'text'
-  },{timeoutMs:UPSTREAM_TIMEOUT_MS,signal:request.signal});
+  };
+  // Guest identity derives from the edge network bucket, never a clientId chosen
+  // to evade budgets. No answers are persisted/replayed to a shared-NAT peer.
+  const prepared=await studyProvider(env,'tutor',session?.user.id??`guest:${networkKey}`,candidate.requestId,input);
+  if(!prepared.ok)return failed(prepared.code,STUDY_RESERVATION_MESSAGES[prepared.code],prepared.status);
+  const result=await prepared.provider.generate(input,{timeoutMs:UPSTREAM_TIMEOUT_MS,signal:request.signal});
   if (!result.ok) {
     const messages:Record<ProviderErrorCode,string>={
       NOT_CONFIGURED:'Ollama 服務尚未完成設定',INVALID_INPUT:'助教請求設定錯誤',CANCELLED:'本次提問已取消',
