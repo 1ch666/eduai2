@@ -4,7 +4,7 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-72097b6 / Worker 84455261-9668-49a6-a963-331457defd3f. Later tests do not imply
+8945286 / Worker e37d0a79-a856-4378-a40c-bb1ac466e2d4. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -62,6 +62,15 @@ graph RPC evidence, then remaining API/internal event contract gaps. This does n
 complete the full validator/research/production goal. See CASE-GRAPH-CONTRACT.md.
 
 ## Next implementation batches and closure criteria
+
+2026-09-28 admission core candidate: providers/admission.ts defines deterministic
+bounded FIFO, concurrency leases, attempt budgets (UTC global/user/session/day),
+kill switch, quota/failure circuit epochs, nullable token accounting and explicit
+retention. Eleven tests include 3,000 seeded command transitions and full replay
+equivalence. It is deliberately NOT wired into runtime routes yet. Next required
+steps are persisted-state schema validation, atomic durable host, all-provider
+wrapper and local workerd/production verification; see AI-ADMISSION-CONTRACT.md.
+Do not count this as deployed global governance or monetary cost enforcement.
 
 2026-09-28 released: legacy stage dialogue now reserves each state version in
 CourtRoom SQLite before inference. Seven actual-SQLite race/migration groups
