@@ -50,10 +50,24 @@ no fetch or mutation dependency. Getters return copies. Playback uses display pa
 (one event/second), not invented judicial timing; a long background frame advances
 at most one event. A nonzero initial checkpoint explicitly marks an incomplete prefix.
 Transcript only includes records through the playhead; historical snapshot evidence
-is never merged with live evidence. The authenticated event loader, timeline UI and
-Unity replay presenter remain unimplemented. Five Node tests in
+is never merged with live evidence. The timeline UI and Unity replay presenter
+remain unimplemented. Five Node tests in
 `scripts/test-court-replay.mjs` cover these data-layer behaviors with synthetic events;
 they do not prove a live full-session or Unity replay.
+
+`court/replay-loader.js` implements same-origin GET-only loading from the existing
+owner-checked `/api/court/sessions/{id}/events?after=...` route. It validates the raw
+page with the bounded strict parser (including duplicate JSON keys), verifies the
+cursor and server version, and appends pages atomically. Each page is capped at
+262144 bytes; larger history pages fail explicitly rather than consuming unbounded
+memory. A future server byte-aware pagination change is needed for unusually large
+events. Loading is explicit, one page at a time, with no automatic retry. Timeout
+includes stream reads; clear aborts and invalidates in-flight work. HTTP 401 clears
+private history. Four mocked-HTTP tests cover these guarantees. The local workerd
+check script also now exercises the loader and verifies replay leaves the recorded
+mutation outcome unchanged; that extended script must be rerun before claiming
+actual HTTP integration evidence for this loader. No production entrypoint imports
+it yet.
 
 ## Synchronization and recovery
 

@@ -61,10 +61,12 @@ function parse(raw, check) {
 }
 export const parseSnapshot = raw => parse(raw,snapshot);
 export const parseMutation = raw => parse(raw,mutation);
-export const parseEvent = raw => parse(raw,v=>event(v) &&
+const validEvent = v=>event(v) &&
  Object.keys(envelope).every(k=>v[k]===v.snapshot[k]) && v.stageId===v.snapshot.state.stageId &&
  new Set(v.evidenceIds).size===v.evidenceIds.length &&
- v.evidenceIds.every(id=>v.snapshot.state.evidence.some(e=>e.evidenceId===id)));
+ v.evidenceIds.every(id=>v.snapshot.state.evidence.some(e=>e.evidenceId===id));
+export const parseEvent = raw => parse(raw,validEvent);
+export const parseEventPage = raw => parse(raw,record({events:list(validEvent,20),nextAfter:integer,currentVersion:integer}));
 
 // Stable field order for comparing JSON objects; array order remains meaningful.
 export function canonical(value) {

@@ -1,6 +1,7 @@
 // Disposable local accounts only. Never run against production.
 import assert from 'node:assert/strict';
 import {parseSnapshot,parseEvent} from '../court/protocol.js';
+import {CourtReplayLoader} from '../court/replay-loader.js';
 const base=process.argv[2];assert.ok(base&&['127.0.0.1','localhost'].includes(new URL(base).hostname));
 async function call(path,body,auth={},raw){
  const r=await fetch(base+path,{method:body||raw?'POST':'GET',signal:AbortSignal.timeout(20000),headers:{Origin:base,...(body||raw?{'Content-Type':'application/json'}:{}),...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{})},body:raw??(body?JSON.stringify(body):undefined)});
@@ -27,4 +28,10 @@ assert.deepEqual((await call(path+'/requests/'+m.requestId,undefined,a)).data,su
 assert.equal((await call(path+'/requests/'+m.requestId,undefined,b)).status,404);
 const history=await call('/api/court/sessions/'+id+'/events',undefined,a);assert.equal(history.status,200);assert.equal(history.data.events.length,2);
 for(const e of history.data.events)assert.ok(parseEvent(JSON.stringify(e)));
+const replay=new CourtReplayLoader({origin:base,fetchImpl:(url,options)=>fetch(url,{...options,headers:{...options.headers,Cookie:a.cookie}})});
+replay.bind(id,'sale');assert.equal(await replay.next(),'caught-up');assert.equal(replay.replay.length,2);
+assert.equal(replay.replay.step(),true);assert.equal(replay.replay.current.stateVersion,1);
+replay.replay.seek(0);assert.equal(replay.replay.current.stateVersion,0);
+assert.deepEqual((await call(path+'/requests/'+m.requestId,undefined,a)).data,success.data);
+replay.clear();assert.equal(replay.replay.current,null);
 console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, stable result and journal deduplication.');
