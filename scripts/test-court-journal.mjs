@@ -6,6 +6,7 @@ import {build} from 'esbuild';
 import {parseEvent,parseSnapshot} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
 import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
+import {courtV2Events} from './court-schema-check.mjs';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
@@ -18,6 +19,55 @@ const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_A
 const gate=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const stageResponse=()=>Response.json({message:{content:JSON.stringify({text:'測試公開程序台詞'})}});
 const stageFallback=room=>({...room.get('owner').view.turn,aiOutcome:{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false}});
+
+test('v2 event audit verifies persisted command identity and is strictly read-only',()=>{
+ const {room,db,id}=setup();
+ try{
+  const command={apiVersion:1,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,caseId:'sale',expectedStateVersion:0,actionId:'acknowledge',targetId:'',text:''};
+  const event=room.actionV1('owner',command);assert.equal(event.stateVersion,1);
+  const before=db.prepare('SELECT total_changes() AS n').get().n;
+  const page=room.eventsV2('owner',-1);assert.equal(courtV2Events(page),true,JSON.stringify(courtV2Events.errors));
+  assert.equal(page.events.length,2);assert.equal(page.events[0].provenance,'unattributed');
+  assert.equal(page.events[0].previousVersion,null);assert.equal(page.events[0].idempotencyKey,null);
+  assert.deepEqual(page.events[1],{eventVersion:2,eventId:event.eventId,eventType:event.kind,sessionId:id,actorRole:'judge',payload:event,previousVersion:0,newVersion:1,timestamp:event.timestamp,idempotencyKey:command.idempotencyKey,provenance:'verified-command-v1'});
+  assert.deepEqual(room.eventsV2('owner',-1),page);
+  assert.deepEqual(room.eventsV2('owner',1),{events:[],nextAfter:1,stateVersion:1});
+  assert.equal(room.eventsV2('other',-1).status,404);
+  for(const invalid of [-2,NaN,Infinity,'0',.5,Number.MAX_SAFE_INTEGER+1])assert.equal(room.eventsV2('owner',invalid).status,400);
+  assert.equal(db.prepare('SELECT total_changes() AS n').get().n,before,'audit must perform no writes');
+  db.prepare('UPDATE court_v1_requests SET payload=?').run(JSON.stringify({...command,expectedStateVersion:5}));
+  assert.equal(room.eventsV2('owner',0).events[0].provenance,'unattributed','do not guess a previous version');
+  db.prepare('UPDATE court_v1_requests SET payload=?,event=?').run(JSON.stringify(command),JSON.stringify({...event,text:'PRIVATE_MISMATCH'}));
+  const mismatched=room.eventsV2('owner',0);assert.equal(mismatched.events[0].idempotencyKey,null);
+  assert.ok(!JSON.stringify(mismatched).includes('PRIVATE_MISMATCH'));
+ }finally{db.close();}
+});
+
+test('v2 replay reports a legacy history gap without writing a checkpoint or leaking corrupt records',()=>{
+ const {room,db}=setup();
+ try{
+  const stored=db.prepare('SELECT version,event_id,body FROM court_events').get();
+  db.prepare('DELETE FROM court_events').run();
+  const before=db.prepare('SELECT total_changes() AS n').get().n;
+  const empty=room.eventsV2('owner',-1);assert.deepEqual(empty,{events:[],nextAfter:-1,stateVersion:0});
+  assert.equal(courtV2Events(empty),true);assert.equal(db.prepare('SELECT total_changes() AS n').get().n,before);
+  db.prepare('INSERT INTO court_events VALUES(?,?,?)').run(stored.version,stored.event_id,JSON.stringify({...JSON.parse(stored.body),privateTruth:'PRIVATE'}));
+  assert.throws(()=>room.eventsV2('owner',-1),/Invalid persisted public event/);
+ }finally{db.close();}
+});
+
+test('v2 audit rejects mismatched persisted session and row identity without repairing data',()=>{
+ const {room,db}=setup();
+ try{
+  const stored=db.prepare('SELECT body FROM court_events').get().body,original=JSON.parse(stored);
+  for(const patch of [{sessionId:crypto.randomUUID()},{caseId:'another-case'},{stateVersion:1},{eventId:crypto.randomUUID()}]){
+   db.prepare('UPDATE court_events SET body=?').run(JSON.stringify({...original,...patch}));
+   const before=db.prepare('SELECT total_changes() AS n').get().n;
+   assert.throws(()=>room.eventsV2('owner',-1),/Invalid persisted public event/);
+   assert.equal(db.prepare('SELECT total_changes() AS n').get().n,before);
+  }
+ }finally{db.close();}
+});
 
 test('CourtRoom propagates a copied trace but never persists it or emits new provider spans for cached replies',async()=>{
  const {room,db}=setup(config,stageEnv),original=globalThis.fetch,log=console.log,records=[];

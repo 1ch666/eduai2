@@ -11,7 +11,7 @@
     "timestamp":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
     "errorCode":{"type":["string","null"],"pattern":"^(HTTP_[45][0-9]{2}|INTERNAL_ERROR)$"},
     "stateVersion":{"type":["integer","null"],"minimum":0,"maximum":9007199254740991},
-    "data":{"anyOf":[{"type":"null"},{"$ref":"urn:eduai:court:v1:state#/definitions/snapshot"},{"$ref":"urn:eduai:court:v1:state#/definitions/event"},{"$ref":"urn:eduai:court:v1:command#/definitions/notApplied"}]}
+    "data":{"anyOf":[{"type":"null"},{"$ref":"urn:eduai:court:v1:state#/definitions/snapshot"},{"$ref":"urn:eduai:court:v1:state#/definitions/event"},{"$ref":"urn:eduai:court:v1:command#/definitions/notApplied"},{"$ref":"urn:eduai:court:v2:events"}]}
   },
   "allOf":[
     {"if":{"properties":{"ok":{"const":true}}},"then":{"properties":{"errorCode":{"type":"null"},"data":{"type":"object"}}},"else":{"properties":{"errorCode":{"type":"string"},"data":{"type":"null"},"stateVersion":{"type":"null"}}}}

@@ -1,0 +1,26 @@
+{
+ "$schema":"http://json-schema.org/draft-07/schema#","$id":"urn:eduai:court:v2:events",
+ "type":"object","additionalProperties":false,"required":["events","nextAfter","stateVersion"],
+ "properties":{
+  "nextAfter":{"type":"integer","minimum":-1,"maximum":9007199254740991},
+  "stateVersion":{"type":"integer","minimum":0,"maximum":9007199254740991},
+  "events":{"type":"array","maxItems":20,"items":{"$ref":"#/definitions/event"}}
+ },
+ "definitions":{"event":{
+  "type":"object","additionalProperties":false,
+  "required":["eventVersion","eventId","eventType","sessionId","actorRole","payload","previousVersion","newVersion","timestamp","idempotencyKey","provenance"],
+  "properties":{
+   "eventVersion":{"const":2},
+   "eventId":{"$ref":"urn:eduai:court:v1:command#/definitions/uuid"},
+   "eventType":{"type":"string"},"sessionId":{"$ref":"urn:eduai:court:v1:command#/definitions/uuid"},
+   "actorRole":{"type":["string","null"]},
+   "payload":{"$ref":"urn:eduai:court:v1:state#/definitions/event"},
+   "previousVersion":{"type":["integer","null"],"minimum":0,"maximum":9007199254740991},
+   "newVersion":{"type":"integer","minimum":0,"maximum":9007199254740991},
+   "timestamp":{"$ref":"urn:eduai:court:v1:state#/definitions/timestamp"},
+   "idempotencyKey":{"anyOf":[{"type":"null"},{"$ref":"urn:eduai:court:v1:command#/definitions/uuid"}]},
+   "provenance":{"enum":["verified-command-v1","unattributed"]}
+  },
+  "allOf":[{"if":{"properties":{"provenance":{"const":"unattributed"}}},"then":{"properties":{"actorRole":{"type":"null"},"previousVersion":{"type":"null"},"idempotencyKey":{"type":"null"}}},"else":{"properties":{"actorRole":{"type":"string"},"previousVersion":{"type":"integer"},"idempotencyKey":{"type":"string"}}}}]
+ }}
+}

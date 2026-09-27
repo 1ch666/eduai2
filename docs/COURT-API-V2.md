@@ -12,6 +12,7 @@ No authenticated production mutation/model test, migration or static asset chang
 - GET `/api/v2/court/sessions/:sessionId?requestId=:commandCorrelationId`
 - POST `/api/v2/court/sessions/:sessionId/actions`
 - GET `/api/v2/court/sessions/:sessionId/requests/:commandRequestId`
+- GET `/api/v2/court/sessions/:sessionId/events?after=-1`
 
 The POST body is the existing explicit **domain command v1**, defined by
 `court-v1-command.schema.json#/definitions/mutation`. It still requires
@@ -50,7 +51,7 @@ No SQL migration, data rewrite, new binding, cookie or secret. Legacy routes and
 web/Unity clients remain unchanged. Rollback restores old code without database
 conversion; new v2 clients must explicitly support the v1 transport or wait for
 redeployment. Never automatically retry an uncertain mutation through another
-version. Creation/deletion/events and other platform API contracts still require
+version. Creation/deletion and other platform API contracts still require
 separate versioning work; unimplemented v2 routes return a v2 404.
 
 ## Evidence and limits
@@ -63,3 +64,33 @@ No live inference is needed. These checks do not prove all platform APIs are
 versioned or that all production authenticated workflows have been exercised.
 Release evidence must be appended after actual CI/deployment, not inferred from
 source or unit tests.
+
+## Read-only event audit (candidate, not yet released)
+
+The events route requires an authenticated owner. Its data follows
+`contracts/court-v2-events.schema.json`: at most 20 events ordered by version,
+`nextAfter`, and the current `stateVersion`. Cursor `after` is an integer from -1
+through MAX_SAFE_INTEGER; invalid UUIDs/cursors are rejected. Continue with
+nextAfter only while events arrive. Stop on an empty page even if stateVersion is
+ahead: an old history gap is not repaired or filled by this read endpoint.
+
+Each event adds eventVersion, eventType, actorRole, previousVersion, newVersion
+and idempotencyKey around the existing public event payload. Provenance is
+`verified-command-v1` only when the saved strict command and exact resulting
+event agree. actorRole is the invoking player's role, not the NPC speaker.
+Missing or inconsistent receipts produce `unattributed` and null actorRole,
+previousVersion and idempotencyKey; version minus one is never fabricated.
+Persisted records with wrong session/case/row identity or malformed public DTOs
+fail closed with the standard 500 envelope, without disclosing the record.
+
+This method executes SELECTs only: no checkpoint, event repair, state advance,
+provider call or migration. It exports public snapshots for historical viewing,
+not hidden truth, full command bodies or authoritative database backups. Complete
+internal state reconstruction and backup/restore remain separate unfinished work.
+Legacy event APIs remain unchanged. Rollback removes this additive route only.
+
+Coverage: actual SQLite tests assert total_changes is unchanged, historical gaps
+stay empty, mismatched receipts remain unknown, malformed/cross-session records
+fail closed. The workerd API check adds owner/anonymous isolation, cursor/method
+rejection and agreement with the original command event. CI and production
+evidence must be recorded separately after execution.

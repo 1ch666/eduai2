@@ -38,7 +38,7 @@ test('v2 errors and exceptions use uniform safe metadata without private partial
 
 test('v2 unknown routes cannot fall through to creation/deletion and preflight does not call the domain',async()=>{
  const env={handler:()=>{throw Error('must not be called');}};
- for(const suffix of ['/delete','/events','/dialogue','/unexpected']){
+ for(const suffix of ['/delete','/dialogue','/unexpected']){
   const r=await handleCourtV2(new Request(path+suffix),env,send,trace,origin);assert.equal(r.status,404);assert.equal(courtV2Response(await r.json()),true);
  }
  const preflight=await handleCourtV2(new Request(path,{method:'OPTIONS'}),env,send,trace,origin);

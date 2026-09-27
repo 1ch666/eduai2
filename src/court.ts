@@ -14,6 +14,7 @@ import {proposeStageDialogue,type SavedStageDialogue} from './court-dialogue';
 import {aiOutcome} from './ai-outcome';
 import {createGovernedOllamaProvider} from './providers/governed-ollama';
 import {copyTrace,type TraceContext} from './trace-context';
+import {publicAuditEvent} from './court-audit';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
@@ -75,6 +76,21 @@ export class CourtRoom extends DurableObject<AppEnv> {
     checkpointJournal(this.ctx.storage.sql,state);
     const events=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version>? ORDER BY version LIMIT 20',after).toArray().map(r=>JSON.parse(r.body) as JournalEvent);
     return {events,nextAfter:events.at(-1)?.eventSequence??after,currentVersion:state.version};
+  }
+  eventsV2(owner:string,after:number){
+    const state=this.read();if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
+    if(!Number.isSafeInteger(after)||after< -1)return {error:'事件游標錯誤',status:400};
+    // Deliberately SELECT-only: replay/export must not repair, checkpoint or
+    // otherwise mutate a live session. Old gaps remain visible as gaps.
+    const rows=this.ctx.storage.sql.exec<{version:number;event_id:string;body:string}>('SELECT version,event_id,body FROM court_events WHERE version>? ORDER BY version LIMIT 20',after).toArray();
+    const events=rows.map(row=>{
+      const event=JSON.parse(row.body) as JournalEvent;
+      if(event.sessionId!==state.id||event.caseId!==state.config.caseId||event.stateVersion!==row.version||
+        event.eventId!==row.event_id||event.stateVersion>state.version)throw Error('Invalid persisted public event');
+      const receipt=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=?',event.requestId).toArray()[0];
+      return publicAuditEvent(event,receipt);
+    });
+    return {events,nextAfter:events.at(-1)?.newVersion??after,stateVersion:state.version};
   }
   snapshotV1(owner:string,requestId:string){
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};

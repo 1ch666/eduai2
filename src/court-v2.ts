@@ -2,6 +2,7 @@ import {handleCourt} from './court';
 import {responseHeaders,type Responder} from './http';
 import type {AppEnv} from './env';
 import type {TraceContext} from './trace-context';
+import {resolveSession} from './session';
 
 /** Additive transport version, not a second court engine. Raw POST bytes are
  * forwarded unchanged to the v1 parser (duplicate-key/Unicode/size guards).
@@ -22,9 +23,19 @@ export async function handleCourtV2(request:Request,env:AppEnv,send:Responder,
     const url=new URL(request.url);
     // Do not alias unversioned creation/deletion until their mutation/recovery
     // contracts are complete. Unknown v2 routes still receive a v2 error.
-    if(!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:actions|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
+    if(!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:actions|events|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
     if(request.method==='OPTIONS')return trustedOrigin?
       new Response(null,{status:204,headers:responseHeaders(trustedOrigin)}):respond(null,403);
+    if(url.pathname.endsWith('/events')){
+      if(request.method!=='GET')return respond(null,405);
+      const session=await resolveSession(request,env);if(!session)return respond(null,401);
+      const cursor=url.searchParams.get('after')??'-1';
+      if(!/^(?:-1|0|[1-9][0-9]{0,15})$/.test(cursor)||!Number.isSafeInteger(Number(cursor)))return respond(null,400);
+      const id=url.pathname.split('/').at(-2)!;
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return respond(null,400);
+      const result=await env.COURT_ROOM.getByName(id).eventsV2(session.user.id,Number(cursor));
+      return respond(result,'status' in result?result.status:200);
+    }
     url.pathname=url.pathname.replace('/api/v2/court/','/api/court/v1/');
     return await handleCourt(new Request(url,request),env,respond,trustedOrigin,trace);
   }catch{
