@@ -15,8 +15,24 @@ Unity 現有 NpcDialogueUI／原生中文輸入／鏡頭／桌機與手機操作
 - 新增六項 `scripts/test-npc-action.mjs`：快照先行、输入／預留拒絕、目標可見性、context 變更、錯誤不退回舊 POST、UI ticket 去重／容量／帳號隔離。
 - 與 transport、reload recovery 合跑 25 項通過；與既有 NPC／IME 橋接合跑 12 項通過（兩組重複含六項新測試，不能相加當成不同測試數）。前端語法／資產檢查通過。
 - Docker 工作流程加入新測試與新模組 HTTP 比對，尚未以此批來源執行；不能以先前映像代替。
-- 尚未實際在 Unity WebGL 角色對話 UI 走完整流程；本批不是新版 C# presenter、姿態動畫或座位映射完成。
+- 已完成下列本機 Unity WebGL 角色提問／AI 停用／重開歷史流程；尚未完成斷線恢復與真實供應商回覆的遊戲內驗收。本批不是新版 C# presenter、姿態動畫或座位映射完成。
 - 舊事件快照可能沒有 npc.ask；不能為啟用新按鈕重寫歷史。可先做合法程序動作取得新快照，或開新場次。不要靜默退回不共用 pending 的舊 POST。
 - 正式 Worker 現行發布仍是 `RELEASE-NPC-V1-2026-09-27.md` 所記來源，不含此批。
 
-下一步：更新本機資產 → 在真正 Unity WebGL 開啟角色／輸入中文／回覆／重開历史 → 模擬中斷並從程序面板恢復 → 核對無重複動作與鏡頭移動 → 部署同源前端 → Docker 重建。遊客固定案件路徑不修改。
+## 本機真實 WebGL 驗證（2026-09-27）
+
+來源：b6b7f34；本機 Worker `http://127.0.0.1:8792`，持續運行的本機狀態庫，`COURT_AI_ENABLED=false`。使用本機測試帳號，未改正式帳號、Secrets 或資料。瀏覽器是 Codex 內建 Chromium，不能代替 Chrome、Edge 或手機真機驗收。
+
+1. 從已登入介面恢復「沒有寄出的相機」，民事法官角色、陳述與爭點階段、版本 2。
+2. 透過「載入 3D 場景」取得 WebGL，進度到 100%，按「開始遊戲」後實際場景呈現。這次 Build 回應為 304，屬快取載入，沒有量測首次載入時間。
+3. 切自由走動，畫面顯示 Pointer Lock 相容模式。使用 W 前進、滑鼠拖曳轉向，在原告角色前按 E，開啟 Unity NPC 對話。
+4. 在遊戲的 DOM 中文輸入框填入「你親眼看見什麼？」並點送出。這證明中文字串傳遞與呈現，不等於已驗證作業系統注音組字流程。
+5. 畫面顯示場次版本 3，系統明示 `[AI_DISABLED] 未新增角色證詞`，並保留玩家問題與系統提示；不冒充角色新證詞。等待結束後輸入框恢復可用。
+6. 關閉對話後回到場內視角；再次對準同一角色按 E，讀回同一筆問題與提示，場次仍為版本 3。未重新送出問題。鏡頭有返回可操作視角，但未量測 position／rotation／FOV 等完整恢復不變量。
+7. 本機 Worker 實際輸出包含一次 `POST /api/court/v1/sessions/{id}/actions 200`，前後為快照與擁有者場次 GET；這段操作沒有舊版 NPC messages POST。重開對話只有場次 GET。
+
+本機截圖：工作區外層 `outputs/unity-npc-v1-local.png`（不含正式資料，未打包進部署資產）。
+
+本輪重新執行 `node --test scripts/test-npc-action.mjs scripts/test-npc-bridge.mjs scripts/test-pending-recovery.mjs`：13 項通過。自動化結果不能代替上述尚未驗證的供應商、斷線、手機、完整程序與鏡頭不變量。
+
+下一步：在遊戲內驗證中斷並從程序面板恢復 → 驗證真實 AI 供應商回覆 → 部署同源前端 → Docker 重建。遊客固定案件路徑不修改。正式部署仍未包含此批接線。
