@@ -1,3 +1,7 @@
+【2026-09-27 重構實作批次，未發布成品】
+已新增 Core/CourtRuntimeState.cs 與新 WebGL 模板握手，從 court/snapshot-relay.js 接收經驗證的 v1 公開快照，使用 CourtClientState 管理並顯示狀態 HUD。詳見 docs/UNITY-HUD-PROGRESS.md。
+play/ 仍為下方既有成品；沒有新 WebGL 或 Docker，不能稱已上線。使用者要求先實作完再集中驗收，目前僅必要語法／編譯檢查，完整手機／瀏覽器驗收未完成。最新授權允許代理部署既有 Cloudflare，不再要求一律使用者手動部署，但不得更動付費方案、Secrets 或成員權限。
+
 【2026-09-26 雲端盒子修正】
 Docker實際build/run已通過：來源aa14b22，https://github.com/1ch666/eduai2/actions/runs/36230056252 。新增game-panels.js有HTTP比對；artifact保留1天。容器不含正式後端。
 法官前CourtButton與被告前EvidenceInteractable已接本案程序／證物網頁dialog。PlayerInteractor在hosted模式允許這兩類物件，保留距離及遮擋，不執行本機平板案UnityEvent或證物文字。CourtHostPanel只發同源面板請求，不改伺服器資料；court/game-panels.js必須隨court.js部署。

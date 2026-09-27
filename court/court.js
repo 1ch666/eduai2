@@ -4,6 +4,7 @@ import { npcNotice } from './npc-status.js';
 import { installReplayPanel } from './replay-panel.js';
 import { installAccessibility } from './accessibility.js';
 import { installActionPanel } from './action-panel.js';
+import { installSnapshotRelay } from './snapshot-relay.js';
 installAccessibility({document,window});
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -17,6 +18,8 @@ void fetch(base+'/api/capabilities').then(r=>{if(!r.ok)throw Error();return r.js
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 let npcBusy=false;
+const snapshotRelay=installSnapshotRelay({window,getFrame:()=>$('scene'),getView:()=>view,getAccount:()=>account});
+$('logout').addEventListener('click',()=>snapshotRelay.clear(),{capture:true});
 const actionPanel=installActionPanel({window,document,getView:()=>view,getAccount:()=>account,csrf:()=>csrf,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();},onUpdated:async snapshot=>{
  if(!snapshot||view?.id!==snapshot.sessionId)return;
  const id=view.id,owner=account?.id,p=await api('/api/court/sessions/'+id);
@@ -118,7 +121,7 @@ if(v.actions.includes('closeEvidence'))$('actions').append(button(v.config.role=
 if(v.actions.includes('rule'))for(const r of v.proceduralRequests){const row=node('section');row.append(node('p',r.text));if(r.done)row.append(node('p','已完成准駁'));else row.append(button('准許',()=>act('rule',{rulingId:r.id,decision:'allow'})),button('不准許',()=>act('rule',{rulingId:r.id,decision:'deny'})));$('actions').prepend(row);}
 if(v.actions.includes('answer'))v.answers.forEach((a,i)=>$('actions').append(button(`${i+1}. ${a}`,()=>act('answer',{answer:i}))));
 $('feedback').textContent=v.feedback;$('assessment').replaceChildren();if(v.assessment)Object.entries(v.assessment).filter(([k])=>k!=='ranked').forEach(([,value])=>$('assessment').append(node('p',value)));
-if(v.completed)pause();$('guidance').textContent=`${v.turn.speaker}：${v.turn.text}`;}
+if(v.completed)pause();$('guidance').textContent=`${v.turn.speaker}：${v.turn.text}`;void snapshotRelay.sync();}
 async function act(type,data={}){if(!view)return;const requestId=crypto.randomUUID();try{const p=await api(`/api/court/sessions/${view.id}/actions`,{type,version:view.version,requestId,...data});view=p.view;render();scene();status('已保存');}catch(e){const p=await api('/api/court/sessions/'+view.id);view=p.view;render();throw e;}}
 function pause(){clearTimeout(playTimer);playTimer=null;$('autoplay').textContent='播放';}
 async function autoStep(){if(!view||view.completed||document.hidden){pause();return;}await run(()=>act('step'));if(!view.completed&&$('autoplay').textContent==='暫停')playTimer=setTimeout(autoStep,4500);}
