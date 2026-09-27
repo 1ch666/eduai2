@@ -8,7 +8,7 @@ import {CourtTransport} from '../court/transport.js';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
-function setup(selectedConfig=config){
+function setup(selectedConfig=config,env={}){
  const db=new DatabaseSync(':memory:');let fail=false;
  const sql={exec(query,...args){
   if(fail&&query.startsWith('INSERT INTO court_events'))throw Error('injected journal write failure');
@@ -16,7 +16,7 @@ function setup(selectedConfig=config){
   return {toArray:()=>rows,one:()=>{assert.equal(rows.length,1);return rows[0];}};
  }};
  const ctx={storage:{sql,transactionSync(fn){db.exec('BEGIN');try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}},blockConcurrencyWhile:fn=>fn()};
- const room=new CourtRoom(ctx,{}),id=crypto.randomUUID();room.init(id,'owner',selectedConfig);
+ const room=new CourtRoom(ctx,env),id=crypto.randomUUID();room.init(id,'owner',selectedConfig);
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
 test('journal stores real ordered versions and duplicate actions produce no event',()=>{
@@ -199,5 +199,93 @@ test('shell transport recovers an actual committed SQLite outcome after response
   }});
   transport.bind(id,'sale');assert.equal(await transport.refresh(),'accepted');assert.equal(await transport.act('acknowledge'),'network');assert.equal(transport.canAct,false);
   assert.equal(await transport.recoverPending(),'accepted');assert.equal(transport.snapshot.stateVersion,1);assert.equal(posts,1);assert.equal(room.events('owner',-1).events.length,2);
+ }finally{db.close();}
+});
+
+test('v1 NPC action commits one event, shares legacy history and returns identical retries',async()=>{
+ const {room,db,id}=setup();try{
+  const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你看到什麼？'};
+  assert.ok(room.snapshotV1('owner',crypto.randomUUID()).state.allowedActions.some(a=>a.actionId==='npc.ask'&&a.requiredTarget==='npc'));
+  const first=room.npcV1('owner',m,false);
+  assert.equal((await room.npcV1('owner',m,false)).status,202);
+  assert.equal((await room.npcV1('owner',{...m,text:'changed'},false)).status,409);
+  const event=await first;assert.ok(parseEvent(JSON.stringify(event)));assert.equal(event.kind,'npc_utterance');
+  assert.deepEqual(await room.npcV1('owner',m,false),event);assert.deepEqual(room.outcomeV1('owner',m.requestId),event);
+  assert.equal(room.get('owner').view.npcHistory.length,1);assert.equal(room.events('owner',-1).events.length,2);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_v1_npc_pending').get().n,0);
+ }finally{db.close();}
+});
+test('v1 NPC expiry survives recreation and fences late provider completion',async()=>{
+ const {room,db,ctx,id}=setup();try{
+  const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};
+  const first=room.npcV1('owner',m,false);
+  db.prepare('UPDATE court_v1_npc_pending SET created=?').run(Date.now()-26000);
+  const restored=new CourtRoom(ctx,{}),cancelled=restored.outcomeV1('owner',m.requestId);
+  assert.equal(cancelled.outcome,'not-applied');assert.equal(cancelled.reason,'expired');
+  assert.deepEqual(await first,cancelled);assert.deepEqual(await restored.npcV1('owner',m,true),cancelled);
+  assert.equal(room.get('owner').view.version,0);assert.equal(room.get('owner').view.npcHistory.length,0);
+  assert.equal(room.events('owner',-1).events.length,1);
+ }finally{db.close();}
+});
+test('state change or deletion while NPC awaits never applies an obsolete reply',async()=>{
+ for(const remove of [false,true]){
+  const {room,db,id}=setup();try{
+   const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};
+   const first=room.npcV1('owner',m,false);
+   if(remove)room.remove('owner');else room.actionV1('owner',mutation(id));
+   const result=await first;
+   if(remove){assert.equal(result.status,404);assert.equal(db.prepare('SELECT count(*) AS n FROM court_v1_npc_pending').get().n,0);}
+   else {assert.equal(result.reason,'state-changed');assert.equal(room.get('owner').view.version,1);assert.equal(room.events('owner',-1).events.length,2);}
+  }finally{db.close();}
+ }
+});
+test('v1 NPC has owner, input, ID collision and legacy bypass guards',async()=>{
+ const {room,db,id}=setup();try{
+  const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};
+  assert.equal((await room.npcV1('other',m,false)).status,404);
+  assert.equal((await room.npcV1('owner',{...m,targetId:'Fake'},false)).status,400);
+  const first=room.npcV1('owner',m,false);
+  assert.equal(room.actionV1('owner',{...m,actionId:'acknowledge',targetId:'',text:''}).status,409);
+  assert.equal((await room.npc('owner','Witness',{requestId:m.requestId,version:0,text:'你好'},false)).status,409);
+  assert.equal(room.outcomeV1('other',m.requestId).status,404);
+  await first;
+ }finally{db.close();}
+});
+test('v1 NPC transactional failure preserves reservation but no partial state or reply',async()=>{
+ const {room,db,id,setFail}=setup();try{
+  const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};setFail(true);
+  await assert.rejects(room.npcV1('owner',m,false),/journal write failure/);setFail(false);
+  assert.equal(room.get('owner').view.version,0);assert.equal(room.get('owner').view.npcHistory.length,0);
+  assert.equal(room.events('owner',-1).events.length,1);
+  assert.equal((await room.npcV1('owner',m,false)).status,202);
+  db.prepare('UPDATE court_v1_npc_pending SET created=?').run(Date.now()-26000);
+  assert.equal(room.outcomeV1('owner',m.requestId).outcome,'not-applied');
+ }finally{db.close();}
+});
+test('v1 concurrent retries and outcome reads call configured provider once',async()=>{
+ const {room,db,id}=setup(config,{OLLAMA_API_KEY:'synthetic-test-key'});
+ const original=globalThis.fetch;let calls=0,resolveProvider;
+ globalThis.fetch=()=>{calls++;return new Promise(resolve=>{resolveProvider=resolve;});};
+ try{
+  const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};
+  const first=room.npcV1('owner',m,true);await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls,1);assert.equal((await room.npcV1('owner',m,true)).status,202);assert.equal(room.outcomeV1('owner',m.requestId).status,202);
+  resolveProvider(Response.json({message:{content:JSON.stringify({reply:'你好，可以一起核對本案資料。',factIds:[],uncertain:true})}}));
+  const event=await first;assert.ok(parseEvent(JSON.stringify(event)));assert.match(event.text,/你好/);
+  assert.deepEqual(await room.npcV1('owner',m,true),event);assert.equal(calls,1);
+ }finally{globalThis.fetch=original;db.close();}
+});
+test('transport recovers committed NPC text after lost response, without another model request',async()=>{
+ const {room,db,id}=setup();let posts=0;
+ try{
+  const transport=new CourtTransport({origin:'https://court.test',csrf:()=> 'test',fetchImpl:async(url,o)=>{
+   const u=new URL(url);let result;
+   if(o.method==='POST'){posts++;await room.npcV1('owner',JSON.parse(o.body),false);throw Error('lost response');}
+   result=u.pathname.includes('/requests/')?room.outcomeV1('owner',u.pathname.split('/').at(-1)):room.snapshotV1('owner',u.searchParams.get('requestId'));
+   return Response.json(result,{status:result.status||200});
+  }});
+  transport.bind(id,'sale');await transport.refresh();assert.equal(await transport.act('npc.ask',{targetId:'Witness',text:'你好'}),'network');
+  assert.equal(await transport.recoverPending(),'accepted');assert.equal(posts,1);assert.equal(transport.lastDialogue.speaker,'證人');
+  assert.equal(transport.pending,null);transport.clear();assert.equal(transport.lastDialogue,null);
  }finally{db.close();}
 });

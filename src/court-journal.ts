@@ -1,5 +1,5 @@
 import {courtView, PROCEDURAL_REQUESTS, type CourtState} from './court-rules';
-import {publicCourtCast} from './court-cast';
+import {publicCourtCast,canConverse} from './court-cast';
 
 export type JournalDetail = {kind:'session_started'|'checkpoint'|'statement'|'ruling'|'stage_changed'|'session_completed'|'npc_utterance';requestId:string;speaker:string;roleId:string;text:string;evidenceIds?:string[]};
 // Explicit public projection. Never spread CourtState or generatedCase: those
@@ -14,6 +14,7 @@ export function publicCourtSnapshot(s:CourtState, requestId:string,eventId:strin
   const labels:Record<string,string>={acknowledge:'確認程序',speak:'提出陳述',review:'查看證物',closeEvidence:'結束調查',step:'下一步'};
   return [action(id,labels[id]||id,id==='speak'?'statement':id==='review'?'evidence':'procedure',id==='review'?'evidence':'none')];
  });
+ if(canConverse(s)&&s.version<100)allowedActions.push(action('npc.ask','向角色提問','statement','npc'));
  return {apiVersion:1,requestId,caseId:s.config.caseId,sessionId:s.id,stateVersion:s.version,eventId,eventSequence:s.version,timestamp,state:{
   title:v.title,procedure:v.procedure,roleId:s.config.role,stageId:'stage-'+s.stage,stageLabel:v.stageLabel,completed:s.completed,
   allowedActions,npcs:publicCourtCast(s),evidence:v.evidence.map(e=>({evidenceId:e.id,title:e.title,type:'document',text:e.text,metadata:[],sourceRole:'court',admittedStatus:'notConsidered',presentationState:'available',factReferences:[],assetId:''})),feedback:s.feedback

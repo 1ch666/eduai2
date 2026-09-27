@@ -1,5 +1,51 @@
 # Court Client Protocol v1
 
+## Current NPC extension — 2026-09-27
+
+The historical rollout notes below describe successive implementation stages, not
+the current deployment inventory. The existing v1 snapshot/action/outcome routes,
+web action panel and read-only Unity HUD are already implemented. The following
+NPC extension is tested locally but is not yet deployed; see
+`docs/NPC-CAST-PROGRESS.md` for exact evidence and remaining integration work.
+
+`POST /api/court/v1/sessions/{id}/actions` accepts the existing mutation envelope
+with `actionId: "npc.ask"`, an allowed public NPC `targetId`, and 1–400 UTF-16 units
+of nonblank text. Owner, CSRF, current version and conversation eligibility are
+checked on the server. The request and idempotency key are durably reserved before
+the provider call. Identical retries never invoke the provider again. Success is
+one `npc_utterance` event, atomically saved with state, legacy dialogue history and
+the replayable request outcome.
+
+The outcome endpoint may return HTTP 202 while an NPC request is pending. HTTP 404
+still means unknown, NOT confirmed failure. Once a reserved request reaches 25
+seconds, or its original action observes a changed court version, the server fences
+it with this exact terminal response (HTTP 200):
+
+```json
+{
+  "apiVersion": 1,
+  "requestId": "<original UUID>",
+  "sessionId": "<court UUID>",
+  "caseId": "sale",
+  "outcome": "not-applied",
+  "reason": "expired"
+}
+```
+
+`reason` is exactly `expired` or `state-changed`. No additional fields are allowed.
+This is a transport receipt, NOT an event or snapshot. Validate request/session/case
+correlation before clearing the pending marker; fetch a fresh snapshot before new
+actions. A malformed or foreign receipt does not release the pending request.
+The outcome GET can persist an expiry fence but cannot advance legal state, append
+testimony or call AI. A late provider completion must re-read the fence. Deletion
+returns 404 and cannot be reversed by a late completion. Session storage retains
+only the opaque request ID for reload recovery, not questions or credentials.
+
+Unity's existing snapshot/event schema is unchanged. Terminal receipts stay in
+the authenticated shell; do not feed them to the Unity state reducer. Full NPC
+animation, citation projection and role-private evidence isolation remain separate
+work, not capabilities implied by this endpoint.
+
 Status: implementation contract, not a deployed API. Baseline API remains v0 at `/api/court/*`. No v1 capability may be advertised until its server endpoints, Unity adapter and integration tests exist. `court/protocol.js` is the executable JSON validation contract; `court/client-state.js` is the browser-side reference reducer. Unity typed DTOs, strict wire reader and reducer now exist in Assets/Scripts/Networking and Core. Shared fixture: Assets/Editor/Fixtures/court-v1.json. Runtime integration remains pending.
 
 Unity's JsonUtility ignores unknown fields and defaults missing scalar fields. `Networking/CourtWire.cs` now validates the exact schema before deserialization and typed validation. Network adapters must use CourtClientState.AcceptSnapshotJson/AcceptEventJson. There is deliberately no SendMessage entry point accepting v1 JSON yet: exact origin/source/request correlation and runtime integration remain required. Do not wire unvalidated JsonUtility.FromJson output directly into this store.

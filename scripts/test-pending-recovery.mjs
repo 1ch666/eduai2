@@ -47,3 +47,23 @@ test('missing outcome after reload never unlocks new mutations',async()=>{
  const t=transport(db,async()=>new Response('',{status:404}));
  assert.equal(await t.recoverPending(),'outcome-unknown');assert.equal(await t.act('acknowledge'),'pending');assert.equal(t.pending.requestId,id);assert.equal(t.canAct,false);
 });
+test('reloaded NPC reservation recovers terminal receipt without persisting question or POSTing again',async()=>{
+ const db=storage();let sent,posts=0,expired=false;
+ const fetchImpl=async(url,o)=>{
+  if(url.includes('/requests/'))return expired?Response.json({apiVersion:1,requestId:sent.requestId,sessionId:sent.sessionId,caseId:sent.caseId,outcome:'not-applied',reason:'expired'}):new Response('',{status:202});
+  if(o.method==='GET'){
+   const s={...structuredClone(fixture),requestId:new URL(url).searchParams.get('requestId')};
+   s.state.allowedActions.push({actionId:'npc.ask',label:'向角色提問',category:'statement',enabled:true,reasonDisabled:'',requiredTarget:'npc'});
+   return Response.json(s);
+  }
+  posts++;sent=JSON.parse(o.body);return new Response('',{status:202});
+ };
+ const first=transport(db,fetchImpl);await first.refresh();
+ assert.equal(await first.act('npc.ask',{targetId:'Witness',text:'你看到什麼？'}),'outcome-unknown');
+ first.clear();assert.deepEqual([...db.values.values()],[sent.requestId]);
+ const restored=transport(db,fetchImpl);
+ assert.equal(await restored.recoverPending(),'outcome-unknown');assert.ok(restored.pending);
+ expired=true;assert.equal(await restored.recoverPending(),'not-applied');
+ assert.equal(restored.canAct,false);assert.equal(restored.snapshot,null);assert.equal(db.values.size,0);
+ assert.equal(await restored.refresh(),'accepted');assert.equal(restored.canAct,true);assert.equal(posts,1);
+});

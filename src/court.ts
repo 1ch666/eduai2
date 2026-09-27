@@ -9,6 +9,7 @@ import { NPC_IDS, npcKnowledge, npcHistory, npcResponse, validNpcInput, type Npc
 import { generatedCandidates, generateModelCase, randomLibraryCase, similarCase, GENERATION_VERSION } from './court-generation';
 import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, ROLE_DESCRIPTIONS, rolesFor, validateConfig, newCourt, transition, courtView, type CourtState, type CourtAction, type CourtConfig } from './court-rules';
 
+type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
   private read(): CourtState | undefined {
     if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return undefined;
@@ -24,6 +25,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       CREATE TABLE IF NOT EXISTS npc_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
       CREATE TABLE IF NOT EXISTS court_events(version INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS court_v1_requests(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,event TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS court_v1_npc_pending(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
     `);});
   }
   init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number]){
@@ -46,7 +48,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       if(!deleted)this.ctx.storage.sql.exec('INSERT INTO court_deleted VALUES(1,?,?)',owner,new Date().toISOString());
       // Keep only the small deletion guard: delayed generation must not revive
       // this UUID. All case content, replies, replay and request bodies are gone.
-      for(const table of ['state','requests','dialogue','npc_requests','court_events','court_v1_requests'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
+      for(const table of ['state','requests','dialogue','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
     });
     return {ok:true};
   }
@@ -70,7 +72,57 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
     if(!validProtocolUuid(requestId))return {error:'請求識別錯誤',status:400};
     const row=this.ctx.storage.sql.exec<{event:string}>('SELECT event FROM court_v1_requests WHERE request_id=?',requestId).toArray()[0];
-    return row?JSON.parse(row.event) as JournalEvent:{error:'尚無已提交結果',status:404};
+    if(row)return JSON.parse(row.event) as JournalEvent;
+    const pending=this.ctx.storage.sql.exec<{payload:string;created:number;result:string|null}>('SELECT payload,created,result FROM court_v1_npc_pending WHERE request_id=?',requestId).toArray()[0];
+    if(!pending)return {error:'尚無已提交結果',status:404};
+    if(pending.result)return JSON.parse(pending.result) as NpcNotApplied;
+    if(Date.now()-pending.created<25000)return {error:'對話仍處理中，請查詢原請求結果',status:202};
+    // Expiry is fenced durably before reporting a terminal outcome. A late
+    // provider response must re-read this row and cannot subsequently commit.
+    return this.cancelNpcV1(parseMutation(pending.payload)!,'expired');
+  }
+  private cancelNpcV1(m:CourtMutation,reason:'expired'|'state-changed'):NpcNotApplied{
+    const result:NpcNotApplied={apiVersion:1,requestId:m.requestId,sessionId:m.sessionId,caseId:m.caseId,outcome:'not-applied',reason};
+    this.ctx.storage.sql.exec('UPDATE court_v1_npc_pending SET result=? WHERE request_id=? AND result IS NULL',JSON.stringify(result),m.requestId);
+    return result;
+  }
+  async npcV1(owner:string,input:CourtMutation,allowAI:boolean){
+    const m=parseMutation(JSON.stringify(input));
+    if(!m||m.actionId!=='npc.ask'||!isNpcId(m.targetId)||!m.text.trim()||m.text.length>400)return {error:'角色或提問格式錯誤',status:400};
+    const s=this.read();if(!s||s.owner!==owner||s.id!==m.sessionId)return {error:'場次不存在',status:404};
+    if(s.config.caseId!==m.caseId)return {error:'案件不符',status:409};
+    const payload=canonical(m);
+    const done=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
+    if(done.length)return done.length===1&&done[0].payload===payload?JSON.parse(done[0].event) as JournalEvent:{error:'請求識別已用於不同內容',status:409};
+    const pending=this.ctx.storage.sql.exec<{payload:string}>('SELECT payload FROM court_v1_npc_pending WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
+    if(pending.length)return pending.length===1&&pending[0].payload===payload?this.outcomeV1(owner,m.requestId):{error:'請求識別已用於不同內容',status:409};
+    if(s.version!==m.expectedStateVersion||s.version>=100||!canConverse(s))return {error:'目前版本或階段不允許交談',status:409};
+    if(this.ctx.storage.sql.exec('SELECT id FROM npc_requests WHERE id=?',m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
+    const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
+    if(count>=40)return {error:'此場次對話上限已達',status:409};
+    const a={requestId:m.requestId,version:m.expectedStateVersion,text:m.text};
+    this.ctx.storage.transactionSync(()=>{
+      this.ctx.storage.sql.exec('INSERT INTO court_v1_npc_pending VALUES(?,?,?,?,NULL)',m.requestId,m.idempotencyKey,payload,Date.now());
+      this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',m.requestId,JSON.stringify({npcId:m.targetId,...a}),Date.now());
+    });
+    const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),m.targetId);
+    const reply=await npcResponse(this.env,s,m.targetId,a,allowAI&&count<12,history);
+    const current=this.read();if(!current||current.owner!==owner)return {error:'場次不存在',status:404};
+    const reservation=this.ctx.storage.sql.exec<{result:string|null;created:number}>('SELECT result,created FROM court_v1_npc_pending WHERE request_id=?',m.requestId).toArray()[0];
+    if(!reservation)return {error:'請求紀錄不存在',status:409};
+    if(reservation.result)return JSON.parse(reservation.result) as NpcNotApplied;
+    if(Date.now()-reservation.created>=25000)return this.cancelNpcV1(m,'expired');
+    if(current.version!==m.expectedStateVersion)return this.cancelNpcV1(m,'state-changed');
+    const next=structuredClone(current);next.version++;next.updatedAt=new Date().toISOString();reply.version=next.version;
+    return this.ctx.storage.transactionSync(()=>{
+      checkpointJournal(this.ctx.storage.sql,current);
+      this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
+      this.ctx.storage.sql.exec('UPDATE npc_requests SET result=? WHERE id=?',JSON.stringify(reply),m.requestId);
+      const event=appendJournal(this.ctx.storage.sql,next,{kind:'npc_utterance',requestId:m.requestId,speaker:npcKnowledge(next,m.targetId as NpcId).name,roleId:m.targetId.toLowerCase(),text:reply.text});
+      this.ctx.storage.sql.exec('INSERT INTO court_v1_requests VALUES(?,?,?,?)',m.requestId,m.idempotencyKey,payload,JSON.stringify(event));
+      this.ctx.storage.sql.exec('DELETE FROM court_v1_npc_pending WHERE request_id=?',m.requestId);
+      return event;
+    });
   }
   actionV1(owner:string,input:CourtMutation){
     // Validate again at RPC boundary; callers cannot inject score/state fields.
@@ -78,6 +130,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const s=this.read();if(!s||s.owner!==owner||s.id!==m.sessionId)return {error:'場次不存在',status:404};
     if(s.config.caseId!==m.caseId)return {error:'案件不符',status:409};
     const payload=canonical(m);
+    if(this.ctx.storage.sql.exec('SELECT request_id FROM court_v1_npc_pending WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray().length)return {error:'請求識別已使用',status:409};
     const previous=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
     if(previous.length)return previous.length===1&&previous[0].payload===payload?JSON.parse(previous[0].event) as JournalEvent:{error:'請求識別已用於不同內容',status:409};
     if(s.version!==m.expectedStateVersion||s.version>=100)return {error:'場次版本已變更或操作上限已達',status:409};
@@ -103,6 +156,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
   async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean){
     if(!isNpcId(id)||!validNpcInput(a))return {error:'角色或提問格式錯誤',status:400};
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
+    if(this.ctx.storage.sql.exec('SELECT request_id FROM court_v1_npc_pending WHERE request_id=?',a.requestId).toArray().length)return {error:'請透過原版本查詢對話結果',status:409};
     const payload=JSON.stringify({npcId:id,...a});
     const previous=this.ctx.storage.sql.exec<{payload:string;created:number;result:string|null}>('SELECT payload,created,result FROM npc_requests WHERE id=?',a.requestId).toArray()[0];
     if(previous){
@@ -243,7 +297,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     const input=raw.tooLarge||raw.invalidEncoding?null:parseMutation(raw.text);
     if(!input||input.sessionId!==v1[1])return respond({error:'動作格式或場次錯誤'},400);
     // Strict parser uses null-prototype records; DO RPC serializes plain objects.
-    const result=await room.actionV1(session.user.id,{...input});return respond(result,'status' in result?result.status:200);
+    const result=input.actionId==='npc.ask'?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4)):await room.actionV1(session.user.id,{...input});return respond(result,'status' in result?result.status:200);
   }
   if(request.method==='GET'){
     if(path==='/api/court/sessions')return respond({sessions:await learner.list()});

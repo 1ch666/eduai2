@@ -4,6 +4,18 @@ import {readFile} from 'node:fs/promises';
 import {CourtTransport} from '../court/transport.js';
 const fixture=JSON.parse(await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8'));
 const json=Response.json;
+test('correlated terminal receipt releases pending request but requires fresh snapshot',async()=>{
+ let sent,foreign=true;
+ const t=setup(async(url,o)=>{
+  if(o.method==='POST'){sent=JSON.parse(o.body);return new Response('{}',{status:202});}
+  if(url.includes('/requests/'))return json({apiVersion:1,requestId:foreign?crypto.randomUUID():sent.requestId,sessionId:sent.sessionId,caseId:sent.caseId,outcome:'not-applied',reason:'expired'});
+  return json(snapshot(url));
+ });
+ await t.refresh();assert.equal(await t.act('acknowledge'),'outcome-unknown');assert.ok(t.pending);
+ assert.equal(await t.recoverPending(),'malformed');assert.ok(t.pending);
+ foreign=false;assert.equal(await t.recoverPending(),'not-applied');assert.equal(t.pending,null);assert.equal(t.canAct,false);
+ assert.equal(t.snapshot.stateVersion,0);assert.equal(await t.refresh(),'duplicate');assert.equal(t.canAct,true);
+});
 test('default browser fetch retains its global receiver',async()=>{
  const original=globalThis.fetch;
  globalThis.fetch=function(url){assert.equal(this,globalThis,'browser fetch requires its Window receiver');return Promise.resolve(json(snapshot(url)));};
