@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {build} from 'esbuild';
-import {parseEvent,parseSnapshot} from '../court/protocol.js';
+import {parseEvent,parseSnapshot,canonical} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
 import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
 import {courtV2Events} from './court-schema-check.mjs';
@@ -14,6 +14,8 @@ const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'nod
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const privateBundle=await build({entryPoints:['src/court-private-journal.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {reconstructPrivateState}=await import('data:text/javascript;base64,'+Buffer.from(privateBundle.outputFiles[0].text).toString('base64'));
+const backupBundle=await build({entryPoints:['src/backup-envelope.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const {sealBackup,openBackup}=await import('data:text/javascript;base64,'+Buffer.from(backupBundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
 const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_ADMISSION:{getByName(name){
  assert.equal(name,'ollama-account-v1');return {
@@ -24,6 +26,62 @@ const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_A
 const gate=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const stageResponse=()=>Response.json({message:{content:JSON.stringify({text:'測試公開程序台詞'})}});
 const stageFallback=room=>({...room.get('owner').view.turn,aiOutcome:{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false}});
+
+test('isolated encrypted SQLite drill preserves court history, receipts and deletion guards',async()=>{
+ // Test-only, fixed table inventory. No file paths, network or production RPC.
+ // This is NOT a general importer: only this harness's synthetic rows are used.
+ const tables=['state','court_deleted','requests','dialogue','court_dialogue_attempts','npc_requests',
+  'court_events','court_v1_requests','court_v1_npc_pending','court_replay_meta','court_replay_context','court_replay_state'];
+ const source=setup(),target=setup(config,{},false);
+ const rows=db=>Object.fromEntries(tables.map(t=>[t,db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()]));
+ try{
+  const command=mutation(source.id),accepted=source.room.actionV1('owner',command);
+  assert.ok(parseEvent(JSON.stringify(accepted)));
+  const npc={...mutation(source.id,1,'npc.ask'),targetId:'Witness',text:'你好'};
+  const spoken=await source.room.npcV1('owner',npc,false);
+  assert.ok(parseEvent(JSON.stringify(spoken)));
+  const snapshot=source.ctx.storage.transactionSync(()=>rows(source.db));
+  assert.deepEqual(source.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name),[...tables].sort());
+  const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const manifest={schemaVersion:1,archiveId:crypto.randomUUID(),kind:'court',createdAt:'2026-09-28T00:00:00.000Z',sourceCommit:'a'.repeat(40),keyId:'synthetic-drill'};
+  const archive=await sealBackup(new TextEncoder().encode(canonical(snapshot)),key,manifest);
+  const restored=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(await openBackup(archive,key,manifest)));
+  const baseline=canonical(rows(target.db));
+  const importSynthetic=injectFailure=>target.ctx.storage.transactionSync(()=>{
+   // Target must be a fresh fixture, including no deletion tombstone. Never merge.
+   assert.equal(canonical(rows(target.db)),baseline);
+   for(const table of tables){
+    const columns=target.db.prepare(`PRAGMA table_info(${table})`).all().map(c=>c.name);
+    for(const row of restored[table]){
+     assert.deepEqual(Object.keys(row).sort(),[...columns].sort());
+     if(table==='court_replay_meta'){
+      assert.equal(canonical(row),canonical(target.db.prepare('SELECT * FROM court_replay_meta').get()));continue;
+     }
+     target.db.prepare(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`).run(...columns.map(c=>row[c]));
+    }
+   }
+   for(let v=0;v<=2;v++)assert.ok(reconstructPrivateState(target.ctx.storage.sql,v,{sessionId:source.id,owner:'owner'}));
+   if(injectFailure)throw Error('synthetic restore interruption');
+  });
+  assert.throws(()=>importSynthetic(true),/restore interruption/);
+  assert.equal(canonical(rows(target.db)),baseline);
+  importSynthetic(false);
+  assert.equal(canonical(rows(target.db)),canonical(snapshot));
+  const recovered=new CourtRoom(target.ctx,{});
+  assert.deepEqual(recovered.get('owner'),source.room.get('owner'));
+  assert.deepEqual(recovered.eventsV2('owner',-1),source.room.eventsV2('owner',-1));
+  assert.equal(recovered.get('other').status,404);
+  assert.deepEqual(recovered.actionV1('owner',command),accepted);
+  assert.deepEqual(await recovered.npcV1('owner',npc,false),spoken);
+  assert.equal(canonical(rows(target.db)),canonical(snapshot));
+  assert.equal(recovered.actionV1('owner',mutation(source.id,0)).status,409);
+  recovered.remove('owner');
+  assert.equal(target.db.prepare('SELECT count(*) AS n FROM court_deleted').get().n,1);
+  assert.equal(target.db.prepare('SELECT count(*) AS n FROM court_replay_state').get().n,0);
+  assert.equal(new CourtRoom(target.ctx,{}).init(source.id,'owner',config).status,404);
+  assert.equal(canonical(rows(source.db)),canonical(snapshot));
+ }finally{source.db.close();target.db.close();}
+});
 
 test('private journal reconstructs exact server state, deduplicates context and never enters public events',async()=>{
  const {room,db,ctx,id}=setup();

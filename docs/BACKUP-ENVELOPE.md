@@ -55,4 +55,23 @@ retention, archive transport, transactional database import and disaster-recover
 drills remain unfinished. No production recovery readiness claim is made.
 JavaScript/WebCrypto memory is not guaranteed securely erased by this helper.
 
+## Isolated SQLite drill (2026-09-28)
+
+`node --test scripts/test-court-journal.mjs` now exercises a synthetic court's
+12-table snapshot through encryption/decryption into a second in-memory SQLite
+database initialized by the actual CourtRoom constructor. A fixed table inventory
+assertion detects new tables omitted from this drill. The test injects an import
+failure and verifies transaction rollback, then verifies exact restored rows,
+private reconstruction at every recorded version, public state/events, owner
+isolation, command/NPC receipt retries without additional writes, stale rejection,
+deletion cleanup and the anti-resurrection guard. The source database is unchanged.
+
+This extends the byte-level test but uses a mocked Durable Object lifecycle with
+real Node SQLite, not workerd or Cloudflare recovery. Only active, settled synthetic
+court data is transferred; pending-provider recovery, deleted-backup import,
+cross-domain consistency and accounts/progress/experiments are not covered.
+The importer is intentionally test-local and accepts only harness-generated rows.
+It is not an approved import API or a validator for arbitrary decrypted archives.
+No production backup was read, created or restored by this drill.
+
 Design reference: https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams
