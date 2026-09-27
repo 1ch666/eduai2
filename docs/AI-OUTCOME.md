@@ -58,8 +58,22 @@ Production verification after release: public GET status remains compatible;
 invalid tutor request and anonymous photo request must return their old error
 statuses plus NO_AI/none, without sending data to a model. Authenticated NPC and
 live model success require separate evidence and must not be inferred from these
-probes. Release evidence will be recorded after CI and deployment.
+probes.
 
 Local evidence: 310 fast-gate tests passed, TypeScript/frontend and existing
 Unity artifact checks passed; Wrangler dry-run exit 0, 454.85 KiB / gzip
 104.33 KiB. These are not live model/semantic or mobile test results.
+
+## Released evidence — 2026-09-28
+
+- Source `78cd1e27ecce570354bb8f3c494b16d5d234eecc`, pushed to main.
+- CI `36349627787`: checks and real local-api/workerd jobs succeeded.
+- Worker `545772b3-e72f-41e6-afe2-a19526e59693`, deploy exit 0. No assets updated.
+- Production invalid `{}` tutor request: 400 + response/tutor/NO_AI/none.
+  Anonymous photo explain: 401 + response/photo/NO_AI/none. Both returned server
+  request IDs. These probes terminate before inference or data creation.
+- Three public capability/status GETs: 200, existing availability compatible,
+  READY with providerHealth explicitly not-probed. No live model inference or
+  authenticated NPC write was performed; such success is not claimed.
+- No migration, permission, Secret, key, payment or Unity changes. Unrelated
+  user-owned README work remains uncommitted and untouched.
