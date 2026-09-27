@@ -37,11 +37,15 @@ An old session starts recording at its next journalled version/checkpoint; an
 existing public event does not imply a corresponding private snapshot exists.
 No forced recreation of sessions or clearing production data is permitted.
 
-Old runtime code can read the unchanged live/public tables, but an unmodified old
-delete implementation does NOT erase these new private tables. Therefore do not
-use a bare pre-feature rollback as a supported production rollback: retain the
-two-table deletion cleanup in a rollback build, or disable mutations during an
-operator-managed recovery. Never drop the private tables to make rollback easy.
+Old runtime code can read the unchanged live/public tables. A persistent SQLite
+trigger `court_replay_erase_on_state_delete_v1` now erases both private tables when
+the singleton live state is deleted, including by the pre-feature a68df68 table
+deletion sequence. It shares the old deletion transaction and rolls back on
+failure. This requires preserving the trigger and its tables during rollback;
+do not drop them or substitute a different destructive schema operation.
+Node SQLite validates the old DELETE sequence; the local workerd fixture also
+checks actual runtime trigger execution, reconstruction and rollback atomicity.
+Its SQL introspection subclass is test-only and absent from production exports.
 Returning to the new code does not silently fill gaps produced by older code.
 
 ## Verification and remaining release gates
@@ -52,7 +56,7 @@ old-schema recreation preserving state and missing-link rejection. Existing
 public graph leakage tests remain in place. This is not production restore proof.
 
 Before deployment: fast CI, actual workerd compatibility, migration dry-run and
-rollback deletion drill. Before backup/restore claims: complete state/import
+recorded rollback deletion drill results. Before backup/restore claims: complete state/import
 validation, protected operator export of ALL required tables (including outcomes,
 pending reservations and deletion guards), archive integrity/encryption, isolated
 restore and cross-table verification. Accounts/progress/experiment backup remains

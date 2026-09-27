@@ -1,12 +1,35 @@
 // LOCAL TEST HARNESS ONLY. Never deploy this unauthenticated test dispatcher.
 export {AIAdmission} from '../../src/providers/admission-coordinator';
-export {Learner,CourtRoom} from '../../src/court';
-import type {Learner,CourtRoom} from '../../src/court';
+export {Learner} from '../../src/court';
+import {CourtRoom as ProductionCourtRoom} from '../../src/court';
+import type {Learner} from '../../src/court';
+import {reconstructPrivateState} from '../../src/court-private-journal';
+// Test-only SQL introspection. This subclass is never exported by src/index.ts.
+export class CourtRoom extends ProductionCourtRoom {
+ privateJournalDrill(id:string){
+  const config={caseId:'sale',role:'judge' as const,claimantAge:20,claimantHearingAge:20,
+   respondentAge:20,respondentHearingAge:20,claimantAid:'none' as const,respondentAid:'none' as const};
+  this.init(id,'fixture-owner',config);
+  const sql=this.ctx.storage.sql;
+  const before=sql.exec<{body:string}>('SELECT body FROM state').one().body;
+  const exact=JSON.stringify(reconstructPrivateState(sql,0));
+  const matches=Object.keys(JSON.parse(before)).every(key=>JSON.stringify(JSON.parse(before)[key])===JSON.stringify(JSON.parse(exact!)[key]));
+  const counts=()=>['state','court_events','court_replay_state','court_replay_context'].map(table=>sql.exec<{n:number}>(`SELECT count(*) AS n FROM ${table}`).one().n);
+  const legacyDelete=()=>{
+   for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])sql.exec(`DELETE FROM ${table}`);
+  };
+  let rolledBack=false;
+  try{this.ctx.storage.transactionSync(()=>{legacyDelete();throw Error('synthetic rollback');});}catch{rolledBack=counts().every(n=>n===1)&&sql.exec<{body:string}>('SELECT body FROM state').one().body===before;}
+  this.ctx.storage.transactionSync(legacyDelete);
+  return {matches,rolledBack,after:counts()};
+ }
+}
 import type {AIAdmission} from '../../src/providers/admission-coordinator';
 import {createAdmittedProvider} from '../../src/providers/admitted';
 export default {async fetch(request:Request,env:{ADMISSION:DurableObjectNamespace<AIAdmission>;LEARNER:DurableObjectNamespace<Learner>;COURT:DurableObjectNamespace<CourtRoom>}){
   if(request.method==='GET')return Response.json({fixture:'admission-local-only'});
   const body=await request.json() as {room:string;op:string;request:Parameters<AIAdmission['admit']>[0]};
+  if(body.op==='private-journal-drill')return Response.json(await env.COURT.getByName(body.room).privateJournalDrill(body.room));
   if(body.op==='stage-cycle'){
     const court=env.COURT.getByName(body.room);
     await court.init(body.room,'fixture-owner',{caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,

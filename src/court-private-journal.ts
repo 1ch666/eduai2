@@ -11,6 +11,13 @@ export function initializePrivateJournal(sql:SqlStorage){
  INSERT OR IGNORE INTO court_replay_meta VALUES(1,1);`);
  const meta=sql.exec<{schema_version:number}>('SELECT schema_version FROM court_replay_meta WHERE id=1').one();
  if(meta.schema_version!==1)throw Error('Unsupported private journal schema');
+ // Persisted trigger also protects deletion by a pre-feature Worker rollback.
+ // It shares the caller's transaction: a failed delete restores BOTH histories.
+ sql.exec(`CREATE TRIGGER IF NOT EXISTS court_replay_erase_on_state_delete_v1
+ AFTER DELETE ON state WHEN OLD.id=1 BEGIN
+ DELETE FROM court_replay_state;
+ DELETE FROM court_replay_context;
+ END;`);
 }
 // Caller must include this in the SAME transaction as the public event, live
 // state and idempotent outcome. No await, model call, clock or random generation.

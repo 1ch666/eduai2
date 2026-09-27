@@ -78,7 +78,7 @@ test('private reconstruction preserves generated answer keys and private graph w
 test('private journal upgrade preserves old data without invented history and rejects broken links',()=>{
  const {room,db,ctx,id}=setup();
  try{
-  db.exec('DROP TABLE court_replay_state; DROP TABLE court_replay_context; DROP TABLE court_replay_meta');
+  db.exec('DROP TRIGGER court_replay_erase_on_state_delete_v1; DROP TABLE court_replay_state; DROP TABLE court_replay_context; DROP TABLE court_replay_meta');
   const before=db.prepare('SELECT body FROM state').get().body;
   const restarted=new CourtRoom(ctx,{});
   assert.equal(db.prepare('SELECT body FROM state').get().body,before);
@@ -87,6 +87,23 @@ test('private journal upgrade preserves old data without invented history and re
   assert.deepEqual(reconstructPrivateState(ctx.storage.sql,1),JSON.parse(db.prepare('SELECT body FROM state').get().body));
   db.prepare('UPDATE court_replay_state SET event_id=?').run(crypto.randomUUID());
   assert.throws(()=>reconstructPrivateState(ctx.storage.sql,1),/integrity/);
+ }finally{db.close();}
+});
+
+test('persisted private cleanup survives legacy delete and rolls back if old transaction fails',()=>{
+ const {room,db,ctx}=setup();
+ try{
+  const before=db.prepare('SELECT body FROM state').get().body;
+  const legacyDelete=()=>{
+   // Pre-feature a68df68 remove() table list: no knowledge of private tables.
+   for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])ctx.storage.sql.exec(`DELETE FROM ${table}`);
+  };
+  assert.throws(()=>ctx.storage.transactionSync(()=>{legacyDelete();throw Error('old delete failed');}),/old delete failed/);
+  assert.equal(db.prepare('SELECT body FROM state').get().body,before);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_replay_state').get().n,1);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_replay_context').get().n,1);
+  ctx.storage.transactionSync(legacyDelete);
+  for(const table of ['state','court_events','court_replay_state','court_replay_context'])assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n,0);
  }finally{db.close();}
 });
 

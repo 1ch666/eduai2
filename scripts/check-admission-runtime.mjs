@@ -9,6 +9,8 @@ async function call(op,request,targetRoom=room){
  assert.equal(r.status,200);return r.json();
 }
 const results=await Promise.all(Array.from({length:8},()=>call('admit',identity('one'))));
+assert.deepEqual(await call('private-journal-drill',identity('unused'),crypto.randomUUID()),{matches:true,rolledBack:true,after:[0,0,0,0]});
+console.log('Local workerd private journal passed: reconstruction, persisted delete trigger and rollback atomicity.');
 const status=await call('inspect',identity('not-used'));
 assert.equal(status.scope,'provider-account');assert.equal(status.providerHealth,'not-probed');
 assert.equal(status.code,'READY');assert.equal('records' in status,false);
