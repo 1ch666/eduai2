@@ -40,3 +40,11 @@ Compatibility/migration: only new AI-created cases use this gate. Existing saved
 cases and library selection are unchanged; no schema migration or data rewrite.
 Rollback is a source revert of the generation integration; there is no data rollback.
 No Unity, frontend, assets or game-container rebuild is needed.
+
+Release: source `e28f5ff4652bc081dc6edf077b6bb88ba41e4cf5` passed fast and
+isolated API CI: https://github.com/1ch666/eduai2/actions/runs/36339158777 .
+Dry-run and existing Worker deployment passed; deployed version is
+`06bcf6ac-af81-432e-9336-9867c97537ad`. Public capabilities/cases returned 200;
+anonymous sessions returned 401. These are availability checks, not live-model
+generation validation. No model quota was spent. Previous rollback version:
+`5f5de49b-b1a5-4f2d-b7b8-efd23ffdd4c6`.
