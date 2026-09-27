@@ -1,4 +1,5 @@
 【2026-09-28 使用者回報懸空：撤銷整體上移，配合模型調整家具】
+接地修復來源 494dddb 已推 main，Worker 50e0b2d3-7d26-4593-8ddd-b54e895cdbb5 已部署；Pages 36333926651、Docker 36333927358 均成功。Worker／Pages HTML 均為 revision 8f0b2c59f3368fdd，該 revision 的四檔下載逐位元組吻合。瀏覽器側面與 E 對話已驗證，Docker 交接包保存於 outputs/docker-grounded-494dddb；未宣稱完整專案重構或手機真機已完成。
 5c95a37 已上線，但 .65m 高度補償讓腳底懸空；不算完整外觀驗收。新修正版移除 .65m 上移，將 hosted 桌面配合人物改為 .68m、補五把 .36m 座面椅子，盒子隨桌面移動。實際蒙皮腳底世界座標約 0～.003m；Scene／Play 已通過腳底接地、桌面可視、五椅與盒子射線測試。Release／真實瀏覽器／發布接續記錄；細節見 docs/UNITY-ROLE-WARDROBE.md。不得再只驗頭高於桌面而忽略腳底。
 
 【2026-09-28 桌機準星／椅面高度／法袍 WebGL 修復：歷史版本，有上述懸空缺陷】

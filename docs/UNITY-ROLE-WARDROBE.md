@@ -2,6 +2,8 @@
 
 ## 2026-09-28 追加修復：人物懸空（優先於下列歷史高度方案）
 
+最新發布：494dddb → Worker 50e0b2d3-7d26-4593-8ddd-b54e895cdbb5；Pages run 36333926651／Docker run 36333927358 成功。兩站 HTML revision 與四個版本化資源逐位元組確認一致。Docker 檔保存在 outputs/docker-grounded-494dddb，來源 commit 494dddb76f943db7f17ce51736a19c268670c1f1。手機、全角色全流程與前端／Unity 完整重構仍須繼續，這是針對懸空的已發布修復。
+
 5c95a37 已推送且發布 Worker e745e7fa-9564-4dbd-b9d4-a7d8cef50913；Pages 36332389492、Docker 36332434720 成功，兩個線上來源四檔均逐位元組一致，Docker 六項 SHA256 檢查通過。但使用者回報人物懸空，不能把這份發布當成完整美術驗收。
 
 根因：為越過原本 1.1／1.3m 桌面加入的 .65m 整體上移，同時把腳底抬高 .65m。僅檢查頭高／正面畫面漏掉腳底。SkinnedMeshRenderer.BakeMesh 結果再套用有縮放的 Transform 會在此骨架重複縮放，因此新的接觸測試直接使用原頂點、boneWeights、bindposes 及骨頭世界矩陣計算實際蒙皮位置，而不是誤用 BakeMesh bounds。
