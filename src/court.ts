@@ -10,12 +10,14 @@ import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, ROLE_DESCRIPTIONS, role
 
 export class CourtRoom extends DurableObject<AppEnv> {
   private read(): CourtState | undefined {
+    if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return undefined;
     return this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM state WHERE id=1').toArray().map(r=>JSON.parse(r.body) as CourtState)[0];
   }
   constructor(ctx:DurableObjectState,env:AppEnv){
     super(ctx,env);
     ctx.blockConcurrencyWhile(async()=>{this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS state(id INTEGER PRIMARY KEY CHECK(id=1),body TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS court_deleted(id INTEGER PRIMARY KEY CHECK(id=1),owner TEXT NOT NULL,deleted_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,result TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS dialogue(version INTEGER PRIMARY KEY,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS npc_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
@@ -24,6 +26,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     `);});
   }
   init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number]){
+    if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return {error:'場次已刪除',status:404};
     const current=this.read();
     if(current) return current.owner===owner ? {view:courtView(current)} : {error:'場次不存在',status:404};
     const state=newCourt(id,owner,config);
@@ -33,6 +36,13 @@ export class CourtRoom extends DurableObject<AppEnv> {
       appendJournal(this.ctx.storage.sql,state,{kind:'session_started',requestId:crypto.randomUUID(),speaker:'系統',roleId:state.config.role,text:'建立虛構教學場次。'});
     });
     return {view:courtView(state)};
+  }
+  remove(owner:string){
+    const deleted=this.ctx.storage.sql.exec<{owner:string}>('SELECT owner FROM court_deleted WHERE id=1').toArray()[0];
+    if(deleted)return deleted.owner===owner?{ok:true}:{error:'場次不存在',status:404};
+    const state=this.read();if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
+    this.ctx.storage.sql.exec('INSERT INTO court_deleted VALUES(1,?,?)',owner,new Date().toISOString());
+    return {ok:true};
   }
   get(owner:string){const state=this.read();return state?.owner===owner?{view:{...courtView(state),npcs:NPC_IDS.map(id=>({id,name:npcKnowledge(state,id).name})),npcHistory:this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray().map(r=>({question:JSON.parse(r.payload).text as string,...JSON.parse(r.result) as NpcReply}))}}:{error:'場次不存在',status:404};}
   events(owner:string,after:number){
@@ -157,6 +167,7 @@ export class Learner extends DurableObject<AppEnv>{
     this.ctx.storage.sql.exec('INSERT OR REPLACE INTO limits VALUES(?,?,?)',key,window,r?.window===window?r.count+1:1);return true;
   }
   list(){return this.ctx.storage.sql.exec('SELECT id,title,created_at AS createdAt FROM courts ORDER BY created_at DESC LIMIT 20').toArray();}
+  removeCourt(id:string){this.ctx.storage.sql.exec('DELETE FROM courts WHERE id=?',id);return {ok:true};}
   async generate(requestId:string,config:CourtConfig){
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
@@ -236,6 +247,15 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
   if(!trustedOrigin || !csrfTokenMatches(request,session))return respond({error:'請重新登入後再試'},403);
   if(!await learner.allow('court',40))return respond({error:'操作太頻繁，請稍候'},429);
   const body=await readJsonObject(request,8192,respond,'內容過長');if(body.error)return body.error;
+  const removeId=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})\/delete$/)?.[1];
+  if(removeId){
+    if(!validProtocolUuid(removeId)||Object.keys(body.value).length!==1||body.value.confirm!==true)return respond({error:'請確認刪除場次'},400);
+    const result=await env.COURT_ROOM.getByName(removeId).remove(session.user.id);
+    if('status' in result)return respond(result,result.status);
+    // Tombstone first. If index cleanup fails, retry is safe and the room is
+    // already inaccessible. Retain history for administrator recovery.
+    await learner.removeCourt(removeId);return respond({ok:true});
+  }
   const npcMatch=path.match(/^\/api\/court\/sessions\/([0-9a-f-]{36})\/npcs\/([A-Za-z]+)\/messages$/);
   if(npcMatch){
     if(!NPC_IDS.includes(npcMatch[2] as NpcId)||!validNpcInput(body.value))return respond({error:'NPC或對話格式錯誤'},400);

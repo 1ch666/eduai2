@@ -34,4 +34,12 @@ assert.equal(replay.replay.step(),true);assert.equal(replay.replay.current.state
 replay.replay.seek(0);assert.equal(replay.replay.current.stateVersion,0);
 assert.deepEqual((await call(path+'/requests/'+m.requestId,undefined,a)).data,success.data);
 replay.clear();assert.equal(replay.replay.current,null);
+const deletion='/api/court/sessions/'+id+'/delete';
+assert.equal((await call(deletion,{confirm:true},{cookie:a.cookie})).status,403);
+assert.equal((await call(deletion,{confirm:true},b)).status,404);
+assert.equal((await call(deletion,{confirm:false},a)).status,400);
+assert.equal((await call(deletion,{confirm:true},a)).status,200);
+assert.equal((await call(deletion,{confirm:true},a)).status,200);
+assert.equal((await call('/api/court/sessions/'+id,undefined,a)).status,404);
+assert.ok(!(await call('/api/court/sessions',undefined,a)).data.sessions.some(s=>s.id===id));
 console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, stable result and journal deduplication.');

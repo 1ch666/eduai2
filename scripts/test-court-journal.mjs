@@ -31,6 +31,20 @@ test('journal stores real ordered versions and duplicate actions produce no even
   assert.equal(room.events('owner',0).events.length,1);assert.equal(room.events('owner',1).events.length,0);
  }finally{db.close();}
 });
+test('soft deletion is owner-only, idempotent and blocks every existing room entry',async()=>{
+ const {room,db,id}=setup();try{
+  assert.equal(room.remove('other').status,404);assert.ok(room.get('owner').view);
+  assert.equal(room.remove('owner').ok,true);assert.equal(room.remove('owner').ok,true);
+  assert.equal(room.get('owner').status,404);assert.equal(room.events('owner',-1).status,404);
+  assert.equal(room.snapshotV1('owner',crypto.randomUUID()).status,404);
+  assert.equal(room.outcomeV1('owner',crypto.randomUUID()).status,404);
+  assert.equal(room.action('owner',{requestId:crypto.randomUUID(),version:0,type:'acknowledge'}).status,404);
+  assert.equal((await room.npc('owner','Witness',{requestId:crypto.randomUUID(),version:0,text:'你好'},false)).status,404);
+  assert.equal(room.dialogue('owner',0).status,404);assert.equal(room.init(id,'owner',config).status,404);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,1);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,1);
+ }finally{db.close();}
+});
 test('failed event insertion rolls back BOTH state and request result',()=>{
  const {room,db,setFail}=setup();try{
   const a={requestId:crypto.randomUUID(),version:0,type:'acknowledge'};setFail(true);

@@ -47,7 +47,23 @@ function button(text,fn){const b=node('button',text);b.type='button';b.addEventL
 async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},body:body?JSON.stringify(body):undefined});const p=await r.json();if(r.status===501)throw Error('此容器尚未設定後端，登入、雲端場次與 AI 無法使用；固定遊戲仍可遊玩。');if(!r.ok)throw Error(p.error||'服務暫時無法使用');return p;}
 async function run(fn){if(busy||npcBusy)return;busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
 async function session(){const p=await window.EduAuth.session();account=p.user;csrf=p.csrfToken||'';hasRecoveryCode=account?p.hasRecoveryCode!==false:true;$('account-toggle').textContent=account?account.displayName:'登入';$('logout').hidden=!account;$('first-recovery-section').hidden=!account||hasRecoveryCode;$('create').textContent=account?'建立雲端場次':'登入後建立場次';if(account)await sessions();}
-async function sessions(){const p=await api('/api/court/sessions');$('sessions').replaceChildren(...p.sessions.map(s=>button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);open(p.view);})));}
+async function sessions(){
+ const owner=account?.id;if(!owner){$('sessions').replaceChildren(node('p','登入後查看已保存場次。'));return;}
+ const p=await api('/api/court/sessions');if(account?.id!==owner)return;
+ $('sessions').replaceChildren(...p.sessions.map(s=>{
+  const row=node('div');row.className='session-row';
+  row.append(button(`${s.title} · ${new Date(s.createdAt).toLocaleDateString('zh-TW')}`,async()=>{const p=await api('/api/court/sessions/'+s.id);if(account?.id===owner)open(p.view);}));
+  const remove=button('刪除',async()=>{
+   if(account?.id!==owner||!window.confirm(`刪除「${s.title}」？場次將移出清單且無法繼續；紀錄保留供管理者恢復。`))return;
+   await api(`/api/court/sessions/${s.id}/delete`,{confirm:true});
+   if(account?.id!==owner)return;
+   if(view?.id===s.id){pause();stopVoice(true);view=null;$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;}
+   await sessions();status('場次已移除。');
+  });remove.className='delete-session';remove.setAttribute('aria-label',`刪除場次：${s.title}`);row.append(remove);return row;
+ }));
+ if(!p.sessions.length)$('sessions').append(node('p','尚無場次，可按「新增場次」開始。'));
+}
+$('new-session').onclick=()=>{if(busy||npcBusy)return;pause();stopVoice(true);$('setup').hidden=false;$('hearing').hidden=true;$('scene').removeAttribute('src');$('scene').hidden=true;view=null;$('case').focus();$('setup-form').scrollIntoView({block:'start'});status('請設定案件與角色，再按「建立雲端場次」。');};
 function choices(select,items){select.replaceChildren(...items.map(([value,label])=>{const o=node('option',label);o.value=value;return o;}));}
 function setup(){const t=cases.find(c=>c.id===$('case').value);if(!t)return;$('procedure').value=procedureNames[t.procedure];$('case-summary').textContent=t.summary;
 choices($('role'),t.roles.map(r=>[r,t.procedure==='criminal'&&r==='claimant'?'告訴／被害人':t.procedure==='criminal'&&r==='respondentCounsel'?'辯護人':t.procedure==='criminal'&&r==='claimantCounsel'?'告訴代理人':labels[r]]));
