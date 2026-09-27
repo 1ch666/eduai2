@@ -1,6 +1,7 @@
 import {CourtTransport} from './transport.js';
 import {createEvidenceViewer} from './evidence-viewer.js';
 import {createPendingJournal} from './pending-journal.js';
+import {actionTargets,actionTargetStatus} from './action-targets.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
@@ -13,10 +14,11 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const body=make('div'),recovery=make('div');recovery.className='bar';
  const textLabel=make('label','陳述內容'),text=make('textarea');text.maxLength=600;text.rows=4;textLabel.append(text);
  const targetLabel=make('label','選擇證物'),target=make('select');targetLabel.append(target);
+ const npcLabel=make('label','選擇互動角色'),npc=make('select');npcLabel.append(npc);
  const actions=make('div');actions.className='server-actions';
  const refresh=make('button','更新狀態'),recover=make('button','查詢上次送出結果'),retry=make('button','重送同一筆操作');
  for(const b of [refresh,recover,retry])b.type='button';
- recovery.append(refresh,recover,retry);body.append(textLabel,targetLabel,actions);
+ recovery.append(refresh,recover,retry);body.append(textLabel,targetLabel,npcLabel,actions);
  const evidenceViewer=createEvidenceViewer({document});
  dialog.append(close,heading,notice,evidenceViewer.element,body,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
@@ -28,19 +30,29 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;
   recover.hidden=retry.hidden=!pending;actions.replaceChildren();
-  text.disabled=target.disabled=working||!!pending;
+  text.disabled=target.disabled=npc.disabled=working||!!pending||transport.recoveryBlocked;
   textLabel.hidden=!snapshot?.state.allowedActions.some(a=>a.category==='statement');
   targetLabel.hidden=!snapshot?.state.allowedActions.some(a=>a.requiredTarget==='evidence');
-  const selected=target.value;target.replaceChildren();
-  for(const e of snapshot?.state.evidence||[]){const o=make('option',e.title);o.value=e.evidenceId;target.append(o);}
-  if([...target.options].some(o=>o.value===selected))target.value=selected;
+  npcLabel.hidden=!snapshot?.state.allowedActions.some(a=>a.requiredTarget==='npc');
+  for(const [control,kind] of [[target,'evidence'],[npc,'npc']]){
+   const selected=control.value;control.replaceChildren();
+   for(const item of actionTargets(snapshot,kind)){const o=make('option',item.label);o.value=item.id;control.append(o);}
+   if([...control.options].some(o=>o.value===selected))control.value=selected;
+  }
   for(const action of snapshot?.state.allowedActions||[]){
    const row=make('section'),button=make('button',action.label);button.type='button';
-   const unsupported=!['none','evidence'].includes(action.requiredTarget);
-   button.disabled=working||!transport.canAct||!action.enabled||unsupported;
-   button.onclick=()=>void execute(()=>transport.act(action.actionId,{targetId:action.requiredTarget==='evidence'?target.value:'',text:action.category==='statement'?text.value:''}),true);
+   const selection=()=>action.requiredTarget==='npc'?npc.value:target.value;
+   const availability=actionTargetStatus(snapshot,action,selection());
+   button.disabled=working||!transport.canAct||!availability.enabled;
+   button.onclick=()=>{
+    const current=transport.snapshot,currentAction=current?.state.allowedActions.find(a=>a.actionId===action.actionId);
+    if(!currentAction)return;
+    const checked=actionTargetStatus(current,currentAction,selection());
+    if(!checked.enabled){notice.textContent=checked.reason;render();return;}
+    void execute(()=>transport.act(currentAction.actionId,{targetId:checked.targetId,text:currentAction.category==='statement'?text.value:''}),true);
+   };
    row.append(button);
-   if(!action.enabled||unsupported)row.append(make('p',unsupported?'此操作的目標類型尚未支援。':action.reasonDisabled||'目前不可使用。'));
+   if(!availability.enabled)row.append(make('p',availability.reason));
    actions.append(row);
   }
   if(snapshot?.state.completed)actions.append(make('p',snapshot.state.feedback||'此場次已完成。'));
@@ -59,6 +71,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   finally{if(started===generation){working=false;render();}}
  }
  refresh.onclick=()=>void execute(()=>transport.refresh());
+ target.onchange=npc.onchange=render;
  recover.onclick=()=>void execute(()=>transport.recoverPending(),true);
  retry.onclick=()=>void execute(()=>transport.retry(),true);
  function clear(){generation++;context=null;working=false;transport.clear();text.value='';notice.textContent='';render();if(dialog.open)dialog.close();}
