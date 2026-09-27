@@ -1,4 +1,5 @@
-// HTTP-boundary telemetry only. Never derive identifiers from credentials or
+import type {TraceContext} from './trace-context';
+// HTTP-boundary telemetry. Never derive identifiers from credentials or
 // serialize Request, Response, exception messages, bodies, or URL query strings.
 const STATIC_ENDPOINTS = new Set([
   '/api/capabilities', '/api/messages', '/api/progress',
@@ -56,7 +57,7 @@ export interface HttpTraceRecord {
  */
 export async function observeApiRequest(
   request: Request,
-  operation: () => Promise<Response>,
+  operation: (trace:TraceContext) => Promise<Response>,
   failureResponse: () => Response,
   emit: (record: HttpTraceRecord) => void = record => console.log(JSON.stringify(record))
 ): Promise<Response> {
@@ -67,7 +68,7 @@ export async function observeApiRequest(
   const method = ['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'].includes(request.method) ? request.method : 'OTHER';
   let response: Response;
   let failed = false;
-  try { response = await operation(); }
+  try { response = await operation({schemaVersion:1,requestId,traceId}); }
   catch { failed = true; response = failureResponse(); }
 
   const headers = new Headers(response.headers);

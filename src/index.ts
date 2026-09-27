@@ -14,6 +14,7 @@ import { handlePhoto } from './photo';
 import { handleGroups } from './groups';
 import { observeApiRequest } from './telemetry';
 import {aiAvailability} from './ai-availability';
+import type {TraceContext} from './trace-context';
 export { CourtRoom, Learner } from './court';
 export { Practice } from './practice';
 export { Planner } from './planner';
@@ -52,7 +53,7 @@ function isApiPath(pathname: string): boolean {
   );
 }
 
-async function handleApi(request: Request, env: AppEnv): Promise<Response> {
+async function handleApi(request: Request, env: AppEnv,trace:TraceContext): Promise<Response> {
   const url = new URL(request.url);
   const requestOrigin = request.headers.get("Origin") || "";
   const trustedOrigin = TRUSTED_WEB_ORIGINS.has(requestOrigin) || requestOrigin === url.origin ? requestOrigin : undefined;
@@ -69,20 +70,20 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
     const availability=await aiAvailability(env);
     return respond({version:'platform-3-preview',auth:true,recovery:true,court:true,courtStatus:'preview',courtAi:env.COURT_AI_ENABLED==='true'&&availability.canAttempt,npcAi:env.COURT_AI_ENABLED!=='false'&&availability.canAttempt,caseGenerationAi:env.COURT_AI_ENABLED!=='false'&&availability.canAttempt,textAi:availability.canAttempt,availability,practice:true,photo:availability.canAttempt,photoOcr:false,push:true,planner:true,rankings:true,groups:true});
   }
-  if (url.pathname.startsWith('/api/court/')) return handleCourt(request,env,respond,trustedOrigin);
+  if (url.pathname.startsWith('/api/court/')) return handleCourt(request,env,respond,trustedOrigin,trace);
   if (url.pathname.startsWith('/api/practice/')) return handlePractice(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/planner/')) return handlePlanner(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/push/')) return handlePush(request,env,respond,trustedOrigin);
   if (url.pathname.startsWith('/api/rankings/')) return handleRankings(request,env,respond,trustedOrigin);
   if (url.pathname === '/api/groups' || url.pathname.startsWith('/api/groups/')) return handleGroups(request,env,respond,trustedOrigin);
-  if (url.pathname.startsWith('/api/photo/')) return handlePhoto(request,env,respond,trustedOrigin);
+  if (url.pathname.startsWith('/api/photo/')) return handlePhoto(request,env,respond,trustedOrigin,undefined,trace);
 
   if (url.pathname.startsWith("/api/auth/")) return await handleAuth(request, env, respond, trustedOrigin);
   if (url.pathname === "/api/progress") return await handleProgress(request, env, respond, trustedOrigin);
   if (url.pathname.startsWith("/api/ai/")) {
     // The Unity build and the site both post here; reads stay open for status.
     if (!trustedOrigin && request.method !== "GET") return respond({ error: "拒絕未授權網站寫入" }, 403);
-    return await handleAiRequest(request, env, respond);
+    return await handleAiRequest(request, env, respond,trace);
   }
   return await handleMessages(request, env, respond, trustedOrigin);
 }
@@ -100,7 +101,7 @@ export default {
     if (url.pathname.startsWith('/api/')) {
       const origin = request.headers.get('Origin') || '';
       const trustedOrigin = TRUSTED_WEB_ORIGINS.has(origin) || origin === url.origin ? origin : undefined;
-      return observeApiRequest(request, () => handleApi(request, env),
+      return observeApiRequest(request, trace => handleApi(request, env,trace),
         () => json({ error: '服務暫時無法使用' }, 500, trustedOrigin));
     }
     try {

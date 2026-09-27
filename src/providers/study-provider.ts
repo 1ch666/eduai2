@@ -3,6 +3,7 @@ import {sha256Hex} from '../http';
 import type {ChatInput,LLMProvider} from './contracts';
 import {createGovernedOllamaProvider} from './governed-ollama';
 import type {StudyKind,StudyReservation} from './study-attempts';
+import type {TraceContext} from '../trace-context';
 
 export type StudyProviderResult={ok:true;provider:LLMProvider}|
   {ok:false;code:'AI_ATTEMPT_ALREADY_USED'|'AI_REQUEST_CONFLICT'|'AI_ATTEMPT_CAPACITY'|'ADMISSION_UNAVAILABLE';status:409|503};
@@ -12,7 +13,7 @@ export type StudyProviderResult={ok:true;provider:LLMProvider}|
  * A lost reservation reply is never retried; it cannot cause a second inference.
  */
 export async function studyProvider(env:AppEnv,kind:StudyKind,owner:string,requestId:string,input:ChatInput,
-  thinking?:false|'low'):Promise<StudyProviderResult>{
+  thinking?:false|'low',trace?:TraceContext):Promise<StudyProviderResult>{
   try{
     const [id,fingerprint]=await Promise.all([
       sha256Hex(JSON.stringify(['study-request-v1',requestId.toLowerCase()])),
@@ -32,7 +33,7 @@ export async function studyProvider(env:AppEnv,kind:StudyKind,owner:string,reque
       {ok:false,code:receipt.code==='CAPACITY'?'AI_ATTEMPT_CAPACITY':'ADMISSION_UNAVAILABLE',status:503};
     return {ok:true,provider:await createGovernedOllamaProvider(env,{
       kind,owner,sessionId:'study',requestKey:id,issuedAt:receipt.issuedAt
-    },thinking)};
+    },thinking,trace)};
   }catch{
     return {ok:false,code:'ADMISSION_UNAVAILABLE',status:503};
   }

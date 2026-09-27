@@ -18,6 +18,22 @@ const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_A
 const gate=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const stageResponse=()=>Response.json({message:{content:JSON.stringify({text:'測試公開程序台詞'})}});
 const stageFallback=room=>({...room.get('owner').view.turn,aiOutcome:{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false}});
+
+test('CourtRoom propagates a copied trace but never persists it or emits new provider spans for cached replies',async()=>{
+ const {room,db}=setup(config,stageEnv),original=globalThis.fetch,log=console.log,records=[];
+ const trace={schemaVersion:1,requestId:crypto.randomUUID(),traceId:crypto.randomUUID().replaceAll('-','')},expected={...trace};
+ console.log=value=>records.push(JSON.parse(value));globalThis.fetch=async()=>stageResponse();
+ try{
+  const pending=room.stageDialogue('owner',0,true,trace);trace.traceId='PRIVATE_MUTATED';
+  const result=await pending;assert.equal(result.cached.mode,'ai-dialogue');
+  assert.equal(records.length,2);
+  for(const r of records){assert.equal(r.traceId,expected.traceId);assert.equal(r.requestId,expected.requestId);assert.equal(r.feature,'stage-dialogue');}
+  assert.deepEqual(await room.stageDialogue('owner',0,true,expected),result);assert.equal(records.length,2);
+  assert.equal(JSON.stringify(result).includes(expected.traceId),false);
+  assert.equal(JSON.stringify(db.prepare('SELECT body FROM state').all()).includes(expected.traceId),false);
+  assert.equal(JSON.stringify(records).includes('synthetic-test-key'),false);
+ }finally{globalThis.fetch=original;console.log=log;db.close();}
+});
 test('stage dialogue concurrent tabs and lost response share one durable provider attempt',async()=>{
  const {room,db,ctx}=setup(config,stageEnv);const original=globalThis.fetch;let calls=0,release;const entered=gate();
  globalThis.fetch=()=>{calls++;return new Promise(resolve=>{release=resolve;entered.resolve();});};

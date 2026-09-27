@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import {gzipSync} from 'node:zlib';
 import {grantedAdmission,studyFixture} from './helpers/study-fixture.mjs';
+import {observeApiRequest} from '../src/telemetry.ts';
 const bundle=await build({entryPoints:['src/ai.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{
  name:'local-rate-limit-stub',setup(b){
   b.onResolve({filter:/^\.\/messages$/},()=>({path:'messages',namespace:'test'}));
@@ -13,6 +14,22 @@ const {handleAiRequest}=await import('data:text/javascript;base64,'+Buffer.from(
 const env={OLLAMA_API_KEY:'test-secret-not-real',testRoom:{allowAiRequest:async()=>true},
  LEARNER:{getByName:()=>({reserveStudyAi:async()=>({code:'RESERVED',issuedAt:Date.now()})})},AI_ADMISSION:grantedAdmission()};
 const respond=(body,status=200)=>Response.json(body,{status});
+test('HTTP tutor propagates server trace through study admission and provider without logging text',async()=>{
+ const old=globalThis.fetch,log=console.log,records=[];
+ console.log=value=>records.push(JSON.parse(value));
+ globalThis.fetch=async()=>Response.json({message:{content:'PRIVATE_ANSWER'},prompt_eval_count:12,eval_count:4});
+ try{
+  const request=new Request('https://local.test/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json','X-Trace-ID':'PRIVATE_TRACE'},
+   body:JSON.stringify({question:'PRIVATE_QUESTION',history:[],clientId:'local-test-client-0001',requestId:crypto.randomUUID(),traceId:'PRIVATE_TRACE'})});
+  const result=await observeApiRequest(request,trace=>handleAiRequest(request,env,respond,trace),()=>respond({},500));
+  assert.equal(result.status,200);assert.equal((await result.json()).answer,'PRIVATE_ANSWER');
+  assert.equal(records.length,3);
+  for(const record of records){assert.equal(record.traceId,result.headers.get('X-Trace-ID'));assert.equal(record.requestId,result.headers.get('X-Request-ID'));}
+  assert.deepEqual(records.map(r=>r.event),['ai.provider.completed','ai.provider.completed','http.request.completed']);
+  assert.equal(records[0].inputTokens,12);assert.equal(records[1].inputTokens,null);
+  assert.equal(JSON.stringify(records).includes('PRIVATE'),false);assert.equal(JSON.stringify(records).includes(env.OLLAMA_API_KEY),false);
+ }finally{globalThis.fetch=old;console.log=log;}
+});
 function ask(question='說明權力分立的優點',configuration=env){return handleAiRequest(new Request('https://local.test/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question,history:[],clientId:'local-test-client-0001',requestId:crypto.randomUUID(),aiOutcome:{mode:'FULL'}})}),configuration,respond);}
 
 test('exact dictionary lookup stays NO_AI, not RAG, even with a caller-forged outcome',async()=>{

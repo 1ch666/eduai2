@@ -13,6 +13,7 @@ import { AGE_LIMITS, CASES, LEGAL_SOURCES, RULE_VERSION, rolesFor, validateConfi
 import {proposeStageDialogue,type SavedStageDialogue} from './court-dialogue';
 import {aiOutcome} from './ai-outcome';
 import {createGovernedOllamaProvider} from './providers/governed-ollama';
+import {copyTrace,type TraceContext} from './trace-context';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
@@ -113,7 +114,8 @@ export class CourtRoom extends DurableObject<AppEnv> {
     this.ctx.storage.sql.exec('UPDATE court_v1_npc_pending SET result=? WHERE request_id=? AND result IS NULL',JSON.stringify(result),m.requestId);
     return result;
   }
-  async npcV1(owner:string,input:CourtMutation,allowAI:boolean){
+  async npcV1(owner:string,input:CourtMutation,allowAI:boolean,trace?:TraceContext){
+    trace=copyTrace(trace);
     const m=parseMutation(JSON.stringify(input));
     if(!m||m.actionId!=='npc.ask'||!isNpcId(m.targetId)||!m.text.trim()||m.text.length>400)return {error:'角色或提問格式錯誤',status:400};
     const s=this.read();if(!s||s.owner!==owner||s.id!==m.sessionId)return {error:'場次不存在',status:404};
@@ -134,7 +136,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',m.requestId,JSON.stringify({npcId:m.targetId,...a}),issuedAt);
     });
     const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),m.targetId);
-    const reply=await npcResponse(this.env,s,m.targetId,a,allowAI&&count<12,history,undefined,issuedAt);
+    const reply=await npcResponse(this.env,s,m.targetId,a,allowAI&&count<12,history,undefined,issuedAt,trace);
     const current=this.read();if(!current||current.owner!==owner)return {error:'場次不存在',status:404};
     const reservation=this.ctx.storage.sql.exec<{result:string|null;created:number}>('SELECT result,created FROM court_v1_npc_pending WHERE request_id=?',m.requestId).toArray()[0];
     if(!reservation)return {error:'請求紀錄不存在',status:409};
@@ -181,7 +183,8 @@ export class CourtRoom extends DurableObject<AppEnv> {
       return event;
     });
   }
-  async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean){
+  async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean,trace?:TraceContext){
+    trace=copyTrace(trace);
     if(!isNpcId(id)||!validNpcInput(a))return {error:'角色或提問格式錯誤',status:400};
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
     if(this.ctx.storage.sql.exec('SELECT request_id FROM court_v1_npc_pending WHERE request_id=?',a.requestId).toArray().length)return {error:'請透過原版本查詢對話結果',status:409};
@@ -199,7 +202,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const issuedAt=previous?.created??Date.now();
     if(!previous)this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',a.requestId,payload,issuedAt);
     const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),id);
-    const reply=await npcResponse(this.env,s,id,a,allowAI&&!previous&&count<12,history,undefined,issuedAt);
+    const reply=await npcResponse(this.env,s,id,a,allowAI&&!previous&&count<12,history,undefined,issuedAt,trace);
     const current=this.read();
     if(!current||current.owner!==owner||current.version!==a.version)return {error:'場次已改變，未保存過期回覆；請重新讀取',status:409};
     reply.version=current.version+1;
@@ -213,7 +216,8 @@ export class CourtRoom extends DurableObject<AppEnv> {
     });
     return {reply};
   }
-  async stageDialogue(owner:string,version:number,allowAI:boolean){
+  async stageDialogue(owner:string,version:number,allowAI:boolean,trace?:TraceContext){
+    trace=copyTrace(trace);
     const state=this.read();
     if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
     if(!Number.isSafeInteger(version)||version<0||typeof allowAI!=='boolean')return {error:'對話請求格式錯誤',status:400};
@@ -233,7 +237,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     let text:string|null=null;
     try{
       const provider=await createGovernedOllamaProvider(this.env,{kind:'stage-dialogue',owner,
-        sessionId:state.id,requestKey:String(version),issuedAt:started},false);
+        sessionId:state.id,requestKey:String(version),issuedAt:started},false,trace);
       text=await proposeStageDialogue(provider,view);
     }catch{/* Admission unavailable: preserve the reservation and scripted result. */}
     // dialogue rechecks owner/deletion/version and INSERT OR IGNORE prevents a
@@ -297,7 +301,8 @@ export class Learner extends DurableObject<AppEnv>{
       this.ctx.storage.sql.exec('DELETE FROM courts WHERE id=?',id);
     });return {ok:true};
   }
-  async generate(requestId:string,config:CourtConfig,owner?:string){
+  async generate(requestId:string,config:CourtConfig,owner?:string,trace?:TraceContext){
+    trace=copyTrace(trace);
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
     if(previous)return previous.payload===payload?{id:previous.room,template:JSON.parse(previous.body) as ReturnType<typeof generatedCandidates>[number]}:{error:'請求識別已使用',status:409};
@@ -317,7 +322,7 @@ export class Learner extends DurableObject<AppEnv>{
       // Older internal callers without it retain library fallback, never raw AI.
       if(!owner)throw Error('AI 准入身分缺失，改用題庫。');
       const provider=await createGovernedOllamaProvider(this.env,{kind:'case-generation',owner,
-        sessionId:'case-generation',requestKey:requestId,issuedAt},false);
+        sessionId:'case-generation',requestKey:requestId,issuedAt},false,trace);
       template=await generateModelCase(this.env,CASES.find(t=>t.id===config.caseId)!,readHistory(),provider);
       // Re-read after provider I/O: concurrent generation may have saved a match.
       if([...CASES,...readHistory()].some(t=>similarCase(template,t)))throw Error('生成內容與已有案件過於相似，已拒絕保存；請重新生成。');
@@ -342,7 +347,7 @@ export class Learner extends DurableObject<AppEnv>{
 }
 
 const validProtocolUuid=(s:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
-export async function handleCourt(request:Request,env:AppEnv,respond:Responder,trustedOrigin?:string):Promise<Response>{
+export async function handleCourt(request:Request,env:AppEnv,respond:Responder,trustedOrigin?:string,trace?:TraceContext):Promise<Response>{
   const path=new URL(request.url).pathname;
   if(path==='/api/court/cases' && request.method==='GET')return respond({version:RULE_VERSION,sources:LEGAL_SOURCES,ageLimits:AGE_LIMITS,cases:CASES.map(({correct,...t})=>({...t,roles:rolesFor(t.procedure),limits:AGE_LIMITS[t.procedure]}))});
   const session=await resolveSession(request,env);
@@ -363,7 +368,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     const input=raw.tooLarge||raw.invalidEncoding?null:parseMutation(raw.text);
     if(!input||input.sessionId!==v1[1])return respond({error:'動作格式或場次錯誤'},400);
     // Strict parser uses null-prototype records; DO RPC serializes plain objects.
-    const result=input.actionId==='npc.ask'?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4)):await room.actionV1(session.user.id,{...input});return respond(result,'status' in result?result.status:200);
+    const result=input.actionId==='npc.ask'?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4),trace):await room.actionV1(session.user.id,{...input});return respond(result,'status' in result?result.status:200);
   }
   if(request.method==='GET'){
     if(path==='/api/court/sessions')return respond({sessions:await learner.list()});
@@ -395,7 +400,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
   if(npcMatch){
     if(!NPC_IDS.includes(npcMatch[2] as NpcId)||!validNpcInput(body.value))return respond({error:'NPC或對話格式錯誤'},400);
     const {requestId,version,text}=body.value;
-    const result=await env.COURT_ROOM.getByName(npcMatch[1]).npc(session.user.id,npcMatch[2] as NpcId,{requestId,version,text},await learner.allow('npc-ai',4));
+    const result=await env.COURT_ROOM.getByName(npcMatch[1]).npc(session.user.id,npcMatch[2] as NpcId,{requestId,version,text},await learner.allow('npc-ai',4),trace);
     return respond(result,'status' in result?result.status:200);
   }
   if(path==='/api/court/sessions'||path==='/api/court/cases/generate'){
@@ -406,7 +411,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     if(path.endsWith('/generate')){
       if(typeof b.requestId!=='string'||!/^[0-9a-f-]{36}$/.test(b.requestId))return respond({error:'缺少請求識別'},400);
       if(!await learner.allow('generate',4))return respond({error:'生成太頻繁'},429);
-      const proposal=await learner.generate(b.requestId,config,session.user.id);
+      const proposal=await learner.generate(b.requestId,config,session.user.id,trace);
       if('error' in proposal)return respond({error:proposal.error},proposal.status);
       const result=await env.COURT_ROOM.getByName(proposal.id).init(proposal.id,session.user.id,config,proposal.template);
       return respond(result,'status' in result?result.status:201);
@@ -427,7 +432,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     if('error' in cached)return respond({error:cached.error},cached.status);
     if('cached' in cached && cached.cached)return respond(cached.cached);
     const turn=await room.stageDialogue(session.user.id,view.version,
-      env.COURT_AI_ENABLED==='true'&&!!env.OLLAMA_API_KEY&&await learner.allow('dialogue',4));
+      env.COURT_AI_ENABLED==='true'&&!!env.OLLAMA_API_KEY&&await learner.allow('dialogue',4),trace);
     return 'cached' in turn?respond(turn.cached):respond({error:turn.error},turn.status);
   }
   const b=body.value;

@@ -8,6 +8,7 @@ import type { ChatInput, LLMProvider } from './providers/contracts';
 import { studyProvider, STUDY_RESERVATION_MESSAGES } from './providers/study-provider';
 import {aiAvailability} from './ai-availability';
 import {aiOutcome} from './ai-outcome';
+import type {TraceContext} from './trace-context';
 
 const EXPLAIN_SYSTEM_PROMPT = [
   '你是「公民法律研究室」的題目講解助教。',
@@ -26,6 +27,7 @@ export async function handlePhoto(
   respond: Responder,
   trustedOrigin?: string,
   provider?: LLMProvider,
+  trace?:TraceContext,
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
 
@@ -84,7 +86,7 @@ export async function handlePhoto(
   // selected by request JSON. Production always reserves and governs inference.
   let engine=provider;
   if(!engine){
-    const prepared=await studyProvider(env,'photo',session.user.id,b.requestId,input,false);
+    const prepared=await studyProvider(env,'photo',session.user.id,b.requestId,input,false,trace);
     if(!prepared.ok)return respond({error:STUDY_RESERVATION_MESSAGES[prepared.code],code:prepared.code},prepared.status);
     engine=prepared.provider;
   }

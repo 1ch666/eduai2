@@ -10,6 +10,7 @@ import type { AppEnv } from "./env";
 import { lookupDictionary, dictionaryAnswer } from './dictionary';
 import {aiAvailability} from './ai-availability';
 import {aiOutcome} from './ai-outcome';
+import type {TraceContext} from './trace-context';
 
 const MAX_BODY_BYTES = 16_384;
 const UPSTREAM_TIMEOUT_MS = 50_000;
@@ -57,7 +58,7 @@ function courtSystemPrompt(npcLabel: string, caseLabel: string): string {
   ].join("\n");
 }
 
-export async function handleAiRequest(request: Request, env: AppEnv, respond: Responder): Promise<Response> {
+export async function handleAiRequest(request: Request, env: AppEnv, respond: Responder, trace?:TraceContext): Promise<Response> {
   const url = new URL(request.url);
   const model = env.OLLAMA_MODEL || "gpt-oss:20b";
   if (url.pathname === "/api/ai/status") {
@@ -138,7 +139,7 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   };
   // Guest identity derives from the edge network bucket, never a clientId chosen
   // to evade budgets. No answers are persisted/replayed to a shared-NAT peer.
-  const prepared=await studyProvider(env,'tutor',session?.user.id??`guest:${networkKey}`,candidate.requestId,input);
+  const prepared=await studyProvider(env,'tutor',session?.user.id??`guest:${networkKey}`,candidate.requestId,input,undefined,trace);
   if(!prepared.ok)return failed(prepared.code,STUDY_RESERVATION_MESSAGES[prepared.code],prepared.status);
   const result=await prepared.provider.generate(input,{timeoutMs:UPSTREAM_TIMEOUT_MS,signal:request.signal});
   if (!result.ok) {
