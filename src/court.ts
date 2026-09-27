@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import {canConverse,isNpcId} from './court-cast';
 import {appendJournal,checkpointJournal,publicCourtSnapshot,type JournalEvent} from './court-journal';
 import {parseMutation,canonical,type CourtMutation} from '../court/protocol.js';
 import type { AppEnv } from './env';
@@ -100,6 +101,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     });
   }
   async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean){
+    if(!isNpcId(id)||!validNpcInput(a))return {error:'角色或提問格式錯誤',status:400};
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
     const payload=JSON.stringify({npcId:id,...a});
     const previous=this.ctx.storage.sql.exec<{payload:string;created:number;result:string|null}>('SELECT payload,created,result FROM npc_requests WHERE id=?',a.requestId).toArray()[0];
@@ -109,7 +111,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       // Persisted reservation survives a crash. Never repeat the paid/provider call.
       if(Date.now()-previous.created<20000)return {error:'回覆處理中，請稍後用相同請求重試',status:409};
     }
-    if(s.version!==a.version||s.completed||s.config.role==='observer'||s.stage>3)return {error:'目前場次版本／角色／階段不允許交談',status:409};
+    if(s.version!==a.version||!canConverse(s))return {error:'目前場次版本／角色／階段不允許交談',status:409};
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
     if(!previous&&count>=40)return {error:'此場次已達40次對話上限，進度仍保留',status:429};
     if(!previous)this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',a.requestId,payload,Date.now());

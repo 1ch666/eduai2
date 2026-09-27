@@ -3,8 +3,8 @@ import { CASES, type CourtState } from './court-rules';
 import { readTextWithLimit } from './http';
 import { lookupDictionary, dictionaryAnswer } from './dictionary';
 
-export const NPC_IDS = ['Judge','Prosecutor','Lawyer','Defendant','Witness'] as const;
-export type NpcId = typeof NPC_IDS[number];
+import {npcIdentity, type NpcId} from './court-cast';
+export {NPC_IDS, type NpcId} from './court-cast';
 export type NpcInput = { requestId:string; version:number; text:string };
 export type NpcHistory = { question:string; answer:string }[];
 export function npcHistory(rows:{payload:string;result:string}[],id:NpcId):NpcHistory{
@@ -21,7 +21,6 @@ export function validNpcInput(v:Record<string,unknown>): v is Record<string,unkn
 }
 export function npcKnowledge(s:CourtState,id:NpcId){
   const t=s.generatedCase||CASES.find(t=>t.id===s.config.caseId)!;
-  const labels={Judge:'法官',Prosecutor:t.procedure==='civil'?'原告':t.procedure==='juvenile'?'少年調查官':'檢察官',Lawyer:t.procedure==='juvenile'?'少年輔佐人':'律師',Defendant:t.procedure==='juvenile'?'少年':'被告',Witness:'證人'};
   // No answer key, hidden knowledge of other NPCs, player instructions or legal
   // citations are supplied to the model. Facts remain server-owned strings.
   const witness=t.evidence.filter(e=>/witness|accounts/.test(e.id)||/證人|目擊|證詞/.test(e.title));
@@ -29,7 +28,7 @@ export function npcKnowledge(s:CourtState,id:NpcId){
     id==='Witness'?(witness.length?witness.map(e=>'案件所載證詞（須依原文區分親見及轉述）：'+e.text):['本案未提供屬於我的親眼見聞，不能把其他人的說法當成我看到的。可先核對以下案件記錄：'+t.summary]):
     id==='Lawyer'?['請分清楚已知事實與推論；資料未記載的部分不能自行補足。',...t.evidence.map(e=>e.text)]:
     id==='Defendant'?t.facts.slice(0,2):[t.summary];
-  return {name:labels[id],facts:facts.map((text,i)=>({id:'k'+i,text})),unknown:'這不在我已知的資料裡，不能猜測；請另行查證。'};
+  return {name:npcIdentity(t.procedure,id).displayName,facts:facts.map((text,i)=>({id:'k'+i,text})),unknown:'這不在我已知的資料裡，不能猜測；請另行查證。'};
 }
 // Constrained generation: the model selects approved knowledge, never writes
 // case facts, legal articles or state. This is intentionally not unrestricted chat.

@@ -8,7 +8,7 @@ import {CourtTransport} from '../court/transport.js';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
-function setup(){
+function setup(selectedConfig=config){
  const db=new DatabaseSync(':memory:');let fail=false;
  const sql={exec(query,...args){
   if(fail&&query.startsWith('INSERT INTO court_events'))throw Error('injected journal write failure');
@@ -16,7 +16,7 @@ function setup(){
   return {toArray:()=>rows,one:()=>{assert.equal(rows.length,1);return rows[0];}};
  }};
  const ctx={storage:{sql,transactionSync(fn){db.exec('BEGIN');try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}},blockConcurrencyWhile:fn=>fn()};
- const room=new CourtRoom(ctx,{}),id=crypto.randomUUID();room.init(id,'owner',config);
+ const room=new CourtRoom(ctx,{}),id=crypto.randomUUID();room.init(id,'owner',selectedConfig);
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
 test('journal stores real ordered versions and duplicate actions produce no event',()=>{
@@ -29,6 +29,56 @@ test('journal stores real ordered versions and duplicate actions produce no even
   assert.equal(room.action('owner',{...a,type:'speak',text:'changed'}).status,409);
   assert.equal(room.events('other',-1).status,404);assert.equal(room.events('owner',-2).status,400);
   assert.equal(room.events('owner',0).events.length,1);assert.equal(room.events('owner',1).events.length,0);
+ }finally{db.close();}
+});
+
+test('public NPC roster matches procedure without exposing role knowledge',()=>{
+ for(const [caseId,roles] of [['sale',['judge','claimant','counsel','respondent','witness']],['tablet',['judge','prosecutor','counsel','respondent','witness']],['youth-property',['judge','investigator','assistant','juvenile','witness']]]){
+  const {room,db}=setup({...config,caseId,respondentAge:caseId.startsWith('youth')?15:20,respondentHearingAge:caseId.startsWith('youth')?15:20});
+  try{
+   const snapshot=room.snapshotV1('owner',crypto.randomUUID());assert.ok(parseSnapshot(JSON.stringify(snapshot)));
+   assert.deepEqual(snapshot.state.npcs.map(n=>n.roleId),roles);
+   assert.equal(new Set(snapshot.state.npcs.map(n=>n.npcId)).size,5);
+   assert.equal(new Set(snapshot.state.npcs.map(n=>n.seatId)).size,5);
+   for(const n of snapshot.state.npcs){
+    assert.deepEqual(Object.keys(n).sort(),['npcId','roleId','displayName','seatId','pose','emotion','speakingState','visible','interactable','requestState'].sort());
+    assert.equal(n.interactable,true);assert.equal(n.visible,true);
+   }
+   assert.deepEqual(snapshot.state.npcs.map(n=>n.displayName),room.get('owner').view.npcs.map(n=>n.name));
+  }finally{db.close();}
+ }
+});
+
+test('observer and completed/late stages forbid conversation in both projection and RPC',async()=>{
+ for(const change of [{role:'observer'},{stage:4},{completed:true}]){
+  const {room,db}=setup(change.role?{...config,role:change.role}:config);
+  try{
+   if(!change.role){const state=JSON.parse(db.prepare('SELECT body FROM state').get().body);Object.assign(state,change);state.version++;db.prepare('UPDATE state SET body=?').run(JSON.stringify(state));}
+   const snapshot=room.snapshotV1('owner',crypto.randomUUID());
+   assert.ok(snapshot.state.npcs.every(n=>!n.interactable));
+   assert.equal((await room.npc('owner','Witness',{requestId:crypto.randomUUID(),version:snapshot.stateVersion,text:'你好'},false)).status,409);
+   assert.equal(db.prepare('SELECT count(*) AS n FROM npc_requests').get().n,0);
+  }finally{db.close();}
+ }
+});
+
+test('RPC rejects unknown NPC and malformed questions before storing reservations',async()=>{
+ const {room,db}=setup();try{
+  const input={requestId:crypto.randomUUID(),version:0,text:'你好'};
+  assert.equal((await room.npc('owner','Unknown',input,false)).status,400);
+  assert.equal((await room.npc('owner','Witness',{...input,text:''},false)).status,400);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM npc_requests').get().n,0);
+ }finally{db.close();}
+});
+
+test('legacy stored events are not rewritten to fabricate a historical NPC roster',()=>{
+ const {room,db}=setup();try{
+  const event=room.events('owner',-1).events[0];event.snapshot.state.npcs=[];
+  db.prepare('UPDATE court_events SET body=? WHERE version=0').run(JSON.stringify(event));
+  assert.deepEqual(room.snapshotV1('owner',crypto.randomUUID()).state.npcs,[]);
+  room.action('owner',{requestId:crypto.randomUUID(),version:0,type:'acknowledge'});
+  const events=room.events('owner',-1).events;
+  assert.deepEqual(events[0],event);assert.equal(events[1].snapshot.state.npcs.length,5);
  }finally{db.close();}
 });
 test('permanent content deletion is owner-only, idempotent and blocks resurrection',async()=>{

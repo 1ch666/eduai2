@@ -1,4 +1,5 @@
 import {courtView, PROCEDURAL_REQUESTS, type CourtState} from './court-rules';
+import {publicCourtCast} from './court-cast';
 
 export type JournalDetail = {kind:'session_started'|'checkpoint'|'statement'|'ruling'|'stage_changed'|'session_completed'|'npc_utterance';requestId:string;speaker:string;roleId:string;text:string;evidenceIds?:string[]};
 // Explicit public projection. Never spread CourtState or generatedCase: those
@@ -15,7 +16,7 @@ export function publicCourtSnapshot(s:CourtState, requestId:string,eventId:strin
  });
  return {apiVersion:1,requestId,caseId:s.config.caseId,sessionId:s.id,stateVersion:s.version,eventId,eventSequence:s.version,timestamp,state:{
   title:v.title,procedure:v.procedure,roleId:s.config.role,stageId:'stage-'+s.stage,stageLabel:v.stageLabel,completed:s.completed,
-  allowedActions,npcs:[],evidence:v.evidence.map(e=>({evidenceId:e.id,title:e.title,type:'document',text:e.text,metadata:[],sourceRole:'court',admittedStatus:'notConsidered',presentationState:'available',factReferences:[],assetId:''})),feedback:s.feedback
+  allowedActions,npcs:publicCourtCast(s),evidence:v.evidence.map(e=>({evidenceId:e.id,title:e.title,type:'document',text:e.text,metadata:[],sourceRole:'court',admittedStatus:'notConsidered',presentationState:'available',factReferences:[],assetId:''})),feedback:s.feedback
  }};
 }
 export function journalEvent(s:CourtState,detail:JournalDetail){
