@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateCaseGraph as authoring} from './case-graph-contract.mjs';
-import {validateCaseGraph as runtime} from '../src/case-graph.ts';
+import {validateCaseGraph as runtime,parseCaseGraph} from '../src/case-graph.ts';
 function validate(graph,policy){
  const result=runtime(graph,policy);
  assert.deepEqual(result,authoring(graph,policy),'runtime shape must match JSON schema');
+ assert.deepEqual(parseCaseGraph(graph,policy),result.ok?graph:null,'parser must share acceptance and preserve content');
  return result;
 }
 const fixture=()=>({schemaVersion:1,facts:[{id:'f1'},{id:'f2'}],
@@ -56,4 +57,40 @@ test('runtime rejects non-JSON record prototypes and getters without executing t
  assert.equal(runtime(Object.create(fixture()),policy).code,'GRAPH_SCHEMA');
  const g=fixture();Object.defineProperty(g,'facts',{get(){throw Error('not JSON');}});
  assert.equal(runtime(g,policy).code,'GRAPH_SCHEMA');
+});
+
+test('runtime rejects array accessors, inherited entries and custom iterators without executing them',()=>{
+ for(const path of ['facts','evidence','witnesses','timeline','legalSourceIds','factIds','policy']){
+  const g=fixture(),p=[...policy];
+  const array=path==='policy'?p:path==='factIds'?g.evidence[0].factIds:g[path];
+  Object.defineProperty(array,'0',{enumerable:true,get(){throw Error('array getter executed');}});
+  assert.equal(runtime(g,p).code,path==='policy'?'SOURCE_POLICY':'GRAPH_SCHEMA');
+  assert.equal(parseCaseGraph(g,p),null);
+ }
+ for(const key of [Symbol.iterator,'map','extra']){
+  const g=fixture();Object.defineProperty(g.facts,key,{get(){throw Error('array hook executed');}});
+  assert.equal(runtime(g,policy).code,'GRAPH_SCHEMA');
+  assert.equal(parseCaseGraph(g,policy),null);
+ }
+ const g=fixture(),proto=Object.create(Array.prototype);
+ Object.defineProperty(proto,'0',{get(){throw Error('inherited getter executed');}});
+ delete g.facts[0];Object.setPrototypeOf(g.facts,proto);
+ assert.equal(runtime(g,policy).code,'GRAPH_SCHEMA');
+ assert.equal(parseCaseGraph(g,policy),null);
+});
+
+test('parsed graph is deeply detached in both directions and accepts frozen JSON',()=>{
+ const deepFreeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(deepFreeze);Object.freeze(value);}return value;};
+ const original=deepFreeze(fixture()),parsed=parseCaseGraph(original,deepFreeze([...policy]));
+ assert.deepEqual(parsed,original);
+ const detached=(a,b)=>{if(a&&typeof a==='object'){assert.notEqual(a,b);for(const key of Object.keys(a))detached(a[key],b[key]);}};
+ detached(parsed,original);
+ parsed.witnesses[0].factIds.push('f1');parsed.timeline[1].afterIds.length=0;
+ parsed.evidence[0].id='changed';parsed.legalSourceIds.length=0;
+ assert.deepEqual(original,fixture());
+ const mutable=fixture(),saved=parseCaseGraph(mutable,policy);
+ mutable.facts[0].id='changed';mutable.evidence[0].factIds.length=0;
+ mutable.witnesses[0].evidenceIds.length=0;mutable.timeline[0].order=99;
+ mutable.timeline[1].afterIds.length=0;mutable.legalSourceIds.length=0;
+ assert.deepEqual(saved,fixture());
 });

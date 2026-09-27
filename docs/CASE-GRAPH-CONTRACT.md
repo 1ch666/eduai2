@@ -31,9 +31,18 @@ Current status: schema, standalone authoring validator and dependency-free Worke
 module `src/case-graph.ts` exist. Runtime validation accepts unknown inputs and
 returns fixed error codes; it does not use Ajv, eval, filesystem or network.
 Authoring and runtime share typed relationship validation after their independent
-shape checks. Six test groups pass, including 1,024 seeded nested mutations that
+shape checks. Eight test groups pass, including 1,024 seeded nested mutations that
 compare runtime acceptance/error codes with Ajv schema validation. Runtime also
 rejects inherited record fields and getters (outside the normal JSON boundary).
+Arrays must be dense plain arrays with only indexed enumerable data properties
+and length. Accessors, inherited entries, custom iterators, symbol properties and
+extra array fields are rejected without calling their hooks. This is deliberately
+stricter than Ajv for non-JSON JavaScript objects; schema parity applies to JSON.
+`parseCaseGraph(unknown, policy)` returns a deeply detached, explicitly projected
+`CaseGraph` or null after the same shape/relation checks. Frozen valid JSON is
+accepted. Neither later caller mutation nor mutation of the returned graph can
+modify the other. The copy is mutable for trusted server use, not an immutable
+authority token: any later server transformation still needs validation.
 TypeScript noEmit passes. These tests establish sampled parity, not a formal
 proof covering arbitrary JavaScript Proxies or every possible JSON input.
 No runtime route, case generation or persistence invokes it yet. Existing narrative
@@ -49,8 +58,12 @@ legacy saved cases readable and explicitly mark graph unavailable. Prove no hidd
 graph leaks through public view, journal, NPC context or export. Only then deploy.
 This contract-first commit does not itself require migration or deployment.
 
-Local evidence: four test groups pass, covering deterministic/nonmutating success,
+Local evidence: eight test groups pass, covering deterministic/nonmutating success,
 typed dangling refs, duplicate IDs, unknown sources, backwards/self/cyclic/equal
 order dependencies, unknown authority fields, missing fields, malformed numbers,
-sparse arrays and bounds. Existing fast CI automatically includes this test.
+sparse arrays and bounds, array getter/iterator rejection and nested copy isolation.
+The new accessor regression failed against the preceding implementation with
+`array getter executed` from `Array.from`; descriptor-based validation fixes it.
+Existing fast CI automatically includes this test. This change does not wire the
+parser into an API or storage path, change SQL, or require a production migration.
 No live models, real case data or new services are used.

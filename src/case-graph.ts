@@ -12,7 +12,14 @@ export type GraphResult = {ok:true} | {ok:false; code:'SOURCE_POLICY'|'GRAPH_SCH
   'TIMELINE_ORDER'|'TIMELINE_DEPENDENCY'|'UNKNOWN_LEGAL_SOURCE'};
 const id=(v:unknown):v is string=>typeof v==='string'&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(v);
 function list<T>(v:unknown,max:number,check:(item:unknown)=>item is T,min=0):v is T[]{
-  return Array.isArray(v)&&v.length>=min&&v.length<=max&&Array.from(v).every(check);
+  if(!Array.isArray(v)||Object.getPrototypeOf(v)!==Array.prototype||
+    v.length<min||v.length>max||Reflect.ownKeys(v).length!==v.length+1)return false;
+  // Do not execute input iterators/accessors. Only dense, plain JSON arrays.
+  for(let i=0;i<v.length;i++){
+    const item=Object.getOwnPropertyDescriptor(v,String(i));
+    if(!item||!('value' in item)||!item.enumerable||!check(item.value))return false;
+  }
+  return true;
 }
 function refs(v:unknown):v is string[]{return list(v,64,id)&&new Set(v).size===v.length;}
 function record(v:unknown,keys:string[]):v is Record<string,unknown>{
@@ -39,6 +46,21 @@ export function validateCaseGraph(value:unknown,allowedLegalSourceIds:unknown):G
   if(!refs(allowedLegalSourceIds))return {ok:false,code:'SOURCE_POLICY'};
   if(!graphShape(value))return {ok:false,code:'GRAPH_SCHEMA'};
   return validateGraphRelations(value,allowedLegalSourceIds);
+}
+
+// A validated, detached value for a future trusted storage boundary. Never
+// retain the caller's mutable graph or publish these private relationships.
+export function parseCaseGraph(value:unknown,allowedLegalSourceIds:unknown):CaseGraph|null{
+  if(!refs(allowedLegalSourceIds)||!graphShape(value)||
+    !validateGraphRelations(value,allowedLegalSourceIds).ok)return null;
+  return {
+    schemaVersion:1,
+    facts:value.facts.map(f=>({id:f.id})),
+    evidence:value.evidence.map(e=>({id:e.id,factIds:[...e.factIds]})),
+    witnesses:value.witnesses.map(w=>({id:w.id,factIds:[...w.factIds],evidenceIds:[...w.evidenceIds]})),
+    timeline:value.timeline.map(e=>({id:e.id,order:e.order,factIds:[...e.factIds],afterIds:[...e.afterIds]})),
+    legalSourceIds:[...value.legalSourceIds],
+  };
 }
 
 // Shared with the schema-based authoring checker. Caller must validate shapes.
