@@ -4,3 +4,19 @@
 .session-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line)}#sessions .session-row>button:first-child{flex:1;min-width:0;overflow-wrap:anywhere}#sessions .delete-session{width:auto;flex:none;color:#773c30}
 .game-panel>button{position:sticky;top:0;z-index:1;background:#344b50;color:white;margin-bottom:16px}
 .game-panel h2{margin-top:8px}.game-panel #evidence:empty::before{content:'本場次尚未提供可查看的證物。'}
+.skip-link{position:fixed;left:12px;top:12px;transform:translateY(-200%);z-index:100;background:white;color:black;padding:12px;border:2px solid black}.skip-link:focus{transform:none}
+html[data-court-scale="125"]{font-size:20px}html[data-court-scale="150"]{font-size:24px}
+html[data-court-scale] h1{font-size:clamp(1.5625rem,4vw,2.375rem)}html[data-court-scale] h2{font-size:1.3125rem}html[data-court-scale] h3{font-size:1.0625rem}
+html[data-court-scale] .eyebrow{font-size:.8rem}html[data-court-scale] footer{font-size:.875rem}html[data-court-scale] header{font-size:1rem;flex-wrap:wrap}
+.display-settings{margin:0 0 20px}.display-settings summary{cursor:pointer;min-height:44px;padding:8px 0}.display-settings p{font-size:.875rem}.display-settings .grid{margin:12px 0}
+.workspace>*,.bar>*,.replay-transcript li{min-width:0;overflow-wrap:anywhere}
+.replay-transcript{padding-left:1.75rem}.replay-transcript li{border-bottom:1px solid var(--line);padding:12px 0}.replay-transcript li p{white-space:pre-wrap}
+html[data-court-contrast="high"]{color:#000;background:#fff;--line:#333;--ink:#000}
+html[data-court-contrast="high"] :is(header,.panel,#account,.law,.game-panel,input,select,textarea,button,#status,#feedback){background:#fff;color:#000;border-color:#333}
+html[data-court-contrast="high"] :is(.eyebrow,footer,.law p.warn,#sessions .delete-session){color:#000}
+html[data-court-contrast="high"] :is(button.primary,#create,.game-panel>button){background:#000;color:#fff}
+html[data-court-contrast="high"] button:disabled{opacity:1;color:#555;border-style:dashed}
+html[data-court-contrast="high"] :focus-visible{outline:3px solid #000;outline-offset:4px}
+html[data-court-motion="reduce"] *,html[data-court-motion="reduce"] *::before,html[data-court-motion="reduce"] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media(max-width:720px){main{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));padding-bottom:max(14px,env(safe-area-inset-bottom))}.session-row{flex-wrap:wrap}.session-row>button:first-child{flex-basis:70%}.game-panel{padding:14px}}

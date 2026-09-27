@@ -2,6 +2,8 @@ import '../auth-sync.js';
 import { installGamePanels } from './game-panels.js';
 import { npcNotice } from './npc-status.js';
 import { installReplayPanel } from './replay-panel.js';
+import { installAccessibility } from './accessibility.js';
+installAccessibility({document,window});
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
