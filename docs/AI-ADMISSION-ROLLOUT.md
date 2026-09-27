@@ -49,10 +49,11 @@ per-user 20/day, per-court 12/day, 60-second unknown lease and quota/failure
 circuit control. Daily windows are UTC. This counts inference attempts, not money
 or a guarantee of Ollama's free quota. No billing/paid feature is activated.
 
-NPC, case generation, tutor and photo are NOT yet routed through this wrapper.
-They retain their existing local rate guards, but can bypass this coordinator's
-limits. Therefore this is NOT a completed global kill switch or all-platform
-cost cap. Their rollout must preserve the original persisted request identity;
+NPC and case generation adopted this wrapper in the release recorded below.
+Tutor and photo are NOT yet routed through it. They retain their existing local
+rate guards, but can bypass this coordinator's limits. Therefore this is NOT a
+completed global kill switch or all-platform cost cap. Their rollout must
+preserve the original persisted request identity;
 tutor/photo need an issuance/reservation design before adoption. Availability
 capability responses are still configuration-based, not live quota health.
 
@@ -84,7 +85,19 @@ instead of guessing from Date.now. The deadline regression now freezes wall time
 to assert that a real elapsed timeout is still classified as TIMEOUT. No test
 assertions were relaxed to accept the wrong outcome.
 
-## NPC and generation adoption (next candidate)
+## NPC and generation adoption (released 2026-09-28)
+
+Runtime source `b0650e2b97b4ba9b2e067a4234d9cd6af82c16ed`; GitHub CI
+36347065503 completed successfully for both `checks` and `local-api`.
+Wrangler 4.136.3 deployment with `--keep-vars --strict` exited 0; version
+`6f7d3416-efea-4b44-b25c-8176227ad9c0` is deployed to the existing Worker URL.
+Upload 446.29 KiB (gzip 102.33 KiB); no static assets changed. No new migration,
+Secrets, ownership, billing or permission changes were made.
+
+Post-release read-only probes returned capabilities 200, court/cases 200 and
+anonymous court/sessions 401, all with X-Request-Id. These are availability and
+anonymous-access checks, not authenticated model calls or proof that the provider
+has remaining quota. Local/CI synthetic-provider tests are not live Ollama tests.
 
 Both legacy `CourtRoom.npc` and `npcV1` now pass the original timestamp committed
 with their reservation into `npcResponse`. The default NPC composition uses the
@@ -110,4 +123,5 @@ generation/restart, lost replies, deletion and library recovery. Tutor and photo
 remain unadopted, so the kill switch/cap is still NOT all-platform governance.
 Rollback to the prior stage-only runtime would bypass NPC/generation admission;
 prefer disabling court AI and forward-fixing without clearing any ledger.
-Production evidence for this candidate must be added only after CI/deploy.
+Production rollout evidence is recorded above; authenticated production inference
+and all-platform governance remain outside that evidence.

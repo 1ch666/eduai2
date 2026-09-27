@@ -126,6 +126,13 @@ random library fallback retain their existing contracts. Tutor/photo adoption
 and truthful live availability remain open; see AI-ADMISSION-ROLLOUT.md. No new
 schema migration or source prompt/semantic research in this batch.
 
+NPC/generation release evidence (2026-09-28): source b0650e2; CI 36347065503
+passed checks/local-api; actual Worker deployment exited 0 with version
+6f7d3416-efea-4b44-b25c-8176227ad9c0. Read-only capabilities/cases/sessions
+probes returned 200/200/401 with request IDs. No assets or migrations changed.
+These probes do not verify authenticated production inference, live quota,
+tutor/photo admission, recovery or the remaining goal gates.
+
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
    order with bounded deterministic checks, then integrate before commit without
