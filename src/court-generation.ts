@@ -2,6 +2,7 @@ import { CASES, type CaseTemplate } from './court-rules';
 import type { AppEnv } from './env';
 import { readTextWithLimit } from './http';
 import { parseCourtNarrativeDraft } from './court-draft';
+import { checkCaseReachability } from './court-reachability';
 
 // Versioned, reviewed teaching building blocks. Never accept model-authored law,
 // answers or facts. Variations change the evidence limitation, not just names.
@@ -43,8 +44,9 @@ export function validateGenerated(value:unknown,base:CaseTemplate):CaseTemplate|
  // legal assistance and legal sources remain controlled by the existing server.
  const answers=['只憑一方陳述直接作結論','先釐清資料來源與限制，再比較雙方說法','以角色外貌判斷可信度','略過有矛盾的資料'];
  for(let i=answers.length-1;i>0;i--){const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);[answers[i],answers[j]]=[answers[j],answers[i]];}
- return {...structuredClone(base),id:'ai-'+crypto.randomUUID(),title:'[AI虛構] '+v.title,summary:v.summary,facts:v.facts,evidence,
+ const candidate={...structuredClone(base),id:'ai-'+crypto.randomUUID(),title:'[AI虛構] '+v.title,summary:v.summary,facts:v.facts,evidence,
  question:'面對這些尚待核對的資料，哪一種調查方式較適當？',answers,correct:answers.indexOf('先釐清資料來源與限制，再比較雙方說法'),explanation:'這是 AI 生成的虛構練習，不是裁判或法律意見。應核對來源、區分事實與推測並聽取雙方說明；本題不判斷誰勝訴。'};
+ return checkCaseReachability(candidate,base.id).ok?candidate:null;
 }
 function grams(t:CaseTemplate){const text=[...t.facts,...t.evidence.map(e=>e.text)].join('').normalize('NFKC').toLowerCase().replace(/[^\p{L}]/gu,'');return new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)));}
 export function similarCase(a:CaseTemplate,b:CaseTemplate){

@@ -18,6 +18,8 @@ test('library cycles without repeats and preserves answer and legal config',()=>
 test('valid model narrative keeps server procedure and reasoning assessment',()=>{
  const v=validateGenerated(draft,CASES[0]);assert.ok(v);assert.equal(v.procedure,CASES[0].procedure);assert.equal(v.answers[v.correct],'先釐清資料來源與限制，再比較雙方說法');assert.ok(v.id.startsWith('ai-'));
  for(const delta of [{correct:0},{procedure:'criminal'},{facts:[]},{summary:'依第123條判決有罪'},{title:'<script>alert(1)</script>'}])assert.equal(validateGenerated({...draft,...delta},CASES[0]),null);
+ assert.equal(validateGenerated(draft,{...CASES[0],mandatory:!CASES[0].mandatory}),null);
+ assert.equal(validateGenerated(draft,{...CASES[0],id:'unknown-template'}),null);
 });
 test('dedup compares narrative, not title or random ID',()=>{
  const a=validateGenerated(draft,CASES[0]);const b={...a,id:'different',title:'完全不同標題'};assert.equal(similarCase(a,b),true);assert.equal(similarCase(a,CASES[4]),false);
