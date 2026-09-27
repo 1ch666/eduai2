@@ -1,5 +1,15 @@
 # Server-only case graph v1 — contract-first foundation
 
+Deployment evidence (2026-09-28): source `ab035b79b926bf1e491bd154a27b23ca98650d6f`,
+fast/local-API CI [36341128195](https://github.com/1ch666/eduai2/actions/runs/36341128195)
+passed. Wrangler dry-run and deployment succeeded; Worker version
+`984670ba-6025-4df7-9734-45dcffc46f0e`. No asset files changed. Post-deploy read-only
+checks: capabilities 200, cases 200, anonymous sessions 401. No production graph
+was inserted, no live inference or schema migration was executed. Safe rollback
+candidate: `4d206cf3-a3c5-49b5-8efd-a1e38db88d42` (public allowlist retained).
+Storage transaction behavior follows the
+[Cloudflare SQLite storage contract](https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/#transactionsync).
+
 Machine-readable schema: `contracts/case-graph-v1.schema.json`.
 Authoring validator: `scripts/case-graph-contract.mjs` (Ajv, already installed).
 Tests: `node --test scripts/test-case-graph-contract.mjs`.

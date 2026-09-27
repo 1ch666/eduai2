@@ -41,6 +41,19 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 29 priority | P0 parser/completion-path foundations implemented | Next: close graph/API/internal event gaps, then global backpressure/availability and restore; not endless test-only polishing |
 | 30 final outcome | Not achieved | Demonstrate every requirement above against runtime/source/artifacts; never infer completion from green CI |
 
+## Latest verified increment — 2026-09-28
+
+`ab035b7` integrates optional private case graphs at CourtRoom initialization:
+shape/references, actual template fact/evidence IDs, witness cast and procedure
+source allowlist, config rules and generated-template reachability before commit.
+Actual SQLite tests cover persistence, rollback, deletion and public/AI isolation;
+48 focused tests and CI 36341128195 passed. Worker
+984670ba-6025-4df7-9734-45dcffc46f0e deployed with public read-only probes passing.
+No SQL schema changes, no private producer exposed to clients. Remaining P0 work:
+versioned generated-draft envelope and semantic validation hooks, direct workerd
+graph RPC evidence, then remaining API/internal event contract gaps. This does not
+complete the full validator/research/production goal. See CASE-GRAPH-CONTRACT.md.
+
 ## Next implementation batches and closure criteria
 
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
