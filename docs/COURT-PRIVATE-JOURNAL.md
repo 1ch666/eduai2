@@ -1,12 +1,35 @@
-# Internal court snapshot journal — candidate, not deployed
+# Internal court snapshot journal
 
-Verification 2026-09-28: base ba0981d passed CI 36353256453. Cleanup trigger
+## Release evidence — 2026-09-28
+
+Source `684bf9dd915f8f40960660d33d1272aca766e241`, CI `36355287105` passed
+both fast checks and actual local workerd integration. Wrangler 4.136.3 dry-run
+and deploy with `--keep-vars --strict` exited 0. Existing Worker now serves 100%
+version `70e01207-a028-460c-a048-f755cf4f9e98`, confirmed by deployments status.
+Upload 466.76 KiB / gzip 107.16 KiB, startup 3 ms; no static assets changed.
+No binding/class migration, Secret, account, permission or billing change.
+The additive tables/trigger initialize lazily on CourtRoom startup; no production
+data was cleared, exported, backfilled or manually migrated.
+
+Read-only production probes: capabilities 200, court cases 200, anonymous sessions
+401, anonymous v2 events 401 with apiVersion 2 / HTTP_401 and request ID. These
+prove baseline availability/auth rejection, NOT authenticated production history
+writes or reconstruction. No private SQL inspection or production restore was run.
+Authenticated production acceptance remains open; internal reconstruction is not
+exposed as a production RPC just to test it.
+
+Rollback target: previous Worker `6df7235c-2523-4af3-a5d6-37e1b1fcce6c`
+(a68df68). If reverting runtime, keep the new tables and persisted deletion trigger;
+do not reset the database. The legacy deletion sequence was tested locally with
+actual workerd. Rollback itself was not executed on production during this release.
+
+Pre-release verification 2026-09-28: base ba0981d passed CI 36353256453. Cleanup trigger
 5fa27c3 passed 333 local fast tests; its first workerd drill exposed a test-only
 nested JSON key-order comparison bug (delete and rollback already passed).
 2d2097e corrects comparison using canonical complete values. The local-api job
 of CI 36353531265 passed actual workerd reconstruction, trigger erasure and
 transaction rollback; its checks job also passed (full CI success). No production data was
-exported or deleted, no model was called, and this candidate is not deployed.
+exported or deleted and no model was called in those tests. Deployment is recorded above.
 
 This is server-only historical state persistence, not a browser replay payload,
 research dataset or disaster recovery archive. Owner IDs, generated answer keys
@@ -36,7 +59,7 @@ for missing history. It never advances the live state or calls a model. This is
 snapshot reconstruction, not independent validation by replaying commands, and
 not independent proof that an archive is authentic. Do not expose it to clients.
 
-## Private state validation candidate
+## Private state validation
 
 `court-private-state-v1.schema.json` describes the full current CourtState shape.
 `parsePrivateCourtState` adds trusted expected owner/session binding, supported
@@ -83,10 +106,10 @@ context reused across versions, SELECT-only reads, deletion, transaction failure
 old-schema recreation preserving state and missing-link rejection. Existing
 public graph leakage tests remain in place. This is not production restore proof.
 
-Before deployment: fast CI, actual workerd compatibility, migration dry-run and
+Release gates passed: fast CI, actual workerd compatibility, deployment dry-run and
 recorded rollback deletion drill results. Before backup/restore claims: complete state/import
 validation, protected operator export of ALL required tables (including outcomes,
 pending reservations and deletion guards), archive integrity/encryption, isolated
 restore and cross-table verification. Accounts/progress/experiment backup remains
-separate unfinished work. No production migration or deployment has occurred for
-this candidate.
+separate unfinished work. See BACKUP-ENVELOPE.md for the bounded encryption helper
+and synthetic Node SQLite restore drill, neither of which is a production restore.

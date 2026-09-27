@@ -1,5 +1,7 @@
 # Feature Preservation Matrix — 2026-09-28
 
+最新發布：684bf9d / Worker 70e01207-a028-460c-a048-f755cf4f9e98。私有場次快照與公開事件同交易寫入，可在伺服器內重建已記錄版本；不新增私有資料 API。CI 36355287105（含實際 workerd）、乾跑及部署通過。新增三張歷史表與回滾刪除保護 trigger，不重寫舊資料、不回填歷史、不更換 binding。正式唯讀 capabilities/cases 200、匿名 sessions/v2 events 401；登入後正式寫入與重建尚未驗收。網頁、Unity、Secrets 與權限不變。備份／還原仍不完整，詳見 docs/COURT-PRIVATE-JOURNAL.md。以下為歷史發布。
+
 最新發布：a68df68 / Worker 6df7235c-2523-4af3-a5d6-37e1b1fcce6c。新增唯讀 v2 場次事件稽核；核對命令來源，不回填舊紀錄、不因讀取寫入 checkpoint。52 項聚焦測試、完整快速 CI、遠端 CI 36352765265（含實際 workerd）與乾跑通過。正式匿名 events GET 401、POST 405；登入後正式資料未測。沒有 DB 遷移、前端／Unity 或 Secret 變更。完整內部狀態重播／備份還原仍未完成。下方為歷史發布。
 
 最新發布：50efc03 / Worker 6aff28bc-e363-4649-abe3-f09943dc62c4，325 項快速測試及 CI 36351960047 通過。新增 /api/v2/court 場次快照、動作、結果恢復的統一 HTTP 外層，內層沿用明確 v1 DTO 與命令；實際 workerd 驗證 v1/v2 並行同一請求只產生一次動作及事件。舊網頁／Unity／API 不變、無 DB 遷移。正式匿名 v2 401、未知 404、舊 cases 200，追蹤標頭相符；登入後正式場次尚未驗收。詳見 docs/COURT-API-V2.md。

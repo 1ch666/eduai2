@@ -4,9 +4,10 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-a68df68 / Worker 6df7235c-2523-4af3-a5d6-37e1b1fcce6c (read-only v2 event audit).
-CI 36352765265 passed; release evidence in COURT-API-V2.md. Later tests do not imply
-a newer runtime deployment. Original unrelated README changes remain uncommitted.
+684bf9d / Worker 70e01207-a028-460c-a048-f755cf4f9e98 (private court journal).
+CI 36355287105 and deploy/dry-run passed; release evidence in COURT-PRIVATE-JOURNAL.md.
+Anonymous production probes passed; authenticated private-history acceptance remains
+open. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
 | --- | --- | --- |
@@ -44,14 +45,14 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 
 ## Latest verified increment — 2026-09-28
 
-Private snapshot journal candidate (not deployed): deduplicated immutable context
+Private snapshot journal (deployed from 684bf9d): deduplicated immutable context
 plus per-event mutable snapshots now permit exact internal version reconstruction.
 See COURT-PRIVATE-JOURNAL.md. Public/API replay still excludes these records.
 Transaction, deletion, legacy gaps and integrity tests exist. Persistent cleanup
 trigger now covers pre-feature DELETE sequences; actual workerd local-api job
 36353531265 passed reconstruction, deletion and rollback atomicity. Full import
 validation and protected operator archive/restore remain unfinished.
-This candidate is not proof of section 18 disaster recovery completion.
+This release is not proof of section 18 disaster recovery completion.
 
 Released 78cd1e2 adds response-level FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/
 NO_AI schema and actual tutor/photo/legacy NPC source mapping. RAG_ONLY is reserved,
