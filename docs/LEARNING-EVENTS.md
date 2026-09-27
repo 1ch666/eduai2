@@ -1,7 +1,8 @@
 # Learning event infrastructure v1
 
-Status: deterministic contract/validation/retention reducer implemented, production
-collection disabled and not wired to any route or database. This is not a new
+Status: deterministic contract/validation/retention reducer and internal SQLite
+adapter implemented; production collection disabled and not wired to any route or
+production database. This is not a new
 grading system, a research study or proof of learner ability.
 
 Contract: `contracts/learning-events-v1.schema.json`; implementation:
@@ -47,10 +48,10 @@ tick. Invalid incoming events can still return a pruned state; the host must per
 that maintenance atomically, while reporting the rejection.
 
 Current retention is a PURE REDUCER POLICY, not a deployed deletion scheduler.
-Before collecting: implement transactional persistence, expiry alarms even when
+Before collecting: integrate the transactional adapter, expiry alarms even when
 idle, opt-out/withdrawal erasure, bounded export, access controls, and backup/log
 retention. Disabling the reducer does not erase existing persisted data; there is
-currently no persisted store. Never advertise guaranteed expiry until the host and
+currently no production store. Never advertise guaranteed expiry until the host and
 its restore/backup behavior have been verified.
 
 ## Anonymous identity boundary
@@ -71,7 +72,40 @@ conflicts, full capacity, expiry/replay after pruning, 120 simulated days, clock
 rollback, foreign identities, unknown concepts, private extra fields, accessors,
 sparse arrays, corrupt state and unsupported versions. Fast CI includes this suite.
 
-Next: versioned producer definitions, consent/scoping approval, durable host with
-transaction/expiry/withdrawal tests, then opt-in endpoint integration and production
+Next: versioned producer definitions, consent/scoping approval, deployed host with
+real alarm/expiry/withdrawal tests, then opt-in endpoint integration and production
 verification. Do not backfill real users' histories or enable collection as part of
 routine deployment without completing these boundaries.
+
+## Internal SQLite adapter (not deployed)
+
+`src/learning-event-store.ts` accepts a trusted per-scope SQL storage and synchronous
+transaction API. Two additive tables: learning_meta(id=1, schema_version=1,
+anonymous_id, withdrawn=0/1) and learning_state(id=1, body=canonical v1 state).
+Metadata is an identity/version binding, not proof of consent. There is no global
+shared store or account mapping. Caller supplies verified consent for each append;
+default false. Initialization alone collects no events and never resets unknown
+schema, foreign scope or corrupt existing records. Serialized state is capped at
+1 MiB in addition to reducer event/retention bounds.
+
+Append/read/reduce/write happen inside one transaction without await. Returned
+values contain only status and nextExpiry, not event data. Restart reads persistent
+state; retries cannot count again. Pruning returns the next absolute expiry, but
+the adapter DOES NOT schedule an alarm. The eventual DO host must persist/schedule
+expiry reliably and test crash recovery before collection is enabled.
+
+Withdrawal deletes learning_state and marks metadata withdrawn in the same
+transaction. This minimal scope tombstone prevents late requests and initialization
+from resurrecting events. A later opt-in needs a newly issued scope, not resetting
+this one. Correct-scope withdrawal can erase malformed event bodies without parsing
+them; unknown metadata versions or mismatched scope still fail. This is logical
+database erasure, not a claim that provider backups or storage pages are securely
+wiped. Backup-retention and tombstone retention policies need separate review.
+
+`scripts/test-learning-event-store.mjs` uses real in-memory Node SQLite with a
+test transaction adapter: restart, default-off, duplicates/conflicts, expiry,
+commit failure, withdrawal failure rollback, permanent revocation, corrupt body
+erasure and schema/scope isolation. These are not workerd/alarm/production tests.
+No production constructor imports this adapter; no tables were created in production.
+Future integration requires an additive migration and rollback plan that preserves
+withdrawal guards. Never install this into a shared database with unrelated scopes.
