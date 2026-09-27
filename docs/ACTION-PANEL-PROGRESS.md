@@ -15,4 +15,4 @@
 目前新增分頁 sessionStorage 請求識別碼復原；重整後只查詢伺服器結果，不保存或重送原陳述。詳見 PENDING-RECOVERY.md。此功能尚待整批驗收，不能宣稱斷線恢復的完整驗收已通過。
 未改後端、資料庫、Secrets；尚未部署 Cloudflare。
 
-NPC 目標選擇已接入 shell，但目前正式 v1 projection 的 NPC 清單仍待後端接通，不代表完整 AI NPC 或訊問程序已上線。`scripts/test-action-targets.mjs` 已編寫，待最後統一執行；本次僅語法與 diff 檢查。
+NPC 目標選擇已接入 shell，但目前正式 v1 projection 的 NPC 清單仍待後端接通，不代表完整 AI NPC 或訊問程序已上線。2026-09-27 使用者改為邊開發邊測試；`scripts/test-action-targets.mjs` 3 項已通過。整個面板的瀏覽器操作驗收仍待完成。
