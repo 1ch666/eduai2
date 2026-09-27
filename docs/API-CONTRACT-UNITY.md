@@ -83,6 +83,15 @@ Outgoing messages are `court-v1-bind` (sessionId/caseId), `court-v1-snapshot`
 an explicit target origin. No credentials, transport objects or exception text cross
 this bridge. Receiving Unity adapter must validate channel and use its strict reducer.
 
+`court/unity-receiver.js` now provides the frame-side receiver with exact parent
+origin/window checks, correlated command sequences, a validated public state store,
+and explicit onSnapshot/onClear/onStatus callbacks. It cannot fetch APIs or read
+credentials. Actions stay disabled until both a valid snapshot and correlated result
+arrive. `scripts/test-court-unity-receiver.mjs` includes a paired shell/frame/transport
+test with mocked HTTP and message delivery. Runtime Unity callback wiring, iframe
+ready handshake and lost-message watchdog remain pending; this source is not imported
+by the production play page and is not a completed Unity integration.
+
 Evidence: `node --test scripts/test-court-unity-bridge.mjs` tests the real transport
 with mocked HTTP/window delivery: origin/source/channel/shape/sequence rejection,
 stale-view action rejection, in-flight rebind cancellation and 401 clearing. This is
