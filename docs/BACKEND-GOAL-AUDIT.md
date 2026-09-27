@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-57bb10e / Worker 202fca8f-8a8c-4597-b87d-c06f6826a7e4 (pipeline validator traces).
-CI 36351501427 passed; release evidence in PROVIDER-TRACING.md. Later tests do not imply
+50efc03 / Worker 6aff28bc-e363-4649-abe3-f09943dc62c4 (court v2 HTTP envelope).
+CI 36351960047 passed; release evidence in COURT-API-V2.md. Later tests do not imply
 a newer runtime deployment. Original unrelated README changes remain uncommitted.
 
 | Goal section | Inspected evidence / status | Evidence still required before closure |
@@ -13,7 +13,7 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 | 0 scope | Backend modules/tests and preserved platform; partial | All gates below, not merely passing a subset |
 | 1 invariants | No destructive migrations in recent releases; compatibility docs | Apply preservation/rollback/verification to every future DB/API change |
 | 2 preservation | FEATURE-PRESERVATION.md updated | Actual group/planner/rankings/weakness integration parity |
-| 3 contracts | v1 public DTOs plus new court v2 HTTP envelope and shared command recovery; partial | Deploy/verify v2; version creation/deletion/events and remaining platform APIs, preserving mutation identity across versions |
+| 3 contracts | v1 public DTOs plus deployed court v2 HTTP envelope and shared command recovery; real workerd cross-version dedup passed | Version creation/deletion/events and remaining platform APIs, preserving mutation identity; authenticated production acceptance remains open |
 | 4 authority | court-rules transition, court RPC checks, seeded invariants | Formal fact/role/policy hook composition and audit all mutation paths |
 | 5 events | court-journal snapshot + append-only public events, replay tests | Compare required actor/payload/previous/new version/idempotency metadata and research export; distinguish public replay from full internal restore |
 | 6 validator | Narrative parser and real transition completion gate deployed | Structured fact/evidence/witness/timeline/source graph contract, dangling refs/order validation; all legal config paths |

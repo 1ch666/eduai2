@@ -1,5 +1,12 @@
 # Court HTTP v2 — additive transport contract
 
+Released 2026-09-28: source `50efc039b9dd3b69f2f3aeb919282e6ed8b37cf1`;
+325 local fast tests and CI `36351960047` (checks + actual local workerd) passed.
+Worker `6aff28bc-e363-4649-abe3-f09943dc62c4`, upload 461.55 KiB / gzip 106.09 KiB.
+Post-deploy anonymous v2 session GET returned 401, unknown v2 route 404; both had
+valid v2 metadata matching HTTP request/trace headers. Legacy cases GET was 200.
+No authenticated production mutation/model test, migration or static asset change.
+
 ## Routes
 
 - GET `/api/v2/court/sessions/:sessionId?requestId=:commandCorrelationId`
