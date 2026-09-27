@@ -3,6 +3,7 @@ import { installGamePanels } from './game-panels.js';
 import { npcNotice } from './npc-status.js';
 import { installReplayPanel } from './replay-panel.js';
 import { installAccessibility } from './accessibility.js';
+import { installActionPanel } from './action-panel.js';
 installAccessibility({document,window});
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -16,6 +17,12 @@ void fetch(base+'/api/capabilities').then(r=>{if(!r.ok)throw Error();return r.js
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 let npcBusy=false;
+const actionPanel=installActionPanel({window,document,getView:()=>view,getAccount:()=>account,csrf:()=>csrf,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();},onUpdated:async snapshot=>{
+ if(!snapshot||view?.id!==snapshot.sessionId)return;
+ const id=view.id,owner=account?.id,p=await api('/api/court/sessions/'+id);
+ if(view?.id===id&&account?.id===owner&&p.view.version>=view.version){view=p.view;render();scene();}
+}});
+const serverActions=document.createElement('button');serverActions.type='button';serverActions.textContent='伺服器程序操作';serverActions.hidden=onPages;serverActions.addEventListener('click',()=>{if(!busy&&!npcBusy)actionPanel.open();});$('back').after(serverActions);
 const gamePanels=installGamePanels({window,document,getView:()=>view,getAccount:()=>account,onClose:()=>stopVoice(true)});
 const replayPanel=installReplayPanel({window,document,getView:()=>view,getAccount:()=>account,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();}});
 const replayButton=document.createElement('button');replayButton.type='button';replayButton.textContent='回看庭審紀錄';replayButton.addEventListener('click',()=>{if(!busy&&!npcBusy)replayPanel.open();});$('back').after(replayButton);
@@ -27,7 +34,7 @@ window.addEventListener('message',async e=>{
  const id=view?.id,owner=account?.id;
  const reply=payload=>{if(account?.id===owner&&view?.id===id)$('scene').contentWindow?.postMessage({type:'court-npc-reply',payload:JSON.stringify({requestId,npcId,...payload})},location.origin);};
  if(!id||!account||onPages){reply({error:'請在 Worker 同源網站登入後開啟雲端 NPC。'});return;}
- if(npcBusy||busy){reply({error:'另一項操作進行中，請稍候。'});return;}
+ if(npcBusy||busy||actionPanel.working||actionPanel.pending){reply({error:'另一項操作進行中或結果待確認，請先在程序操作查詢結果。'});return;}
  npcBusy=true;
  try{
   let mode='history',notice='';
@@ -51,7 +58,7 @@ function status(text){$('status').textContent=text;}
 function node(tag,text){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;}
 function button(text,fn){const b=node('button',text);b.type='button';b.addEventListener('click',()=>run(fn));return b;}
 async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',credentials:'include',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},body:body?JSON.stringify(body):undefined});const p=await r.json();if(r.status===501)throw Error('此容器尚未設定後端，登入、雲端場次與 AI 無法使用；固定遊戲仍可遊玩。');if(!r.ok)throw Error(p.error||'服務暫時無法使用');return p;}
-async function run(fn){if(busy||npcBusy)return;busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
+async function run(fn){if(busy||npcBusy||actionPanel.working)return;if(actionPanel.pending){status('上次操作結果待確認，請開啟「伺服器程序操作」查詢結果。');return;}busy=true;try{await fn();}catch(e){status(e.message);pause();}finally{busy=false;}}
 async function session(){const p=await window.EduAuth.session();account=p.user;csrf=p.csrfToken||'';hasRecoveryCode=account?p.hasRecoveryCode!==false:true;$('account-toggle').textContent=account?account.displayName:'登入';$('logout').hidden=!account;$('first-recovery-section').hidden=!account||hasRecoveryCode;$('create').textContent=account?'建立雲端場次':'登入後建立場次';if(account)await sessions();}
 async function sessions(){
  const owner=account?.id;if(!owner){$('sessions').replaceChildren(node('p','登入後查看已保存場次。'));return;}
@@ -69,7 +76,7 @@ async function sessions(){
  }));
  if(!p.sessions.length)$('sessions').append(node('p','尚無場次，可按「新增場次」開始。'));
 }
-$('new-session').onclick=()=>{if(busy||npcBusy)return;pause();stopVoice(true);$('setup').hidden=false;$('hearing').hidden=true;$('scene').removeAttribute('src');$('scene').hidden=true;view=null;$('case').focus();$('setup-form').scrollIntoView({block:'start'});status('請設定案件與角色，再按「建立雲端場次」。');};
+$('new-session').onclick=()=>{if(busy||npcBusy||actionPanel.working)return;if(actionPanel.pending){status('請先查詢上次程序操作的結果，再切換場次。');return;}actionPanel.clear();pause();stopVoice(true);$('setup').hidden=false;$('hearing').hidden=true;$('scene').removeAttribute('src');$('scene').hidden=true;view=null;$('case').focus();$('setup-form').scrollIntoView({block:'start'});status('請設定案件與角色，再按「建立雲端場次」。');};
 function choices(select,items){select.replaceChildren(...items.map(([value,label])=>{const o=node('option',label);o.value=value;return o;}));}
 function setup(){const t=cases.find(c=>c.id===$('case').value);if(!t)return;$('procedure').value=procedureNames[t.procedure];$('case-summary').textContent=t.summary;
 choices($('role'),t.roles.map(r=>[r,t.procedure==='criminal'&&r==='claimant'?'告訴／被害人':t.procedure==='criminal'&&r==='respondentCounsel'?'辯護人':t.procedure==='criminal'&&r==='claimantCounsel'?'告訴代理人':labels[r]]));
@@ -122,7 +129,7 @@ $('logout').onclick=()=>run(async()=>{await api('/api/auth/logout',{});window.Ed
 $('setup-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(!account){$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return;}const b=Object.fromEntries(new FormData(e.target));const variation=b.variation==='on';delete b.variation;b.claimantAid ||= 'none';for(const k of ['claimantAge','claimantHearingAge','respondentAge','respondentHearingAge'])b[k]=Number(b[k]);if(variation)b.requestId=crypto.randomUUID();status(variation?'AI 正在生成新案件並檢查重複，請稍候…':'正在建立場次…');$('create').disabled=true;try{const p=await api(variation?'/api/court/cases/generate':'/api/court/sessions',b);open(p.view);}finally{$('create').disabled=false;}});};
 $('speech-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await act('speak',{text:$('statement').value});$('statement').value='';});};
 $('first-recovery-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/first-recovery',{password:f.get('password')});e.target.elements.password.value='';$('recovery').hidden=false;$('recovery').textContent=`請保存首次復原碼（僅顯示一次）：\n${p.recoveryCode}`;hasRecoveryCode=true;$('first-recovery-section').hidden=true;status('復原碼已產生，請立即妥善保存。');});};
-$('back').onclick=()=>{pause();stopVoice(true);$('hearing').hidden=true;$('setup').hidden=false;$('scene').removeAttribute('src');$('scene').hidden=true;void run(sessions);};
+$('back').onclick=()=>{if(actionPanel.working||actionPanel.pending){status('請先在「伺服器程序操作」確認結果，再返回案件設定。');return;}actionPanel.clear();pause();stopVoice(true);$('hearing').hidden=true;$('setup').hidden=false;$('scene').removeAttribute('src');$('scene').hidden=true;void run(sessions);};
 $('show-scene').onclick=()=>{$('scene').hidden=false;if(!$('scene').getAttribute('src'))$('scene').src='../play/?court=1';};
 const fullscreenButton=node('button','全螢幕');fullscreenButton.type='button';$('show-scene').after(fullscreenButton);
 fullscreenButton.onclick=async()=>{if($('scene').hidden){status('請先載入 3D 場景。');return;}try{if(document.fullscreenElement)await document.exitFullscreen();else if($('scene').requestFullscreen)await $('scene').requestFullscreen();else status('此瀏覽器不支援全螢幕，請使用遊戲右上角的展開畫面。');}catch{status('瀏覽器未允許全螢幕，請使用遊戲右上角的展開畫面。');}};
