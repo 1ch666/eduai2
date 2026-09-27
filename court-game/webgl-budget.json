@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "b795d7b29088d64cc06635846ed323ce6ada1e9e",
+  "baselineBytes": {
+    "data": 15289841,
+    "wasm": 5848923,
+    "framework": 83191,
+    "loader": 48540,
+    "touch": 5172
+  },
+  "maxTotalGrowthPercent": 10,
+  "maxAssetGrowthPercent": 20,
+  "note": "Review and explain baseline changes; do not automatically ratchet after every build. Download bytes are not startup time or runtime memory."
+}

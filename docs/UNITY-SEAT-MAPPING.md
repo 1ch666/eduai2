@@ -14,7 +14,7 @@
 
 ## 未完成
 
-- 本批尚無新版 WebGL／瀏覽器證據／正式發布或 Docker；線上仍為 b795d7b 的 NPC 可見性版本。
+- 本批 Release WebGL 已完成（官方 Unity 6000.6.2f1、exit 0，outputs/npc-seat-map-build.log），check-build 的解壓／格式／loader 大小／下載門檻通過；五項總計 21,278,041 bytes。已複製完整四項 Build 至本機 public/play 供瀏覽器驗證，但尚未替換倉庫 play，沒有本批瀏覽器證據／正式發布或 Docker；線上仍為 b795d7b 的 NPC 可見性版本。
 - 玩家座位鏡頭仍採 CourtPresentation 舊橋接，不是完整伺服器角色→座位映射。
 - 缺書記官、獨立原告代理席、完整旁聽／出入口／公告／證物展示區整合；不可把七個邏輯 ID 說成完整法庭。
 - 多角色同一物理位置衝突處理、未知角色模型生成、完整 pose/emotion 動畫及角色私有資訊隔離尚待開發。
