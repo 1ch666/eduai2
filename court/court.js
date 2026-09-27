@@ -5,6 +5,7 @@ import { installReplayPanel } from './replay-panel.js';
 import { installAccessibility } from './accessibility.js';
 import { installActionPanel } from './action-panel.js';
 import { installSnapshotRelay } from './snapshot-relay.js';
+import { createNpcTicketGate } from './npc-action.js';
 installAccessibility({document,window});
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -18,6 +19,9 @@ void fetch(base+'/api/capabilities').then(r=>{if(!r.ok)throw Error();return r.js
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 let npcBusy=false;
+const npcTickets=createNpcTicketGate();
+window.addEventListener('pagehide',()=>npcTickets.clear());
+$('logout').addEventListener('click',()=>npcTickets.clear(),{capture:true});
 const snapshotRelay=installSnapshotRelay({window,getFrame:()=>$('scene'),getView:()=>view,getAccount:()=>account});
 $('logout').addEventListener('click',()=>snapshotRelay.clear(),{capture:true});
 const actionPanel=installActionPanel({window,document,getView:()=>view,getAccount:()=>account,csrf:()=>csrf,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();},onUpdated:async snapshot=>{
@@ -42,15 +46,17 @@ window.addEventListener('message',async e=>{
  try{
   let mode='history',notice='';
   if(operation==='message'){
-   const p=await api(`/api/court/sessions/${id}/npcs/${npcId}/messages`,{requestId,version:view.version,text});mode=p.reply.mode;
-   notice=npcNotice(p.reply);
+   const result=await npcTickets.run(`${owner}:${id}`,requestId,npcId,text,()=>actionPanel.askNpc(npcId,text));
+   if(!['accepted','duplicate','stale'].includes(result)){
+    reply({error:actionPanel.pending?'結果尚未確認；請關閉對話，開啟「伺服器程序操作」查詢上次送出結果。':result==='not-allowed'?'目前不能向此角色提問；請更新場次或先完成目前程序。':'本次提問未完成，請更新場次後再試。'});return;
+   }
   }
   const p=await api('/api/court/sessions/'+id);
   if(view?.id!==id||account?.id!==owner)return;
   view=p.view;render();
   // Display a bounded recent window; the complete history remains on the server.
   const history=(view.npcHistory||[]).filter(r=>r.npcId===npcId).slice(-5);
-  if(operation==='history'&&history.length)notice=npcNotice(history.at(-1));
+  if(history.length){notice=npcNotice(history.at(-1));if(operation==='message')mode=history.at(-1).mode;}
   reply({mode,notice,name:view.npcs?.find(n=>n.id===npcId)?.name||npcId,historyText:history.map(r=>`你：${r.question}\n${r.errorCode==='DICTIONARY'?'教育部辭典':r.mode==='ai'?'角色':'系統提示'}：${r.text}`).join('\n\n')||'可直接提問，系統會自動連接 AI。'});
  }catch{reply({error:'對話未完成。請關閉再開啟以恢復紀錄；不會自動重送或清除進度。'});}
  finally{npcBusy=false;}

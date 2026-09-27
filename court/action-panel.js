@@ -2,6 +2,7 @@ import {CourtTransport} from './transport.js';
 import {createEvidenceViewer} from './evidence-viewer.js';
 import {createPendingJournal} from './pending-journal.js';
 import {actionTargets,actionTargetStatus} from './action-targets.js';
+import {askNpcThroughTransport} from './npc-action.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
@@ -85,7 +86,19 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   const v=getView(),a=getAccount();if(!v||!a)return;
   if(!context||context.session!==v.id||context.owner!==a.id){clear();context={session:v.id,owner:a.id};transport.bind(v.id,v.config.caseId);}
  }
- return {clear,resume,get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;},open(){
+ async function askNpc(npcId,question){
+  if(working)return 'pending';
+  resume();if(!valid())return 'no-context';
+  const started=generation;working=true;render();
+  try{
+   const result=await askNpcThroughTransport(transport,npcId,question,()=>started===generation&&valid());
+   if(started!==generation||!valid())return 'obsolete-context';
+   // The NPC bridge reloads shared history itself. Do not call the procedure
+   // callback here: its seat-camera update would move the open dialogue camera.
+   return result;
+  }finally{if(started===generation){working=false;render();}}
+ }
+ return {clear,resume,askNpc,get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;},open(){
   const v=getView(),a=getAccount();if(!v||!a)return;
   returnFocus=document.activeElement;beforeOpen();
   resume();
