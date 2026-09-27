@@ -23,6 +23,14 @@ test('panel loads text-only replay and closing clears private text and pending w
   const dialog=elements.find(e=>e.tag==='dialog'),section=elements.find(e=>e.tag==='section');
   assert.equal(dialog.open,true);assert.equal(before,1);assert.equal(calls,1);
   assert.ok(section.children.some(e=>e.textContent==='私人測試紀錄'));
+  const transcript=elements.find(e=>e.tag==='ol');
+  const row=transcript.children[0];
+  assert.ok(row.children.some(e=>e.textContent===event.timestamp));
+  assert.ok(row.children.some(e=>e.textContent.includes('法官')&&e.textContent.includes('建立場次')));
+  const jump=row.children.find(e=>e.tag==='button');assert.ok(jump);jump.fire('click');
+  assert.equal(calls,1,'jumping in replay must not issue a mutation or new request');
+  const search=elements.filter(e=>e.tag==='input')[1];search.value='不存在的內容';search.fire('input');
+  assert.equal(transcript.children[0].textContent,'目前播放位置之前，沒有符合篩選的紀錄。');
   assert.ok(elements.every(e=>!Object.hasOwn(e,'innerHTML')));
   panel.clear();await new Promise(r=>setTimeout(r,0));assert.equal(dialog.open,false);assert.equal(section.children.length,0);
  }finally{globalThis.fetch=old;}

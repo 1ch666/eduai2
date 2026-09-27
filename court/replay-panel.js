@@ -1,5 +1,9 @@
 import {CourtReplayLoader} from './replay-loader.js';
 
+const eventLabels={session_started:'建立場次',session_completed:'庭審完成',statement:'陳述',ruling:'程序裁定',stage_changed:'程序推進',checkpoint:'保存點',npc_utterance:'角色發言'};
+const roleLabels={judge:'法官',plaintiff:'原告',defendant:'被告',prosecutor:'檢察官',defense:'辯護人',witness:'證人',observer:'旁觀者'};
+const label=(labels,value)=>Object.hasOwn(labels,value)?labels[value]:value;
+
 export function installReplayPanel({document,window,getView,getAccount,beforeOpen}){
  const loader=new CourtReplayLoader({origin:window.location.origin});
  const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
@@ -30,8 +34,13 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   current.append(make('h3',`${event.snapshot.state.stageLabel} · 版本 ${event.stateVersion}`),make('p',`${event.speaker} · ${event.timestamp}`),make('p',event.text));
   const evidence=make('details');evidence.append(make('summary','當時可見的證物'));
   for(const e of event.snapshot.state.evidence)evidence.append(make('h4',e.title),make('p',e.text));current.append(evidence);
-  for(const row of replay.transcript(Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])))){
-   const li=make('li');li.append(make('p',`${row.speaker} · ${row.roleId} · ${row.stageId} · ${row.kind}`),make('p',row.text));transcript.append(li);
+  const rows=replay.transcript(Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])));
+  if(!rows.length)transcript.append(make('li','目前播放位置之前，沒有符合篩選的紀錄。'));
+  for(const row of rows){
+   const li=make('li');li.append(make('p',`${row.speaker} · ${label(roleLabels,row.roleId)} · ${row.stageId} · ${label(eventLabels,row.kind)}`),make('p',row.timestamp),make('p',row.text));
+   if(row.evidenceIds.length)li.append(make('p',`關聯證物：${row.evidenceIds.join('、')}`));
+   if(row.citationIds.length)li.append(make('p',`法源標記：${row.citationIds.join('、')}（以場次法律來源為準）`));
+   li.append(button(`回看第 ${row.eventSequence+1} 筆`,()=>{replay.jump(row.eventId);render();}));transcript.append(li);
   }
  }
  async function load(){
