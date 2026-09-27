@@ -76,3 +76,22 @@ configuration, and empty `/api/ai/ask` returned 400 with trace headers before an
 model call or quota operation. No live inference was requested; configuration
 presence is not provider availability evidence. Prior rollback Worker version is
 `66ef3a88-4382-4637-97e0-dc5040da5620`; no data migration is involved.
+
+## NPC follow-up release
+
+Source `3bd2dc57c10310fef9a639f71d0280c6dc9cf996` migrates NPC transport only.
+The existing prompt, knowledge projection, domain fact-ID/schema checks,
+fallback, rate/kill switches and state commit code remain unchanged. Tests add
+an alternative fake provider, prove it receives only the projected payload,
+reject invented IDs without changing state, retain kill/rate guards and cancel
+an oversized 32 KiB stream. The full local fast gate and CI succeeded:
+https://github.com/1ch666/eduai2/actions/runs/36337441610 . CI includes isolated
+workerd auth, court v1/replay and committed-NPC lost-response recovery checks.
+
+Dry-run and existing Worker deployment succeeded, version
+`1c60ac3d-5064-4499-94c7-a66c218c8ecd`. Production read-only capabilities and
+court cases returned 200; anonymous sessions returned 401, all with trace
+headers. No live NPC inference, production mutation, new service, key change,
+data migration or Unity rebuild was performed. Actual provider quality/latency
+is not verified by these checks. Prior Worker rollback version:
+`6bda6a1e-b057-434c-a01f-52b26f7070a1`.
