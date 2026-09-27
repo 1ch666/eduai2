@@ -14,7 +14,17 @@
 
 ## 未完成
 
-- 本批 Release WebGL 已完成（官方 Unity 6000.6.2f1、exit 0，outputs/npc-seat-map-build.log），check-build 的解壓／格式／loader 大小／下載門檻通過；五項總計 21,278,041 bytes。已複製完整四項 Build 至本機 public/play 供瀏覽器驗證，但尚未替換倉庫 play，沒有本批瀏覽器證據／正式發布或 Docker；線上仍為 b795d7b 的 NPC 可見性版本。
+## 本機 WebGL 追加驗證
+
+座位映射候選已在本機內嵌 Chromium（127.0.0.1:8792）實測：從已登入的民事法官場次恢復，WebGL 自動至 100%，開始、座位切換走動、Pointer Lock fallback、W 移動、E 接近原告、恢復對話及中文提問均可用；新問題使場次版本 4→5。本機 AI 明確停用，畫面如實顯示 AI_DISABLED，不視為模型回覆成功。
+
+再返回法官座位、切回走動、接近法官桌，瞄準盒子按 E 確實開啟「本案程序」面板，返回 3D 後外側陳述表單恢復；沒有提交程序動作，場次仍 v5。最初瞄準較高時開到法官 NPC，調整向下視角才命中盒子，這是實際最近碰撞體互動，不冒充自動目標選擇。截圖 `outputs/npc-seat-map-procedure-box.png`。
+
+完整四項 Build 已同步倉庫 play；check-build 的 Gzip、loader 配對及大小門檻通過，53 項 Node 測試全部通過。未驗收手機、所有程序／角色、實際重疊衝突、完整證物盒路徑或真實 AI。正式 Worker／Docker 尚待本批發布。
+
+注意：玩家扮演法官時，走到法官桌仍看得到法官 NPC，伺服器目前公開角色表包含該角色。早期座位視角沒看到人物不能證明已排除玩家重複角色；角色佔位／玩家身分一致性仍需後續完成。
+
+- 本批 Release WebGL 已完成（官方 Unity 6000.6.2f1、exit 0，outputs/npc-seat-map-build.log），五項總計 21,278,041 bytes；正式 Worker／Docker 尚待發布。
 - 玩家座位鏡頭仍採 CourtPresentation 舊橋接，不是完整伺服器角色→座位映射。
 - 缺書記官、獨立原告代理席、完整旁聽／出入口／公告／證物展示區整合；不可把七個邏輯 ID 說成完整法庭。
 - 多角色同一物理位置衝突處理、未知角色模型生成、完整 pose/emotion 動畫及角色私有資訊隔離尚待開發。
