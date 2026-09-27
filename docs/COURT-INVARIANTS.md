@@ -32,3 +32,13 @@ coverage, owner authorization or exact replay of wall-clock timestamps. Existing
 isolated workerd tests cover separate auth/idempotency/recovery cases; neither is
 a claim of universal fuzz coverage or a complete security proof. No production
 data, user transcript, live model or private credentials are used in this suite.
+
+Release: source `c33d671bf9e03de10921b4ec2d200537ef07ca19` pushed to main;
+fast and isolated workerd API CI passed at
+https://github.com/1ch666/eduai2/actions/runs/36338169996 .
+Dry-run and `deploy --keep-vars --strict` succeeded; Worker version
+`385a1586-3c47-44b9-bf6e-b14e2e0ac261`. Public capabilities/cases returned 200,
+anonymous sessions returned 401. These smoke checks do not simulate an exhausted
+production counter; that boundary is covered by the deterministic unit test.
+No assets, Secrets, bindings or stored data changed. Prior rollback version:
+`1c60ac3d-5064-4499-94c7-a66c218c8ecd`.
