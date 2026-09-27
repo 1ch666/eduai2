@@ -152,8 +152,18 @@ export function transition(s:CourtState, a:CourtAction): CourtState {
 }
 export function courtView(s:CourtState) {
   const t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;
-  const { owner, generatedCase, ...state } = s;
-  return { ...state, title:t.title,procedure:t.procedure,summary:t.summary,facts:t.facts,evidence:t.evidence,
+  // Allowlist public state explicitly. Future server-only graph/knowledge fields
+  // must not silently become API fields through a rest/spread projection.
+  const c=s.config;
+  const config:CourtConfig={caseId:c.caseId,role:c.role,claimantAge:c.claimantAge,
+    claimantHearingAge:c.claimantHearingAge,respondentAge:c.respondentAge,
+    respondentHearingAge:c.respondentHearingAge,claimantAid:c.claimantAid,respondentAid:c.respondentAid};
+  const state={id:s.id,config,stage:s.stage,version:s.version,reviewed:[...s.reviewed],
+    ...(s.rulings===undefined?{}:{rulings:[...s.rulings]}),statements:[...s.statements],
+    attempts:s.attempts,completed:s.completed,feedback:s.feedback,createdAt:s.createdAt,
+    updatedAt:s.updatedAt,ruleVersion:s.ruleVersion,
+    ...(s.generationVersion===undefined?{}:{generationVersion:s.generationVersion})};
+  return { ...state, title:t.title,procedure:t.procedure,summary:t.summary,facts:[...t.facts],evidence:t.evidence.map(e=>({id:e.id,title:e.title,text:e.text})),
     question:t.question,answers:t.answers,actions:allowedActions(s),stageLabel:STAGES[s.stage],turn:scriptedTurn(s),
     proceduralRequests:s.config.role==='judge'?PROCEDURAL_REQUESTS.map(({id,text})=>({id,text,done:s.rulings?.includes(id)||false})):[],
     sources:LEGAL_SOURCES.filter(r=>r.applies===t.procedure),

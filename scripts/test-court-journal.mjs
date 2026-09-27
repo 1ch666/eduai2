@@ -8,6 +8,26 @@ import {CourtTransport} from '../court/transport.js';
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
+test('future private state and nested metadata never escape legacy view or v1 journal',()=>{
+ const {room,db}=setup();
+ try{
+  const state=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+  state.privateGraph={facts:[{id:'PRIVATE_GRAPH_CANARY'}]};
+  state.config.internalPolicy='PRIVATE_CONFIG_CANARY';
+  state.generatedCase={id:'synthetic',title:'測試案件',procedure:'civil',summary:'測試摘要',
+   facts:['公開事實'],evidence:[{id:'e1',title:'證物',text:'公開內容',privateFactIds:['PRIVATE_EVIDENCE_CANARY']}],
+   question:'測試問題',answers:['甲','乙'],correct:1,explanation:'測試解析',mandatory:false,aidApproved:false,
+   privateGraph:'PRIVATE_TEMPLATE_CANARY'};
+  state.version++;
+  db.prepare('UPDATE state SET body=?').run(JSON.stringify(state));
+  const outputs=[room.get('owner'),room.snapshotV1('owner',crypto.randomUUID()),room.events('owner',-1)];
+  for(const output of outputs)assert.ok(!JSON.stringify(output).includes('PRIVATE_'),'private metadata escaped public projection');
+  assert.deepEqual(room.get('owner').view.evidence,[{id:'e1',title:'證物',text:'公開內容'}]);
+  assert.equal(room.get('other').status,404);
+  // Projection must not erase the private server record just to hide it.
+  assert.ok(db.prepare('SELECT body FROM state').get().body.includes('PRIVATE_GRAPH_CANARY'));
+ }finally{db.close();}
+});
 function setup(selectedConfig=config,env={}){
  const db=new DatabaseSync(':memory:');let fail=false;
  const sql={exec(query,...args){
