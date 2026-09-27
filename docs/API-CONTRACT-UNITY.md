@@ -1,5 +1,27 @@
 # Court Client Protocol v1
 
+## Current contract index — 2026-09-28 (takes precedence over historical rollout notes)
+
+- Machine-readable command/terminal-receipt structure: `contracts/court-v1-command.schema.json` (JSON Schema draft-07).
+- Executable strict raw-wire contract: `court/protocol.js`; shared Unity fixture: `court-game/Assets/Editor/Fixtures/court-v1.json`.
+- Schema compatibility gate: `scripts/test-court-command-schema.mjs`, included by `scripts/ci-fast.mjs`. Uses Ajv without coercion/default insertion/field removal, 512 seeded malformed mutations, boundary examples and documented stricter-wire cases.
+- JSON Schema alone cannot detect duplicate JSON keys or integer token spelling after JSON.parse. Its Unicode code-point maxLength is not the wire's UTF-16 limit. **Always retain the strict raw parser and server authorization**. Passing a structural schema does not authorize a role/action/version or validate NPC-specific text limits.
+
+Implemented routes in `src/court.ts` (not proposals):
+
+| Method | Path | Result |
+| --- | --- | --- |
+| GET | `/api/court/v1/sessions/{id}?requestId={uuid}` | Public v1 snapshot |
+| POST | `/api/court/v1/sessions/{id}/actions` | Public v1 event, or existing HTTP error |
+| GET | `/api/court/v1/sessions/{id}/requests/{requestId}` | Saved event, pending 202, unknown 404, or terminal not-applied receipt |
+| GET | `/api/court/sessions/{id}/events?after={sequence}` | Owner-only bounded event page; legacy path retained |
+
+All routes require session ownership; mutation also requires Origin/CSRF, limits and current-version validation. HTTP errors still use legacy error/status bodies, **not** a completed uniform ok/apiVersion/requestId/timestamp/errorCode envelope. The new schema currently describes mutation and not-applied only; snapshot/event/error JSON Schemas remain outstanding. Existing v1 clients are not silently migrated to v2.
+
+Web transport, bridge, receiver, replay panel and Unity runtime integration exist in current source. Statements below saying they are unimported or awaiting first deployment describe old rollout checkpoints, not current implementation. See `court-game/STATUS.md` and the newest release documents for artifact-specific evidence. Current production Worker is `6dbb61e6-5e4a-41f8-b60f-90115eece3d9` (8bd1617 frontend update); this schema addition itself changes no production handler or Unity binary.
+
+Real isolated workerd integration passed in GitHub run 36335235336 (f923753), including owner isolation, CSRF, duplicate keys, stale version, deduplicated NPC events/history, replay, deletion and unknown-outcome GET recovery. This is not proof of all-role physical-device E2E. Never advertise the complete backend/Unity requirements as done from these gates alone.
+
 ## Current NPC extension — 2026-09-27
 
 The historical rollout notes below describe successive implementation stages, not

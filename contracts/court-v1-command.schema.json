@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:eduai:court:v1:command",
+  "title": "Court v1 mutation and terminal not-applied receipt",
+  "$comment": "Structural contract only. The raw wire parser additionally rejects duplicate keys, unsafe numeric spellings, invalid Unicode and over-limit UTF-16 text. This schema does not authorize actions. Snapshot, event and HTTP error schemas are not included yet.",
+  "oneOf": [
+    { "$ref": "#/definitions/mutation" },
+    { "$ref": "#/definitions/notApplied" }
+  ],
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$" },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "requestId", "idempotencyKey", "sessionId", "caseId", "expectedStateVersion", "actionId", "targetId", "text"],
+      "properties": {
+        "apiVersion": { "const": 1 },
+        "requestId": { "$ref": "#/definitions/uuid" },
+        "idempotencyKey": { "$ref": "#/definitions/uuid" },
+        "sessionId": { "$ref": "#/definitions/uuid" },
+        "caseId": { "$ref": "#/definitions/id" },
+        "expectedStateVersion": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "actionId": { "$ref": "#/definitions/id" },
+        "targetId": { "anyOf": [{ "const": "" }, { "$ref": "#/definitions/id" }] },
+        "text": {
+          "type": "string",
+          "maxLength": 600,
+          "$comment": "The wire limit is 600 UTF-16 units, stricter than maxLength for astral characters. npc.ask additionally requires 1-400 units of nonblank text on the server."
+        }
+      }
+    },
+    "notApplied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "requestId", "sessionId", "caseId", "outcome", "reason"],
+      "properties": {
+        "apiVersion": { "const": 1 },
+        "requestId": { "$ref": "#/definitions/uuid" },
+        "sessionId": { "$ref": "#/definitions/uuid" },
+        "caseId": { "$ref": "#/definitions/id" },
+        "outcome": { "const": "not-applied" },
+        "reason": { "enum": ["expired", "state-changed"] }
+      }
+    }
+  }
+}
