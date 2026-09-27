@@ -65,3 +65,20 @@ Concurrent calls for distinct versions/rooms still require broader admission
 control, bounded queue, budget and circuit infrastructure under the full goal.
 No semantic model-quality, production inference or authenticated production
 mutation is claimed.
+
+## Published verification
+
+Runtime source `894528615ac2fcf63935b4393836df6f29172faf` (implementation
+`a4a933b`, fixture quota correction `8945286`) pushed to origin/main. Local fast
+gate: 243 tests, typecheck, frontend checks and unchanged Unity artifact contract
+passed. CI https://github.com/1ch666/eduai2/actions/runs/36343636660 passed both
+fast and disposable local workerd integration jobs. Earlier run 36343567913
+passed new stage dialogue checks but failed the later NPC fixture signup with
+429; reusing an existing fixture fixed this without relaxing production limits.
+
+Wrangler dry-run succeeded; strict deploy with --keep-vars succeeded as Worker
+`e37d0a79-a856-4378-a40c-bb1ac466e2d4`. No updated static assets. Public production
+capabilities/court-cases returned 200 with request IDs; anonymous sessions and
+stage-dialogue POST returned 401. These are liveness/auth probes, not proof of
+authenticated production dedup, model quality or existing-room migration under
+load. No production account/session creation, AI call or data reset was used.

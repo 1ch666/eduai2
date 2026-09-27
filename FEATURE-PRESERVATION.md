@@ -1,6 +1,6 @@
 # Feature Preservation Matrix — 2026-09-28
 
-本機候選：程序對話加入 CourtRoom 持久化去重，保留既有台詞格式、登入／CSRF／限流與備援。新增相容資料表，不搬移舊資料；42 項聚焦測試通過，正式發布尚待記錄。詳見 docs/STAGE-DIALOGUE-DEDUP.md。沒有修改 Unity 或使用者既有 README。
+最新發布：8945286 程序對話持久化去重已部署為 e37d0a79-a856-4378-a40c-bb1ac466e2d4；CI 36343636660 fast/local-api 通過。保留既有台詞格式、登入／CSRF／限流與備援；新增相容資料表，不搬移舊資料。42 項聚焦、243 項快速測試通過；正式公開端點 200、匿名場次與對話 401，未呼叫正式模型。詳見 docs/STAGE-DIALOGUE-DEDUP.md。沒有修改 Unity 或使用者既有 README。以下為歷史發布紀錄。
 
 最新發布：72097b6 照片文字講解介面已部署為 84455261-9668-49a6-a963-331457defd3f，CI 36342849873 成功。維持文字講解（不是 OCR/Vision）、登入與限流，統一受限回應讀取及取消。photo/status 200 且 ocrAvailable:false，匿名 photo/explain 401；未呼叫正式模型。無資料遷移或靜態遊戲變動。以下發布記錄是歷史證據。
 

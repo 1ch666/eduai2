@@ -63,12 +63,14 @@ complete the full validator/research/production goal. See CASE-GRAPH-CONTRACT.md
 
 ## Next implementation batches and closure criteria
 
-2026-09-28 candidate: legacy stage dialogue now reserves each state version in
+2026-09-28 released: legacy stage dialogue now reserves each state version in
 CourtRoom SQLite before inference. Seven actual-SQLite race/migration groups
 passed (42 focused tests total); local workerd route coverage added. See
 STAGE-DIALOGUE-DEDUP.md for compatibility, cleanup and rollback constraints.
 This advances request deduplication only, not global budgets/concurrency or the
-full production gate. Deployment evidence is pending.
+full production gate. Source 8945286 passed CI 36343636660 (fast/local-api) and
+deployed as e37d0a79-a856-4378-a40c-bb1ac466e2d4. Read-only public/auth probes
+passed; authenticated production inference/migration under load not exercised.
 
 1. **Structured case graph (P0):** define versioned server-only fact/evidence/
    witness/timeline/source references; reject duplicate/dangling IDs and invalid
