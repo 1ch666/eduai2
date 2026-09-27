@@ -12,6 +12,22 @@ async function call(path,body,auth={},raw){
 const register=()=>call('/api/auth/register',{username:'v1_'+crypto.randomUUID().slice(0,8),password:'local-test-password-2026',displayName:'本機 v1 測試'});
 const a=await register(),b=await register();assert.equal(a.status,201);assert.equal(b.status,201);
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
+// CI runs with AI disabled and no key. Exercise actual Worker -> CourtRoom RPC
+// and additive SQLite initialization without an inference or production account.
+{
+ const auth=await register();assert.equal(auth.status,201);
+ const scene=await call('/api/court/sessions',config,auth);assert.equal(scene.status,201);
+ const root='/api/court/sessions/'+scene.data.view.id;
+ assert.equal((await call(root+'/dialogue',{},{})).status,401);
+ assert.equal((await call(root+'/dialogue',{},{cookie:auth.cookie})).status,403);
+ assert.equal((await call(root+'/dialogue',{},b)).status,404);
+ const replies=await Promise.all(Array.from({length:3},()=>call(root+'/dialogue',{},auth)));
+ for(const reply of replies){assert.equal(reply.status,200);assert.deepEqual(reply.data,scene.data.view.turn);}
+ assert.equal((await call(root,undefined,auth)).data.view.version,0);
+ assert.equal((await call(root+'/events',undefined,auth)).data.events.length,1);
+ assert.equal((await call(root+'/delete',{confirm:true},auth)).status,200);
+ assert.equal((await call(root+'/dialogue',{},auth)).status,404);
+}
 const created=await call('/api/court/sessions',config,a);assert.equal(created.status,201);
 const id=created.data.view.id,path='/api/court/v1/sessions/'+id,requestId=crypto.randomUUID();
 assert.equal((await call(path+'?requestId='+requestId)).status,401);

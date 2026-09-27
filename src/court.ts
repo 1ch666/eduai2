@@ -26,6 +26,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       CREATE TABLE IF NOT EXISTS court_deleted(id INTEGER PRIMARY KEY CHECK(id=1),owner TEXT NOT NULL,deleted_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,result TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS dialogue(version INTEGER PRIMARY KEY,body TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS court_dialogue_attempts(version INTEGER PRIMARY KEY,created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS npc_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
       CREATE TABLE IF NOT EXISTS court_events(version INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS court_v1_requests(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,event TEXT NOT NULL);
@@ -60,7 +61,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       if(!deleted)this.ctx.storage.sql.exec('INSERT INTO court_deleted VALUES(1,?,?)',owner,new Date().toISOString());
       // Keep only the small deletion guard: delayed generation must not revive
       // this UUID. All case content, replies, replay and request bodies are gone.
-      for(const table of ['state','requests','dialogue','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
+      for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
     });
     return {ok:true};
   }
@@ -207,6 +208,30 @@ export class CourtRoom extends DurableObject<AppEnv> {
       appendJournal(this.ctx.storage.sql,current,{kind:'npc_utterance',requestId:a.requestId,speaker:npcKnowledge(current,id).name,roleId:id.toLowerCase(),text:(reply.mode==='scripted'?'[案件參考資料] ':'')+reply.text});
     });
     return {reply};
+  }
+  async stageDialogue(owner:string,version:number,allowAI:boolean){
+    const state=this.read();
+    if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
+    if(!Number.isSafeInteger(version)||version<0||typeof allowAI!=='boolean')return {error:'對話請求格式錯誤',status:400};
+    const cached=this.dialogue(owner,version);
+    if('error' in cached||cached.cached)return cached;
+    const view=courtView(state),fallback=view.turn;
+    const pending=this.ctx.storage.sql.exec<{created:number}>('SELECT created FROM court_dialogue_attempts WHERE version=?',version).toArray()[0];
+    // A persisted attempt is never reissued after eviction, a lost response or
+    // uncertainty. Recovery seals the same scripted turn after the deadline.
+    if(pending){
+      if(Date.now()-pending.created<20000)return {error:'回覆處理中，請稍後重新讀取',status:409};
+      return this.dialogue(owner,version,fallback);
+    }
+    if(!allowAI||this.env.COURT_AI_ENABLED!=='true'||!this.env.OLLAMA_API_KEY)return this.dialogue(owner,version,fallback);
+    const started=Date.now();
+    this.ctx.storage.sql.exec('INSERT INTO court_dialogue_attempts VALUES (?,?)',version,started);
+    const provider=createOllamaProvider({apiKey:this.env.OLLAMA_API_KEY,model:this.env.OLLAMA_MODEL||'gpt-oss:20b',thinking:false});
+    const text=await proposeStageDialogue(provider,view);
+    // dialogue rechecks owner/deletion/version and INSERT OR IGNORE prevents a
+    // late provider completion from replacing an already recovered fallback.
+    return this.dialogue(owner,version,text===null||Date.now()-started>=20000?fallback:
+      {text,mode:'ai-dialogue',speaker:view.turn.speaker,version});
   }
   dialogue(owner:string, version:number, result?:{text:string;mode:string;speaker:string;version:number}){
     const state=this.read();
@@ -382,16 +407,11 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     const result=await room.get(session.user.id);if(!('view' in result)||!result.view)return respond({error:'場次不存在'},404);
     const view=result.view;
     const cached=await room.dialogue(session.user.id,view.version);
+    if('error' in cached)return respond({error:cached.error},cached.status);
     if('cached' in cached && cached.cached)return respond(cached.cached);
-    const fallback=view.turn;
-    const save=async (turn:{text:string;mode:string;speaker:string;version:number})=>{
-      const result=await room.dialogue(session.user.id,view.version,turn);
-      return 'cached' in result?respond(result.cached):respond({error:result.error},result.status);
-    };
-    if(env.COURT_AI_ENABLED!=='true' || !env.OLLAMA_API_KEY || !await learner.allow('dialogue',4))return save(fallback);
-    const provider=createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:env.OLLAMA_MODEL||'gpt-oss:20b',thinking:false});
-    const text=await proposeStageDialogue(provider,view);
-    return save(text===null?fallback:{text,mode:'ai-dialogue',speaker:view.turn.speaker,version:view.version});
+    const turn=await room.stageDialogue(session.user.id,view.version,
+      env.COURT_AI_ENABLED==='true'&&!!env.OLLAMA_API_KEY&&await learner.allow('dialogue',4));
+    return 'cached' in turn?respond(turn.cached):respond({error:turn.error},turn.status);
   }
   const b=body.value;
   if(typeof b.requestId!=='string'||!/^[0-9a-f-]{36}$/.test(b.requestId)||!Number.isInteger(b.version)||typeof b.type!=='string')return respond({error:'動作格式錯誤'},400);
