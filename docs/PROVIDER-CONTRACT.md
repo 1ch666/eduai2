@@ -116,3 +116,22 @@ functions perform no fetch/storage/model calls. Future adapters must invoke
 them after bounded JSON parsing; adding them is not proof of an integrated RAG
 pipeline. No actual embedding/rerank provider or public route currently invokes
 them, so this batch does not need a production deployment or data migration.
+
+## Case generation transport migration (2026-09-28, not yet deployed)
+
+`generateModelCase` now accepts an optional server-only `LLMProvider` and validates
+its normalized text with the existing narrative and reachability validators.
+No client provider override was added. Existing prompt, 1600-token limit,
+temperature 0.9, 20-second deadline and 18,000-byte response cap are preserved.
+The Ollama adapter has an optional server configuration `thinking:false` to
+retain generation's previous wire behavior; tutor/NPC defaults remain unchanged.
+Quota errors keep the existing quota message; exceptions are sanitized and no
+automatic retry occurs. The explicit kill switch still blocks injected providers.
+Library fallback, generation history, quotas and storage are unchanged.
+
+18 offline generation/provider/validator tests and TypeScript passed. Tests use
+fake transports only, including a different provider, invalid drafts, oversized
+text, upstream failures and immutable history. No live model quality claim.
+No schema, migration, Secret, binding, frontend or Unity change. Rollback can
+restore the previous runtime code without data conversion. CI and production
+verification remain pending; stage dialogue still needs provider migration.

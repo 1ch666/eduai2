@@ -1,6 +1,7 @@
 import { CASES, type CaseTemplate } from './court-rules';
 import type { AppEnv } from './env';
-import { readTextWithLimit } from './http';
+import { createOllamaProvider } from './providers/ollama';
+import type { LLMProvider } from './providers/contracts';
 import { parseCourtNarrativeDraft } from './court-draft';
 import { checkCaseReachability } from './court-reachability';
 
@@ -53,15 +54,16 @@ export function similarCase(a:CaseTemplate,b:CaseTemplate){
  const x=grams(a),y=grams(b);let common=0;for(const g of x)if(y.has(g))common++;
  return common/Math.max(1,Math.min(x.size,y.size))>=.65;
 }
-export async function generateModelCase(env:AppEnv,base:CaseTemplate,previous:CaseTemplate[]):Promise<CaseTemplate>{
- if(env.COURT_AI_ENABLED==='false'||!env.OLLAMA_API_KEY)throw Error('AI 尚未啟用或設定，未建立案件。');
+export async function generateModelCase(env:AppEnv,base:CaseTemplate,previous:CaseTemplate[],provider?:LLMProvider):Promise<CaseTemplate>{
+ if(env.COURT_AI_ENABLED==='false'||(!provider&&!env.OLLAMA_API_KEY))throw Error('AI 尚未啟用或設定，未建立案件。');
  const themes=['物品交接記錄缺漏','雙方對時間順序有歧異','證人只見到片段','電子訊息缺少上下文','照片與陳述需要比對','物件來源尚待確認'];
  const theme=themes[crypto.getRandomValues(new Uint32Array(1))[0]%themes.length];
- const r=await fetch('https://ollama.com/api/chat',{method:'POST',headers:{Authorization:`Bearer ${env.OLLAMA_API_KEY}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(20000),body:JSON.stringify({model:env.OLLAMA_MODEL||'gpt-oss:20b',stream:false,think:false,format:'json',options:{temperature:.9,num_predict:1600},messages:[{role:'system',content:'產生繁體中文原創虛構教育案件。只輸出JSON：title(4-60字)、summary(4-260字)、facts(3-6項，每項4-220字)、evidence(2-4項，每項只有title(4-60字)、text(4-300字))。不要法條、判決、真實人物、網址、年齡或法律協助資格。保持指定案件類型，使用「甲方、乙方」而非真名。每項證據必須說明能確認及不能確認的內容；不把主張當已證實事實。至少保留一項待查爭點。事件和證據組合須不同於避開清單，不可只換名字。內容是虛構練習，不下法律結論。'},{role:'user',content:JSON.stringify({category:base.id,procedure:base.procedure,theme,nonce:crypto.randomUUID(),avoid:previous.slice(-12).map(t=>({summary:t.summary,evidence:t.evidence.map(e=>e.title)}))})}]})});
- if(!r.ok)throw Error(r.status===429?'AI 額度或頻率限制，未建立案件。':'AI 服務暫時無法生成案件。');
- const raw=await readTextWithLimit(r.body,18000);if(raw.tooLarge||raw.invalidEncoding)throw Error('AI 案件格式不合格，未建立案件。');
+ // Server composition only; neither credentials nor provider selection are client input.
+ const engine=provider??createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:env.OLLAMA_MODEL||'gpt-oss:20b',thinking:false});
+ const r=await engine.generate({output:'json',temperature:.9,maxOutputTokens:1600,messages:[{role:'system',content:'產生繁體中文原創虛構教育案件。只輸出JSON：title(4-60字)、summary(4-260字)、facts(3-6項，每項4-220字)、evidence(2-4項，每項只有title(4-60字)、text(4-300字))。不要法條、判決、真實人物、網址、年齡或法律協助資格。保持指定案件類型，使用「甲方、乙方」而非真名。每項證據必須說明能確認及不能確認的內容；不把主張當已證實事實。至少保留一項待查爭點。事件和證據組合須不同於避開清單，不可只換名字。內容是虛構練習，不下法律結論。'},{role:'user',content:JSON.stringify({category:base.id,procedure:base.procedure,theme,nonce:crypto.randomUUID(),avoid:previous.slice(-12).map(t=>({summary:t.summary,evidence:t.evidence.map(e=>e.title)}))})}]},{timeoutMs:20000,maxResponseBytes:18000}).catch(()=>({ok:false as const,code:'NETWORK' as const}));
+ if(!r.ok)throw Error(r.code==='QUOTA'?'AI 額度或頻率限制，未建立案件。':['RESPONSE_TOO_LARGE','INVALID_ENCODING','RESPONSE_FORMAT','OUTPUT_TRUNCATED','EMPTY_CONTENT'].includes(r.code)?'AI 案件格式不合格，未建立案件。':'AI 服務暫時無法生成案件。');
  let result:CaseTemplate|null=null;
- try{const envelope=JSON.parse(raw.text);result=validateGenerated(JSON.parse(envelope?.message?.content||''),base);}catch{}
+ try{if(new TextEncoder().encode(r.value.text).byteLength<=18000)result=validateGenerated(JSON.parse(r.value.text),base);}catch{}
  if(!result)throw Error('AI 案件格式不合格，未建立案件。');
  return result;
 }

@@ -25,10 +25,10 @@ function validInput(input: ChatInput, context: ProviderContext): boolean {
  * to a second vendor/model is permitted here. Fetch is injectable for tests.
  */
 export function createOllamaProvider(
-  config: {apiKey?: string; model: string},
+  config: {apiKey?: string; model: string; thinking?: false | 'low'},
   transport: typeof fetch = fetch
 ): LLMProvider {
-  const apiKey=config.apiKey, model=config.model;
+  const apiKey=config.apiKey, model=config.model, thinking=config.thinking ?? (model.startsWith('gpt-oss')?'low':false);
   return {
     contractVersion:1, id:'ollama', model,
     async generate(input: ChatInput, context: ProviderContext): Promise<ProviderResult<Answer>> {
@@ -48,7 +48,7 @@ export function createOllamaProvider(
         upstream=await transport('https://ollama.com/api/chat',{
           method:'POST',redirect:'error',signal,
           headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({model,stream:false,think:model.startsWith('gpt-oss')?'low':false,
+          body:JSON.stringify({model,stream:false,think:thinking,
             messages:input.messages.map(({role,content})=>({role,content})),
             ...(input.output==='json'?{format:'json'}:{}),
             options:{temperature:input.temperature,num_predict:input.maxOutputTokens}})

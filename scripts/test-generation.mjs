@@ -27,10 +27,34 @@ test('dedup compares narrative, not title or random ID',()=>{
 test('calls model once, parses bounded JSON and fails closed without AI',async()=>{
  const original=globalThis.fetch;let calls=0;
  try{
-  globalThis.fetch=async()=>{calls++;return Response.json({message:{content:JSON.stringify(draft)}});};
+  globalThis.fetch=async(url,init)=>{calls++;const body=JSON.parse(init.body);assert.equal(body.think,false);assert.equal(body.format,'json');assert.equal(body.options.num_predict,1600);assert.equal(init.redirect,'error');return Response.json({message:{content:JSON.stringify(draft)}});};
   await assert.rejects(generateModelCase({},CASES[0],[]));assert.equal(calls,0);
   const env={OLLAMA_API_KEY:'mock-not-real'};assert.ok(await generateModelCase(env,CASES[0],[]));assert.equal(calls,1);
   globalThis.fetch=async()=>Response.json({message:{content:'{"correct":0}'}});await assert.rejects(generateModelCase(env,CASES[0],[]));
   globalThis.fetch=async()=>new Response('',{status:429});await assert.rejects(generateModelCase(env,CASES[0],[]),/額度/);
  }finally{globalThis.fetch=original;}
+});
+
+test('vendor-independent case provider is bounded, untrusted, and cannot bypass kill switch',async()=>{
+ let calls=0;
+ const previous=CASES.map(c=>structuredClone(c));const before=structuredClone(previous);
+ const provider={contractVersion:1,id:'fake',model:'offline',async generate(input,context){
+  calls++;assert.deepEqual(context,{timeoutMs:20000,maxResponseBytes:18000});
+  assert.equal(input.output,'json');assert.equal(input.temperature,.9);assert.equal(input.maxOutputTokens,1600);
+  assert.equal(JSON.parse(input.messages[1].content).category,CASES[0].id);
+  return {ok:true,value:{text:JSON.stringify(draft),usage:{inputTokens:null,outputTokens:null}}};
+ }};
+ assert.ok(await generateModelCase({},CASES[0],previous,provider));assert.equal(calls,1);assert.deepEqual(previous,before);
+ await assert.rejects(generateModelCase({COURT_AI_ENABLED:'false'},CASES[0],[],provider),/尚未啟用/);assert.equal(calls,1);
+ for(const text of ['not JSON',JSON.stringify({...draft,correct:0}),' '.repeat(18001)+JSON.stringify(draft)]){
+  await assert.rejects(generateModelCase({},CASES[0],[],{...provider,async generate(){return {ok:true,value:{text}};}}),/格式不合格/);
+ }
+});
+
+test('provider failures never leak upstream text or trigger retries',async()=>{
+ for(const code of ['QUOTA','TIMEOUT','CANCELLED','NETWORK','PROVIDER_AUTH','OUTPUT_TRUNCATED','RESPONSE_TOO_LARGE']){
+  let calls=0;const provider={async generate(){calls++;return {ok:false,code};}};
+  await assert.rejects(generateModelCase({},CASES[0],[],provider),code==='QUOTA'?/額度/:/AI/);assert.equal(calls,1);
+ }
+ await assert.rejects(generateModelCase({},CASES[0],[],{async generate(){throw Error('PRIVATE_API_KEY');}}),{message:'AI 服務暫時無法生成案件。'});
 });
