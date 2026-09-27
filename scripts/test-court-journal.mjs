@@ -71,14 +71,47 @@ test('RPC rejects unknown NPC and malformed questions before storing reservation
  }finally{db.close();}
 });
 
-test('legacy stored events are not rewritten to fabricate a historical NPC roster',()=>{
+test('legacy empty cast resumes through one checkpoint without rewriting history or procedure',()=>{
  const {room,db}=setup();try{
   const event=room.events('owner',-1).events[0];event.snapshot.state.npcs=[];
   db.prepare('UPDATE court_events SET body=? WHERE version=0').run(JSON.stringify(event));
-  assert.deepEqual(room.snapshotV1('owner',crypto.randomUUID()).state.npcs,[]);
-  room.action('owner',{requestId:crypto.randomUUID(),version:0,type:'acknowledge'});
+  assert.equal(room.snapshotV1('other',crypto.randomUUID()).status,404);
+  assert.equal(room.get('owner').view.version,0);
+  const before=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+  const repaired=room.snapshotV1('owner',crypto.randomUUID());
+  assert.equal(repaired.state.npcs.length,5);assert.equal(repaired.stateVersion,1);
+  assert.ok(parseSnapshot(JSON.stringify(repaired)));
+  const after=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+  assert.deepEqual({...after,version:before.version,updatedAt:before.updatedAt},before);
+  assert.equal(room.snapshotV1('owner',crypto.randomUUID()).eventId,repaired.eventId);
+  assert.equal(room.action('owner',{requestId:crypto.randomUUID(),version:0,type:'acknowledge'}).status,409);
   const events=room.events('owner',-1).events;
-  assert.deepEqual(events[0],event);assert.equal(events[1].snapshot.state.npcs.length,5);
+  assert.equal(events.length,2);assert.deepEqual(events[0],event);assert.equal(events[1].kind,'checkpoint');assert.equal(events[1].snapshot.state.npcs.length,5);
+  assert.ok(room.action('owner',{requestId:crypto.randomUUID(),version:1,type:'acknowledge'}).view);
+ }finally{db.close();}
+});
+test('legacy cast repair rolls back on write failure and survives object recreation',()=>{
+ const {room,db,ctx,setFail}=setup();try{
+  const event=room.events('owner',-1).events[0];event.snapshot.state.npcs=[];
+  db.prepare('UPDATE court_events SET body=? WHERE version=0').run(JSON.stringify(event));
+  setFail(true);assert.throws(()=>room.snapshotV1('owner',crypto.randomUUID()),/injected journal/);setFail(false);
+  assert.equal(room.get('owner').view.version,0);assert.deepEqual(room.events('owner',-1).events,[event]);
+  const fixed=room.snapshotV1('owner',crypto.randomUUID());
+  const restored=new CourtRoom(ctx,{});
+  assert.equal(restored.snapshotV1('owner',crypto.randomUUID()).eventId,fixed.eventId);
+  assert.equal(restored.events('owner',-1).events.length,2);
+ }finally{db.close();}
+});
+test('legacy cast refresh does not fence an in-flight NPC reply',async()=>{
+ const {room,db,id}=setup();try{
+  const event=room.events('owner',-1).events[0];event.snapshot.state.npcs=[];
+  db.prepare('UPDATE court_events SET body=? WHERE version=0').run(JSON.stringify(event));
+  assert.equal(room.snapshotV1('owner','invalid').status,400);
+  const pending=room.npcV1('owner',{...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'},false);
+  assert.equal(room.snapshotV1('owner',crypto.randomUUID()).stateVersion,0);
+  const result=await pending;assert.equal(result.kind,'npc_utterance');
+  assert.equal(room.snapshotV1('owner',crypto.randomUUID()).state.npcs.length,5);
+  assert.equal(room.events('owner',-1).events.length,2);
  }finally{db.close();}
 });
 test('permanent content deletion is owner-only, idempotent and blocks resurrection',async()=>{

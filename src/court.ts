@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import {canConverse,isNpcId} from './court-cast';
+import {canConverse,isNpcId,publicCourtCast} from './court-cast';
 import {appendJournal,checkpointJournal,publicCourtSnapshot,type JournalEvent} from './court-journal';
 import {parseMutation,canonical,type CourtMutation} from '../court/protocol.js';
 import type { AppEnv } from './env';
@@ -65,7 +65,19 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(!validProtocolUuid(requestId))return {error:'請求識別錯誤',status:400};
     checkpointJournal(this.ctx.storage.sql,s);
     const row=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version=?',s.version).one();
-    const event=JSON.parse(row.body) as JournalEvent;
+    let event=JSON.parse(row.body) as JournalEvent;
+    // Pre-roster journal snapshots legitimately contain no NPCs. Keep those
+    // historical events immutable, but append one current presentation checkpoint
+    // so resuming an old case does not leave Unity permanently empty. This is not
+    // a procedure action, AI call or recreation of the user's case.
+    if(event.snapshot.state.npcs.length===0 && publicCourtCast(s).length>0 &&
+       !this.ctx.storage.sql.exec('SELECT request_id FROM court_v1_npc_pending WHERE result IS NULL LIMIT 1').toArray().length){
+      const next=structuredClone(s);next.version++;next.updatedAt=new Date().toISOString();
+      event=this.ctx.storage.transactionSync(()=>{
+        this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
+        return appendJournal(this.ctx.storage.sql,next,{kind:'checkpoint',requestId:crypto.randomUUID(),speaker:'系統',roleId:next.config.role,text:'更新本場次的角色顯示；案件內容與程序進度保持不變，較早紀錄保留原樣。'});
+      });
+    }
     return {...event.snapshot,requestId};
   }
   outcomeV1(owner:string,requestId:string){
