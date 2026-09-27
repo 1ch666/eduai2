@@ -44,6 +44,13 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 
 ## Latest verified increment — 2026-09-28
 
+Private snapshot journal candidate (not deployed): deduplicated immutable context
+plus per-event mutable snapshots now permit exact internal version reconstruction.
+See COURT-PRIVATE-JOURNAL.md. Public/API replay still excludes these records.
+Transaction, deletion, legacy gaps and integrity tests exist; full import validation,
+protected operator archive/restore and rollback deletion drill remain release gates.
+This candidate is not proof of section 18 disaster recovery completion.
+
 Released 78cd1e2 adds response-level FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/
 NO_AI schema and actual tutor/photo/legacy NPC source mapping. RAG_ONLY is reserved,
 not emitted by dictionary lookup. Stage/generation/v1 projections and health

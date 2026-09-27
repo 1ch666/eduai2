@@ -1,5 +1,6 @@
 import {courtView, PROCEDURAL_REQUESTS, type CourtState} from './court-rules';
 import {publicCourtCast,canConverse} from './court-cast';
+import {appendPrivateState} from './court-private-journal';
 
 export type JournalDetail = {kind:'session_started'|'checkpoint'|'statement'|'ruling'|'stage_changed'|'session_completed'|'npc_utterance';requestId:string;speaker:string;roleId:string;text:string;evidenceIds?:string[]};
 // Explicit public projection. Never spread CourtState or generatedCase: those
@@ -30,6 +31,7 @@ export type JournalEvent=ReturnType<typeof journalEvent>;
 export function appendJournal(sql:SqlStorage,s:CourtState,detail:JournalDetail){
  const event=journalEvent(s,detail);
  sql.exec('INSERT INTO court_events(version,event_id,body) VALUES(?,?,?)',s.version,event.eventId,JSON.stringify(event));
+ appendPrivateState(sql,s,event.eventId);
  return event;
 }
 export function checkpointJournal(sql:SqlStorage,s:CourtState){

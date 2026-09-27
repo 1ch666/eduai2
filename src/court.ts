@@ -15,6 +15,7 @@ import {aiOutcome} from './ai-outcome';
 import {createGovernedOllamaProvider} from './providers/governed-ollama';
 import {copyTrace,type TraceContext} from './trace-context';
 import {publicAuditEvent} from './court-audit';
+import {initializePrivateJournal} from './court-private-journal';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
@@ -35,7 +36,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       CREATE TABLE IF NOT EXISTS court_events(version INTEGER PRIMARY KEY,event_id TEXT NOT NULL UNIQUE,body TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS court_v1_requests(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,event TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS court_v1_npc_pending(request_id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,created INTEGER NOT NULL,result TEXT);
-    `);});
+    `);initializePrivateJournal(this.ctx.storage.sql);});
   }
   init(id:string,owner:string,config:CourtConfig,generated?:ReturnType<typeof generatedCandidates>[number],graph?:unknown){
     if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return {error:'場次已刪除',status:404};
@@ -65,7 +66,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       if(!deleted)this.ctx.storage.sql.exec('INSERT INTO court_deleted VALUES(1,?,?)',owner,new Date().toISOString());
       // Keep only the small deletion guard: delayed generation must not revive
       // this UUID. All case content, replies, replay and request bodies are gone.
-      for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
+      for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending','court_replay_state','court_replay_context'])this.ctx.storage.sql.exec(`DELETE FROM ${table}`);
     });
     return {ok:true};
   }
@@ -73,7 +74,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
   events(owner:string,after:number){
     const state=this.read();if(!state||state.owner!==owner)return {error:'場次不存在',status:404};
     if(!Number.isSafeInteger(after)||after< -1)return {error:'事件游標錯誤',status:400};
-    checkpointJournal(this.ctx.storage.sql,state);
+    this.ctx.storage.transactionSync(()=>checkpointJournal(this.ctx.storage.sql,state));
     const events=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version>? ORDER BY version LIMIT 20',after).toArray().map(r=>JSON.parse(r.body) as JournalEvent);
     return {events,nextAfter:events.at(-1)?.eventSequence??after,currentVersion:state.version};
   }
@@ -95,7 +96,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
   snapshotV1(owner:string,requestId:string){
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};
     if(!validProtocolUuid(requestId))return {error:'請求識別錯誤',status:400};
-    checkpointJournal(this.ctx.storage.sql,s);
+    this.ctx.storage.transactionSync(()=>checkpointJournal(this.ctx.storage.sql,s));
     const row=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM court_events WHERE version=?',s.version).one();
     let event=JSON.parse(row.body) as JournalEvent;
     // Pre-roster journal snapshots legitimately contain no NPCs. Keep those

@@ -7,8 +7,13 @@ import {parseEvent,parseSnapshot} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
 import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
 import {courtV2Events} from './court-schema-check.mjs';
+import {readFile} from 'node:fs/promises';
+import Ajv from 'ajv';
+const privateRowsSchema=new Ajv({strict:true}).compile(JSON.parse(await readFile('contracts/court-private-journal-v1.schema.json','utf8')));
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
 const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const privateBundle=await build({entryPoints:['src/court-private-journal.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const {reconstructPrivateState}=await import('data:text/javascript;base64,'+Buffer.from(privateBundle.outputFiles[0].text).toString('base64'));
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
 const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_ADMISSION:{getByName(name){
  assert.equal(name,'ollama-account-v1');return {
@@ -19,6 +24,71 @@ const stageEnv={COURT_AI_ENABLED:'true',OLLAMA_API_KEY:'synthetic-test-key',AI_A
 const gate=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const stageResponse=()=>Response.json({message:{content:JSON.stringify({text:'測試公開程序台詞'})}});
 const stageFallback=room=>({...room.get('owner').view.turn,aiOutcome:{schemaVersion:1,scope:'response',feature:'stage-dialogue',source:'scripted',mode:'SCRIPTED_AI_FALLBACK',modelUsed:false}});
+
+test('private journal reconstructs exact server state, deduplicates context and never enters public events',async()=>{
+ const {room,db,ctx,id}=setup();
+ try{
+  const initial=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,0),initial);
+  room.actionV1('owner',mutation(id));
+  await room.npcV1('owner',{...mutation(id,1,'npc.ask'),targetId:'Witness',text:'你好'},false);
+  const latest=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+  const before=db.prepare('SELECT total_changes() AS n').get().n;
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,2),latest);
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,0),initial);
+  assert.equal(reconstructPrivateState(ctx.storage.sql,99),null);
+  assert.equal(db.prepare('SELECT total_changes() AS n').get().n,before);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_replay_context').get().n,1);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_replay_state').get().n,3);
+  assert.equal(privateRowsSchema({schemaVersion:1,contexts:db.prepare('SELECT * FROM court_replay_context').all(),states:db.prepare('SELECT * FROM court_replay_state').all()}),true);
+  assert.ok(!JSON.stringify(room.eventsV2('owner',-1)).includes('"owner"'));
+  room.remove('owner');
+  for(const table of ['court_replay_context','court_replay_state'])assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n,0);
+ }finally{db.close();}
+});
+
+test('private journal insert failure rolls back live state, public event and command receipt',()=>{
+ const {room,db,ctx,id}=setup();
+ try{
+  const original=ctx.storage.sql.exec,before=db.prepare('SELECT body FROM state').get().body;
+  ctx.storage.sql.exec=(query,...args)=>{if(query.startsWith('INSERT INTO court_replay_state'))throw Error('private write failed');return original(query,...args);};
+  assert.throws(()=>room.actionV1('owner',mutation(id)),/private write failed/);
+  assert.equal(db.prepare('SELECT body FROM state').get().body,before);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,1);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_v1_requests').get().n,0);
+ }finally{db.close();}
+});
+
+test('private reconstruction preserves generated answer keys and private graph without exposing them',()=>{
+ const {room,db,ctx,id}=setup(config,{},false);
+ try{
+  const template=structuredClone(CASES.find(c=>c.id==='sale')),graph=graphFor(template);
+  assert.ok(room.init(id,'owner',config,template,graph).view);
+  const recorded=reconstructPrivateState(ctx.storage.sql,0);
+  assert.deepEqual(recorded,JSON.parse(db.prepare('SELECT body FROM state').get().body));
+  assert.equal(recorded.generatedCase.correct,template.correct);
+  assert.deepEqual(recorded.privateGraph,graph);
+  recorded.generatedCase.correct=99;
+  assert.equal(reconstructPrivateState(ctx.storage.sql,0).generatedCase.correct,template.correct);
+  const publicData=JSON.stringify(room.eventsV2('owner',-1));
+  for(const hidden of ['PRIVATE_TIMELINE_CANARY','generatedCase','privateGraph','"owner"'])assert.ok(!publicData.includes(hidden));
+ }finally{db.close();}
+});
+
+test('private journal upgrade preserves old data without invented history and rejects broken links',()=>{
+ const {room,db,ctx,id}=setup();
+ try{
+  db.exec('DROP TABLE court_replay_state; DROP TABLE court_replay_context; DROP TABLE court_replay_meta');
+  const before=db.prepare('SELECT body FROM state').get().body;
+  const restarted=new CourtRoom(ctx,{});
+  assert.equal(db.prepare('SELECT body FROM state').get().body,before);
+  assert.equal(reconstructPrivateState(ctx.storage.sql,0),null);
+  restarted.actionV1('owner',mutation(id));
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,1),JSON.parse(db.prepare('SELECT body FROM state').get().body));
+  db.prepare('UPDATE court_replay_state SET event_id=?').run(crypto.randomUUID());
+  assert.throws(()=>reconstructPrivateState(ctx.storage.sql,1),/integrity/);
+ }finally{db.close();}
+});
 
 test('v2 event audit verifies persisted command identity and is strictly read-only',()=>{
  const {room,db,id}=setup();
