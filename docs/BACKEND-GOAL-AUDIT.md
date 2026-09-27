@@ -47,8 +47,10 @@ a newer runtime deployment. Original unrelated README changes remain uncommitted
 Private snapshot journal candidate (not deployed): deduplicated immutable context
 plus per-event mutable snapshots now permit exact internal version reconstruction.
 See COURT-PRIVATE-JOURNAL.md. Public/API replay still excludes these records.
-Transaction, deletion, legacy gaps and integrity tests exist; full import validation,
-protected operator archive/restore and rollback deletion drill remain release gates.
+Transaction, deletion, legacy gaps and integrity tests exist. Persistent cleanup
+trigger now covers pre-feature DELETE sequences; actual workerd local-api job
+36353531265 passed reconstruction, deletion and rollback atomicity. Full import
+validation and protected operator archive/restore remain unfinished.
 This candidate is not proof of section 18 disaster recovery completion.
 
 Released 78cd1e2 adds response-level FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/

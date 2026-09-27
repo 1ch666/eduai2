@@ -1,5 +1,13 @@
 # Internal court snapshot journal — candidate, not deployed
 
+Verification 2026-09-28: base ba0981d passed CI 36353256453. Cleanup trigger
+5fa27c3 passed 333 local fast tests; its first workerd drill exposed a test-only
+nested JSON key-order comparison bug (delete and rollback already passed).
+2d2097e corrects comparison using canonical complete values. The local-api job
+of CI 36353531265 passed actual workerd reconstruction, trigger erasure and
+transaction rollback; its checks job also passed (full CI success). No production data was
+exported or deleted, no model was called, and this candidate is not deployed.
+
 This is server-only historical state persistence, not a browser replay payload,
 research dataset or disaster recovery archive. Owner IDs, generated answer keys
 and private graphs must never cross a public API, Unity bridge or telemetry sink.
