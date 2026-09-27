@@ -36,3 +36,11 @@ input is bounded parsed JSON. Existing legal config validation remains separate.
 
 Rollback: revert the parser integration and source file together; no data rollback
 or migration is needed. This change does not require a Unity or game Docker build.
+
+Release evidence: source `4320a0b333abc0bbfbc1ba566016bbee3826af22` passed fast
+and isolated API CI at https://github.com/1ch666/eduai2/actions/runs/36338868126 .
+Dry-run and existing Worker deployment succeeded, version
+`5f5de49b-b1a5-4f2d-b7b8-efd23ffdd4c6`; no changed assets were uploaded.
+Public capabilities/cases returned 200 and anonymous sessions returned 401.
+No live generation call was made, so provider/model health is not verified here.
+Previous Worker rollback version: `385a1586-3c47-44b9-bf6e-b14e2e0ac261`.
