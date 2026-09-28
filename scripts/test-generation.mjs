@@ -29,7 +29,7 @@ test('dedup compares narrative, not title or random ID',()=>{
 test('calls model once, parses bounded JSON and fails closed without AI',async()=>{
  const original=globalThis.fetch;let calls=0;
  try{
-  globalThis.fetch=async(url,init)=>{calls++;const body=JSON.parse(init.body);assert.equal(body.think,false);assert.equal(body.format,'json');assert.equal(body.options.num_predict,1600);assert.equal(init.redirect,'error');return Response.json({message:{content:JSON.stringify(draft)}});};
+  globalThis.fetch=async(url,init)=>{calls++;const body=JSON.parse(init.body);assert.equal(body.think,false);assert.equal(body.format,'json');assert.equal(body.options.num_predict,1600);assert.equal(init.redirect,'manual');return Response.json({message:{content:JSON.stringify(draft)}});};
   await assert.rejects(generateModelCase({},CASES[0],[]));assert.equal(calls,0);
   const env={OLLAMA_API_KEY:'mock-not-real'},provider=()=>createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:'test',thinking:false});
   await assert.rejects(generateModelCase(env,CASES[0],[]));assert.equal(calls,0,'raw provider must not be constructed implicitly');

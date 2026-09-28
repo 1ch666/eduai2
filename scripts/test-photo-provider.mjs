@@ -11,7 +11,7 @@ const request=(body={text:'民主是什麼',requestId:crypto.randomUUID()},heade
 test('default adapter retains model parameters and rejects oversized or truncated output',async()=>{
  const old=globalThis.fetch;let calls=0;
  try{
-  globalThis.fetch=async(url,init)=>{calls++;const wire=JSON.parse(init.body);assert.equal(wire.think,false);assert.equal(wire.options.num_predict,700);assert.equal(wire.format,undefined);assert.equal(init.redirect,'error');return Response.json({message:{content:'民主的核心是人民參與。'}});};
+  globalThis.fetch=async(url,init)=>{calls++;const wire=JSON.parse(init.body);assert.equal(wire.think,false);assert.equal(wire.options.num_predict,700);assert.equal(wire.format,undefined);assert.equal(init.redirect,'manual');return Response.json({message:{content:'民主的核心是人民參與。'}});};
   const configured={...env,OLLAMA_API_KEY:'offline-not-real',AI_ADMISSION:grantedAdmission(),
    LEARNER:{getByName:()=>({allow:async()=>true,reserveStudyAi:async()=>({code:'RESERVED',issuedAt:Date.now()})})}};
   assert.equal((await handlePhoto(request(),configured,respond,'trusted')).status,200);assert.equal(calls,1);
