@@ -46,7 +46,7 @@ export function createOllamaProvider(
       let upstream:Response;
       try {
         upstream=await transport('https://ollama.com/api/chat',{
-          method:'POST',redirect:'error',signal,
+          method:'POST',redirect:'manual',signal,
           headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json',Accept:'application/json'},
           body:JSON.stringify({model,stream:false,think:thinking,
             messages:input.messages.map(({role,content})=>({role,content})),

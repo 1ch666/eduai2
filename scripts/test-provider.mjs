@@ -10,7 +10,7 @@ const provider=fetcher=>createOllamaProvider({apiKey:'fake-private-key',model:'g
 test('provider projects only final text and reported usage; uses fixed endpoint without redirects',async()=>{
   let count=0;
   const p=provider(async(url,options)=>{
-    count++;assert.equal(url,'https://ollama.com/api/chat');assert.equal(options.redirect,'error');
+    count++;assert.equal(url,'https://ollama.com/api/chat');assert.equal(options.redirect,'manual');
     assert.equal(options.headers.Authorization,'Bearer fake-private-key');
     const body=JSON.parse(options.body);assert.equal(body.think,'low');assert.equal(body.stream,false);
     assert.equal(body.options.num_predict,512);assert.equal(body.format,undefined);
