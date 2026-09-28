@@ -4,6 +4,8 @@ public/
 worker-configuration.d.ts
 dist/
 *.log
+# Offline evaluation caches (embeddings are regenerated from law-data).
+.cache/
 # Local build-time Python environment (not shipped or committed).
 .court-tools/
 
