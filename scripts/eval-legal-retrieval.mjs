@@ -75,7 +75,8 @@ async function corpusVectors(model,chunks){
 
 const git=cmd=>execSync(cmd,{encoding:'utf8'}).trim();
 const run={
- runAt:new Date().toISOString(),sourceCommit:git('git rev-parse HEAD'),dirty:git('git status --porcelain')!=='',
+ runAt:new Date().toISOString(),sourceCommit:git('git rev-parse HEAD'),// Tracked files only: untracked outputs (this run's results) do not change the code.
+ dirty:git('git status --porcelain --untracked-files=no')!=='',
  node:process.version,benchmark:{id:bench.id,items:bench.items.length,status:bench.status,split:bench.split},
  corpus:{snapshot:full.manifest,full:full.chunks.length,core:core.chunks.length,coreLaws:CORE_LAWS},k:K,results:[],failures:[],models:[],
 };
