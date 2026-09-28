@@ -89,6 +89,21 @@ flowchart LR
 
 見 `research/results/legal-retrieval-*.md`。題庫 `benchmark/legal-retrieval-v0.json`：40 題，**由 AI 撰寫、未經專家審查、只有 dev split、沒有 hidden test**。每個正解 `chunkId` 都已確認存在於語料中。所有數字都由 `node scripts/eval-legal-retrieval.mjs` 實際跑出，沒有調整題目去配合結果。
 
+2026-09-28 的結果：核心語料為 6 部法律、3,668 條；模型在本機 Ollama 上用 CPU 執行。
+
+| 系統 | Recall@1 | Recall@10 | MRR@10 |
+|---|---|---|---|
+| BM25 | 0.125 | 0.30 | 0.16 |
+| dense bge-m3 | **0.625** | **0.90** | **0.73** |
+| dense qwen3-embedding:0.6b | 0.475 | 0.90 | 0.63 |
+| RRF(BM25 + bge-m3) | 0.325 | 0.80 | 0.48 |
+
+結論（僅適用於這組 dev 題目）：
+- 學生口語和法條用語差距很大，BM25 基本上不可用。
+- bge-m3 在前幾名的準確度優於 qwen3-embedding:0.6b，選 bge-m3。
+- **負面結果**：等權 RRF 混合比單純 dense 更差。BM25 太弱，反而把正確答案往下拉。所以目前不採用 hybrid。要改善，應該調整權重或改善斷詞，而不是直接宣稱「Hybrid RAG」。
+- 用 CPU 算 3,668 條的向量約需 40 分鐘（qwen3 實測 2,381 秒）。若要擴大到完整的 40,818 條，需要預先算好並儲存，不可能在請求當下即時計算。
+
 ## 4. 與 Codex 的界線
 
 - Claude（本批）：Truth State、Knowledge Projection、檢索、citation 驗證、洩漏測試、評測。
