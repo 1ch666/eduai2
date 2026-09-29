@@ -6,6 +6,7 @@ import { installAccessibility } from './accessibility.js';
 import { installActionPanel } from './action-panel.js';
 import { installSnapshotRelay } from './snapshot-relay.js';
 import { createNpcTicketGate } from './npc-action.js';
+import { installRandomCase } from './random-case.js';
 installAccessibility({document,window});
 const $=id=>document.getElementById(id);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
@@ -136,6 +137,7 @@ $('case').onchange=setup;$('setup-form').addEventListener('input',e=>{if(e.targe
 $('auth-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/'+f.get('mode'),Object.fromEntries(f));window.EduAuth.changed(p);e.target.elements.password.value='';e.target.elements.recoveryCode.value='';$('recovery').hidden=!p.recoveryCode;$('recovery').textContent=p.recoveryCode?`請保存新的復原碼（僅顯示一次）：\n${p.recoveryCode}`:'';await session();status('登入成功。');});};
 $('logout').onclick=()=>run(async()=>{await api('/api/auth/logout',{});window.EduAuth.changed({user:null});account=null;csrf='';hasRecoveryCode=true;pause();$('scene').removeAttribute('src');$('scene').hidden=true;$('hearing').hidden=true;$('setup').hidden=false;$('sessions').replaceChildren();$('recovery').textContent='';$('recovery').hidden=true;$('first-recovery-section').hidden=true;await session();});
 $('setup-form').onsubmit=e=>{e.preventDefault();void run(async()=>{if(!account){$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return;}const b=Object.fromEntries(new FormData(e.target));const variation=b.variation==='on';delete b.variation;b.claimantAid ||= 'none';for(const k of ['claimantAge','claimantHearingAge','respondentAge','respondentHearingAge'])b[k]=Number(b[k]);if(variation)b.requestId=crypto.randomUUID();status(variation?'AI 正在生成新案件並檢查重複，請稍候…':'正在建立場次…');$('create').disabled=true;try{const p=await api(variation?'/api/court/cases/generate':'/api/court/sessions',b);open(p.view);}finally{$('create').disabled=false;}});};
+installRandomCase({button:$('random-case'),api,open,status,run,ready:()=>{if(account)return true;$('account').hidden=false;status('請先登入；遊客仍可使用固定練習。');return false;}});
 $('speech-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await act('speak',{text:$('statement').value});$('statement').value='';});};
 $('first-recovery-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=new FormData(e.target);const p=await api('/api/auth/first-recovery',{password:f.get('password')});e.target.elements.password.value='';$('recovery').hidden=false;$('recovery').textContent=`請保存首次復原碼（僅顯示一次）：\n${p.recoveryCode}`;hasRecoveryCode=true;$('first-recovery-section').hidden=true;status('復原碼已產生，請立即妥善保存。');});};
 $('back').onclick=()=>{if(actionPanel.working||actionPanel.pending){status('請先在「伺服器程序操作」確認結果，再返回案件設定。');return;}actionPanel.clear();pause();stopVoice(true);$('hearing').hidden=true;$('setup').hidden=false;$('scene').removeAttribute('src');$('scene').hidden=true;void run(sessions);};

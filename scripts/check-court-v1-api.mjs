@@ -140,4 +140,24 @@ for(const mode of ['duplicate','competing-version','reused-key']){
  assert.equal((await call(route,undefined,b)).status,404);
  assert.equal((await call('/api/court/sessions/'+sessionId+'/delete',{confirm:true},a)).status,200);
 }
-console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, NPC result/history deduplication, replay, deletion and three concurrent submission scenarios.');
+// Fully random case: the server draws the legal config; AI is off here, so it must fall back to the library.
+{
+ // Reuse b: the local registration budget is shared with the other CI API scripts.
+ const c=b;
+ const random='/api/court/cases/random',requestId=crypto.randomUUID();
+ assert.equal((await call(random,{requestId})).status,401);
+ assert.equal((await call(random,{requestId},{cookie:c.cookie})).status,403);
+ for(const extra of [{caseId:'injury'},{role:'judge'},{claimantAge:30},{respondentAid:'none'},{procedure:'criminal'}])
+  assert.equal((await call(random,{requestId,...extra},c)).status,400,JSON.stringify(extra));
+ const created=await call(random,{requestId},c);assert.equal(created.status,201,JSON.stringify(created.data));
+ assert.equal(created.data.generation.mode,'library');assert.match(created.data.view.title,/^\[題庫\] /);
+ assert.deepEqual((await call(random,{requestId},c)).data.view,created.data.view);
+ const id=created.data.view.id;
+ assert.equal((await call('/api/court/sessions/'+id,undefined,c)).data.view.title,created.data.view.title);
+ assert.equal((await call('/api/court/sessions/'+id,undefined,a)).status,404);
+ assert.ok((await call('/api/court/sessions',undefined,c)).data.sessions.some(s=>s.id===id&&s.title===created.data.view.title));
+ const snapshot=await call('/api/court/v1/sessions/'+id+'?requestId='+crypto.randomUUID(),undefined,c);
+ assert.equal(snapshot.status,200);assert.ok(parseSnapshot(JSON.stringify(snapshot.data)));
+ assert.equal((await call('/api/court/sessions/'+id+'/delete',{confirm:true},c)).status,200);
+}
+console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, NPC result/history deduplication, replay, deletion and three concurrent submission scenarios, plus the fully random case route.');

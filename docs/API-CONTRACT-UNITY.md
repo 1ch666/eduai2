@@ -16,6 +16,7 @@ Implemented routes in `src/court.ts` (not proposals):
 | POST | `/api/court/v1/sessions/{id}/actions` | Public v1 event, or existing HTTP error |
 | GET | `/api/court/v1/sessions/{id}/requests/{requestId}` | Saved event, pending 202, unknown 404, or terminal not-applied receipt |
 | GET | `/api/court/sessions/{id}/events?after={sequence}` | Owner-only bounded event page; legacy path retained |
+| POST | `/api/court/cases/random` | Body is only `{requestId, preferAi?}`; any case/role/age/aid field is 400. Server draws a `validateConfig`-checked config (≤20 tries, else 500 `INTERNAL_CONFIG_ERROR`), tries AI narrative for that template, falls back to `[題庫]`; 201 `{view, generation:{mode:'ai'|'library'}}`, same requestId replays the same case |
 
 All routes require session ownership; mutation also requires Origin/CSRF, limits and current-version validation. HTTP errors still use legacy error/status bodies, **not** a completed uniform ok/apiVersion/requestId/timestamp/errorCode envelope. Structural schemas now cover mutation, not-applied, snapshot, event and event page; HTTP error schemas remain outstanding. Existing v1 clients are not silently migrated to v2.
 

@@ -17,6 +17,7 @@ import {copyTrace,type TraceContext} from './trace-context';
 import {publicAuditEvent} from './court-audit';
 import {initializePrivateJournal} from './court-private-journal';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
+import {parseRandomCaseRequest,randomCourtConfig,RandomConfigError} from './court-random';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -300,6 +301,7 @@ export class Learner extends DurableObject<AppEnv>{
     CREATE TABLE IF NOT EXISTS limits(key TEXT PRIMARY KEY,window INTEGER NOT NULL,count INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS generated_requests(id TEXT PRIMARY KEY,payload TEXT NOT NULL,room TEXT NOT NULL,body TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS generation_attempts(id TEXT PRIMARY KEY,payload TEXT NOT NULL,created INTEGER NOT NULL,error TEXT);
+    CREATE TABLE IF NOT EXISTS random_requests(id TEXT PRIMARY KEY,config TEXT NOT NULL,prefer_ai INTEGER NOT NULL);
   `);});}
   allow(key:string,limit:number,windowMs=60000){
     const window=Math.floor(Date.now()/windowMs);
@@ -314,11 +316,32 @@ export class Learner extends DurableObject<AppEnv>{
       // Preserve attempt IDs/timestamps for provider quotas and idempotency, but
       // discard saved configuration. Never refund AI quota by deleting a case.
       this.ctx.storage.sql.exec("UPDATE generation_attempts SET payload='{}' WHERE id IN (SELECT id FROM generated_requests WHERE room=?)",id);
+      this.ctx.storage.sql.exec('DELETE FROM random_requests WHERE id IN (SELECT id FROM generated_requests WHERE room=?)',id);
       this.ctx.storage.sql.exec('DELETE FROM generated_requests WHERE room=?',id);
       this.ctx.storage.sql.exec('DELETE FROM courts WHERE id=?',id);
     });return {ok:true};
   }
-  async generate(requestId:string,config:CourtConfig,owner?:string,trace?:TraceContext){
+  /** Server draws the legal config once per requestId; replays reuse it and the generate() receipt. */
+  async generateRandom(requestId:string,preferAi:boolean,owner?:string,trace?:TraceContext){
+    const saved=this.ctx.storage.sql.exec<{config:string;prefer_ai:number}>('SELECT config,prefer_ai FROM random_requests WHERE id=?',requestId).toArray()[0];
+    let config:CourtConfig;
+    if(saved){
+      if(Boolean(saved.prefer_ai)!==preferAi)return {error:'請求識別已用於不同內容',status:409};
+      config=JSON.parse(saved.config) as CourtConfig;
+    }else{
+      if(this.ctx.storage.sql.exec('SELECT id FROM generation_attempts WHERE id=? UNION SELECT id FROM generated_requests WHERE id=?',requestId,requestId).toArray().length)return {error:'請求識別已使用',status:409};
+      const recent=this.ctx.storage.sql.exec<{payload:string}>('SELECT payload FROM generated_requests ORDER BY rowid DESC LIMIT 30').toArray()
+        .map(r=>(JSON.parse(r.payload) as Partial<CourtConfig>).caseId).filter((id):id is string=>typeof id==='string').reverse();
+      try{config=randomCourtConfig(recent);}
+      catch(e){if(e instanceof RandomConfigError)return {error:e.message,code:e.code,status:500};throw e;}
+      // Saved before any await, so a concurrent duplicate sees this config and generate()'s reservation.
+      this.ctx.storage.sql.exec('INSERT INTO random_requests VALUES(?,?,?)',requestId,JSON.stringify(config),preferAi?1:0);
+    }
+    const result=await this.generate(requestId,config,owner,trace,preferAi);
+    if(result.error!==undefined)return {error:result.error,status:result.status};
+    return {id:result.id,template:result.template,config};
+  }
+  async generate(requestId:string,config:CourtConfig,owner?:string,trace?:TraceContext,preferAi=true){
     trace=copyTrace(trace);
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
@@ -332,7 +355,7 @@ export class Learner extends DurableObject<AppEnv>{
     this.ctx.storage.sql.exec('INSERT INTO generation_attempts VALUES(?,?,?,NULL)',requestId,payload,issuedAt);
     const readHistory=()=>this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM generated_requests ORDER BY rowid').toArray().map(r=>JSON.parse(r.body) as ReturnType<typeof generatedCandidates>[number]);
     let template:ReturnType<typeof generatedCandidates>[number];
-    const skipAI=!withinBudget||coolingDown||this.env.COURT_AI_ENABLED==='false'||!this.env.OLLAMA_API_KEY;
+    const skipAI=!preferAi||!withinBudget||coolingDown||this.env.COURT_AI_ENABLED==='false'||!this.env.OLLAMA_API_KEY;
     try{
       if(skipAI)throw Error('AI 暫停嘗試，改用題庫。');
       // Owner comes from the authenticated route, not a JSON/client field.
@@ -419,6 +442,15 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     const {requestId,version,text}=body.value;
     const result=await env.COURT_ROOM.getByName(npcMatch[1]).npc(session.user.id,npcMatch[2] as NpcId,{requestId,version,text},await learner.allow('npc-ai',4),trace);
     return respond(result,'status' in result?result.status:200);
+  }
+  if(path==='/api/court/cases/random'){
+    const input=parseRandomCaseRequest(body.value);if('error' in input)return respond({error:input.error},400);
+    if(!await learner.allow('generate',4))return respond({error:'生成太頻繁'},429);
+    const proposal=await learner.generateRandom(input.requestId,input.preferAi,session.user.id,trace);
+    if('error' in proposal)return respond({error:proposal.error,...('code' in proposal?{code:proposal.code}:{})},proposal.status);
+    const result=await env.COURT_ROOM.getByName(proposal.id).init(proposal.id,session.user.id,proposal.config,proposal.template);
+    if('status' in result)return respond(result,result.status);
+    return respond({...result,generation:{mode:proposal.template.id.startsWith('ai-')?'ai':'library'}},201);
   }
   if(path==='/api/court/sessions'||path==='/api/court/cases/generate'){
     // Explicit projection: no owner, stage or score can be injected by a client.

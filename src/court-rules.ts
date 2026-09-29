@@ -67,6 +67,7 @@ export const AGE_LIMITS: Record<Procedure,{actMin:number;actMax:number;message:s
   criminal: { actMin: 18, actMax: TEMPLATE_AGE_MAX, message: '成人刑事範本僅支援行為時雙方皆成年；未成年案件請選少年範本', note: '成人刑事範本要求雙方行為時皆滿 18 歲；未滿 18 歲請改選少年保護範本，本版未建模跨齡移送。' },
   juvenile: { actMin: 12, actMax: 17, message: '此少年保護範本僅支援行為及審理時12至未滿18歲；跨齡移送情況尚未開放', note: '少年保護範本開放行為時及審理時 12 歲以上未滿 18 歲。本遊戲一律不開放旁觀，這是產品限制，不表示真實程序絕無例外。' }
 };
+export const AIDS: readonly Aid[] = ['none','private','legalAid','appointed'];
 export function validateConfig(c: CourtConfig): string | null {
   const t = CASES.find(t => t.id === c.caseId);
   if (!t) return '案件不存在';
@@ -77,8 +78,7 @@ export function validateConfig(c: CourtConfig): string | null {
   }
   if (t.procedure === 'criminal' && (c.respondentAge < limits.actMin || c.claimantAge < limits.actMin)) return limits.message;
   if (t.procedure === 'juvenile' && (c.respondentAge < limits.actMin || c.respondentAge > limits.actMax || c.respondentHearingAge > limits.actMax)) return limits.message;
-  const aids: Aid[] = ['none','private','legalAid','appointed'];
-  if (!aids.includes(c.claimantAid) || !aids.includes(c.respondentAid)) return '法律協助設定錯誤';
+  if (!AIDS.includes(c.claimantAid) || !AIDS.includes(c.respondentAid)) return '法律協助設定錯誤';
   if (c.claimantAid === 'appointed' || (t.procedure === 'civil' && c.respondentAid === 'appointed')) return '本範本不提供民事／告訴人的指定辯護';
   if ((c.claimantAid === 'legalAid' || c.respondentAid === 'legalAid') && !t.aidApproved) return '本案件未設定已獲法律扶助審查核准';
   if (t.procedure === 'juvenile' && c.claimantAid !== 'none') return '本少年保護範本不設原告方律師';

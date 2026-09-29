@@ -5,7 +5,7 @@ const STATIC_ENDPOINTS = new Set([
   '/api/capabilities', '/api/messages', '/api/progress',
   ...['session','register','login','logout','recover','first-recovery'].map(x=>`/api/auth/${x}`),
   ...['status','ask'].map(x=>`/api/ai/${x}`),
-  ...['cases','cases/generate','sessions'].map(x=>`/api/court/${x}`),
+  ...['cases','cases/generate','cases/random','sessions'].map(x=>`/api/court/${x}`),
   ...['questions','answer','weakness','reinforce'].map(x=>`/api/practice/${x}`),
   ...['slots','focus/start','focus/beat','focus/end'].map(x=>`/api/planner/${x}`),
   ...['vapid-key','subscribe','unsubscribe'].map(x=>`/api/push/${x}`),
