@@ -1,0 +1,7 @@
+system,corpus,recall@1,recall@5,recall@10,mrr@10,ndcg@10,search_p50_ms,search_p95_ms
+bm25,full,0.05,0.175,0.2,0.0983,0.1228,0.69,4.82
+bm25,core,0.125,0.2,0.3,0.1634,0.1944,0.08,0.45
+dense:bge-m3,core,0.625,0.85,0.9,0.7254,0.7684,7.63,9.2
+hybrid-rrf:bm25+bge-m3,core,0.325,0.675,0.8,0.4823,0.5589,4.56,6.64
+dense:qwen3-embedding:0.6b,core,0.475,0.85,0.9,0.6313,0.6978,7.25,9.71
+hybrid-rrf:bm25+qwen3-embedding:0.6b,core,0.275,0.575,0.775,0.4314,0.513,5.19,6.93

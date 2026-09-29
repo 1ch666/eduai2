@@ -1,5 +1,6 @@
 import type { AppEnv } from './env';
-import { CASES, type CourtState } from './court-rules';
+import type { CourtState } from './court-rules';
+import { buildTruthState, projectKnowledge } from './truth-state';
 import { createGovernedOllamaProvider } from './providers/governed-ollama';
 import type {TraceContext} from './trace-context';
 import type { LLMProvider } from './providers/contracts';
@@ -25,15 +26,15 @@ export function validNpcInput(v:Record<string,unknown>): v is Record<string,unkn
   return typeof v.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v.requestId)&&Number.isSafeInteger(v.version)&&Number(v.version)>=0&&typeof v.text==='string'&&v.text.trim().length>0&&v.text.length<=400;
 }
 export function npcKnowledge(s:CourtState,id:NpcId){
-  const t=s.generatedCase||CASES.find(t=>t.id===s.config.caseId)!;
-  // No answer key, hidden knowledge of other NPCs, player instructions or legal
-  // citations are supplied to the model. Facts remain server-owned strings.
-  const witness=t.evidence.filter(e=>/witness|accounts/.test(e.id)||/證人|目擊|證詞/.test(e.title));
-  const facts=id==='Judge'?['請依序確認程序權利、聽取陳述、調查證據及表達意見。',t.summary]:
-    id==='Witness'?(witness.length?witness.map(e=>'案件所載證詞（須依原文區分親見及轉述）：'+e.text):['本案未提供屬於我的親眼見聞，不能把其他人的說法當成我看到的。可先核對以下案件記錄：'+t.summary]):
-    id==='Lawyer'?['請分清楚已知事實與推論；資料未記載的部分不能自行補足。',...t.evidence.map(e=>e.text)]:
-    id==='Defendant'?t.facts.slice(0,2):[t.summary];
-  return {name:npcIdentity(t.procedure,id).displayName,facts:facts.map((text,i)=>({id:'k'+i,text})),unknown:'這不在我已知的資料裡，不能猜測；請另行查證。'};
+  // Only the role's Knowledge Projection reaches the model: no answer key,
+  // other roles' private knowledge, player instructions or legal citations.
+  const truth=buildTruthState(s),items=projectKnowledge(truth,id).items;
+  const testimony=items.filter(i=>i.kind==='testimony');
+  const known=id!=='Witness'?items:testimony.length?testimony.map(i=>({...i,text:'案件所載證詞（須依原文區分親見及轉述）：'+i.text})):
+    items.filter(i=>i.kind==='summary').map(i=>({...i,text:'本案未提供屬於我的親眼見聞，不能把其他人的說法當成我看到的。可先核對以下案件記錄：'+i.text}));
+  // The model sees short k-ids only; sourceIds stay server-side for tracing.
+  return {name:npcIdentity(truth.procedure,id).displayName,facts:known.map((i,n)=>({id:'k'+n,text:i.text})),
+    sourceIds:Object.fromEntries(known.map((i,n)=>['k'+n,i.sourceId])) as Record<string,string>,unknown:'這不在我已知的資料裡，不能猜測；請另行查證。'};
 }
 // Constrained generation: the model selects approved knowledge, never writes
 // case facts, legal articles or state. This is intentionally not unrestricted chat.
