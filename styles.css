@@ -127,8 +127,15 @@ a, button, select, textarea, [role="button"] { -webkit-tap-highlight-color: tran
 .topbar { background: #f7f8f7; color: var(--ink); border-bottom: 1px solid var(--line); backdrop-filter: none; }
 .topbar-inner { min-height: 80px; }
 .brand-mark { border: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); }
-.brand strong { color: var(--ink); letter-spacing: .08em; }
-.brand small { color: var(--muted); font-size: 9px; letter-spacing: .16em; }
+.brand strong { color: var(--ink); letter-spacing: .02em; line-height: 1.5; overflow-wrap: anywhere; }
+.brand small { color: var(--muted); font-size: 11px; letter-spacing: .02em; line-height: 1.5; overflow-wrap: anywhere; }
+.brand > div:last-child { min-width: 0; }
+.topbar .brand small { display: block; }
+.topbar-inner { flex-wrap: wrap; padding-block: 16px; }
+.brand { flex: 1 1 320px; }
+.account-actions { flex-shrink: 0; }
+.learning-page .learning-brand { min-width: 0; max-width: 760px; line-height: 1.5; overflow-wrap: anywhere; letter-spacing: .02em; }
+.learning-page .learning-header > button { flex-shrink: 0; }
 .top-button { color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 2px; }
 main { padding-top: 40px; padding-bottom: 48px; }
 .hero { display: grid; grid-template-columns: 1.4fr 1fr; align-items: stretch; min-height: 340px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; gap: 40px; }

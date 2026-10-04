@@ -23,3 +23,4 @@ html[data-court-motion="reduce"] *,html[data-court-motion="reduce"] *::before,ht
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(max-width:720px){main{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));padding-bottom:max(14px,env(safe-area-inset-bottom))}.session-row{flex-wrap:wrap}.session-row>button:first-child{flex-basis:70%}.game-panel{padding:14px}}
 .random-entry{border:1px solid var(--line);background:#fff;padding:14px 16px;margin:18px 0}.random-entry p{margin:8px 0 0}
+header>a{min-width:0;max-width:760px;overflow-wrap:anywhere;line-height:1.5}header>button{flex-shrink:0}header>span{flex-shrink:0}@media(max-width:720px){header{flex-wrap:wrap}header>a{flex-basis:100%}}
