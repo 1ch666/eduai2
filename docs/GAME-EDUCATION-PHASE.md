@@ -602,3 +602,21 @@ Earlier attempts on port 8794 hit overlapping existing listeners and are NOT
 counted as current-runtime validation. No old user process/data was removed.
 The successful test is not a browser/Unity test, post-test/full-court end-to-end
 test, alarm-delivery test, production deployment or human education experiment.
+
+Full local HTTP education/court sequence (2026-10-04): extended and reran
+`check-education-api.mjs` against the live isolated port 8798 Worker. It now
+completes the authored investigation through actual versioned court actions:
+three NPC statements, evidence discovery/presentation, deterministic
+contradiction follow-up, rulings and final judgment. Only after stored court
+completion does the assessment advance to post-test and survey. Public API
+schemas and browser projection validation pass for returned assessment views;
+scores remain absent before post-test submission, survey ratings do not appear
+in responses, an exact repeated post-test returns DUPLICATE, and fresh GET
+restores the completed assessment. The complete court view is compared before
+and after assessment/withdrawal to prove unchanged results. NPC AI is checked
+disabled before starting; scripted responses are explicitly identified.
+This supersedes the earlier limitation that the local HTTP check stopped at
+pre-test. It remains synthetic API evidence, NOT rendered browser/Unity input,
+real mobile, automatic alarm delivery, live AI, production or participant evidence.
+The test deletes only its own synthetic court in finally; no production data or
+settings were changed. Browser acceptance and all original phase gates remain.
