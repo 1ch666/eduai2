@@ -9,11 +9,22 @@
 舊控制器不能重新帶出舊證物 ID。未變更後端或伺服器權限規則。
 22 項集中回歸通過（HTTP 失效模擬、問答、重播／loader／panel、證物），
 前端語法與資源檢查通過。這是模擬 DOM／HTTP 證據，不冒充瀏覽器斷線、
-正式 Session 失效或手机實測。發布結果接續記錄。
+正式 Session 失效或手機實測。
+
+發布來源 `92d85023af7650e7e15399190a79a15a35e40afc`，已推送 main。
+Worker 版本 `9bbaaae6-a6f1-4b09-8755-ed053dfaf297`，上一版回滾參考
+`7da3dbb7-193f-4b97-afb1-bf618c6ec98a`。獨立 git archive 發布，
+未包含工作樹原有修改；types、TypeScript、部署乾跑通過，保留既有變數。
+CI 37192959988、Pages 37192959457、Docker 37192960125 均 success。
+Worker 與 Pages 的 evidence-viewer.js、replay-panel.js 均 HTTP 200，
+正規化換行後與來源一致。Docker 本批由 CI 建置及驗證，未另外下載到本機
+重做校驗；仍為靜態預覽，不包含正式登入／AI 後端。
+本批只上傳兩個靜態程式資源，沒有改 Unity 成品、資料庫、migration、
+Secret、權限或付費方案。教育成效研究仍依使用者要求延後。
 
 版面追補 `2060ac4a1d5c63e3ba2c2d35a8dfcdd8ad8cc4e8`：只有第一個關閉
 按鈕 sticky，清除篩選不再覆蓋內容。瀏覽器 computed style 實測分別
-sticky／static；新增 CSS 回歸後問答與面板 5 項通過。Worker 最新版
+sticky／static；新增 CSS 回歸後問答與面板 5 項通過。該批 Worker 版本
 `7da3dbb7-193f-4b97-afb1-bf618c6ec98a`，回滾至下方 4a6d49a9 版本。
 CI 37192673476、Pages 37192672898、Docker 37192681569 皆 success；
 Worker／Pages CSS 200 與來源一致。Docker 最新包以 2060ac4 為準；
