@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-d148853 / Worker b5c06fde-401f-46d8-a96e-c0ee76e89e95 (deletion outcome recovery).
-CI 37167526814 and deploy/dry-run passed; release evidence in COURT-API-V2.md.
+ae1cf00 / Worker 954c7d93-ae6f-4c57-b405-2e760ae4d190 (creation + genesis audit).
+CI 37168445198 and deploy/dry-run passed; release evidence in COURT-V2-CREATION.md.
 Anonymous production probes passed; authenticated private-history acceptance remains
 open. Original unrelated README changes remain uncommitted.
 
@@ -45,7 +45,7 @@ open. Original unrelated README changes remain uncommitted.
 
 ## Latest verified increment — 2026-10-04
 
-Candidate: fixed-case v2 POST creation with strict public schema, stable scoped
+Released ae1cf00: fixed-case v2 POST creation with strict public schema, stable scoped
 command IDs, atomic state/journal/receipt commit and original-result recovery.
 Real local workerd concurrent/owner/CSRF tests passed after correcting null-
 prototype DTO serialization. No new schema or migration; existing APIs preserved.

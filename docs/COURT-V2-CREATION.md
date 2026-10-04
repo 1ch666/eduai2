@@ -1,6 +1,6 @@
-# Versioned court creation — candidate 2026-10-04
+# Versioned court creation — released 2026-10-04
 
-Not yet deployed. Existing fixed/random/AI creation routes and client behavior
+Deployed from ae1cf00. Existing fixed/random/AI creation routes and client behavior
 remain available. This addition versions fixed teaching-case creation only;
 it does not replace the random/AI generator or claim those APIs are now v2.
 
@@ -73,6 +73,19 @@ tests plus typecheck passing; the full fast gate and actual local workerd HTTP
 suite also passed with genesis provenance assertions. The SQLite audit test
 forbids all non-SELECT statements while reading and rejects false provenance
 for changed session/request/case/role or mismatched saved event.
-Production authenticated creation and the new increment's remote CI remain
-pending. No frontend/Unity adoption, generated-case v2 flow or complete
+Production authenticated creation remains pending. No frontend/Unity adoption,
+generated-case v2 flow or complete
 mutation-provenance claim is made by this increment.
+
+## Release evidence
+
+Source ae1cf0012c7ea08cc68624c6d01b1563416d848d; fast/local-api CI
+37168445198 passed. Wrangler dry-run and deploy --keep-vars --strict exited 0.
+Worker 954c7d93-ae6f-4c57-b405-2e760ae4d190; 486.28 KiB / gzip 111.28 KiB,
+startup 2 ms. Only shared court/protocol.js and protocol.d.ts assets changed;
+Unity Build and UI are unchanged. User-owned uncommitted Ollama comments remain
+outside Git; they do not change deployed behavior. No schema/secret/binding change.
+Rollback reference b5c06fde-401f-46d8-a96e-c0ee76e89e95; preserve all stored rows.
+Anonymous production probes: capabilities/cases 200, collection GET 405 and POST
+401 with v2 error metadata and null data. No production account or case created.
+These probes do not prove authenticated creation or production race handling.

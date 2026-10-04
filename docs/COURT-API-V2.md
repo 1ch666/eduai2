@@ -14,7 +14,7 @@ No authenticated production mutation/model test, migration or static asset chang
 - GET `/api/v2/court/sessions/:sessionId/requests/:commandRequestId`
 - GET `/api/v2/court/sessions/:sessionId/events?after=-1`
 - DELETE `/api/v2/court/sessions/:sessionId` (see deletion section)
-- Candidate POST `/api/v2/court/sessions` (see COURT-V2-CREATION.md)
+- POST `/api/v2/court/sessions` (released 2026-10-04; see COURT-V2-CREATION.md)
 
 The action POST body is the existing explicit **domain command v1**, defined by
 `court-v1-command.schema.json#/definitions/mutation`. It still requires
