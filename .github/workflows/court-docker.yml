@@ -19,6 +19,7 @@ jobs:
           set -euo pipefail
           node --test court-game/tools/test-build-budget.mjs court-game/tools/test-build-revision.mjs
           node --test court-game/tools/test-template.mjs court-game/tools/test-touch.mjs court-game/tools/test-game-panels.mjs scripts/test-court-protocol.mjs scripts/test-court-transport.mjs scripts/test-npc-action.mjs scripts/test-pending-recovery.mjs scripts/test-recovery-notice.mjs scripts/test-action-panel-recovery.mjs
+          node --test scripts/test-guidance-presentation.mjs scripts/test-investigation-controls.mjs scripts/test-demo-guide.mjs scripts/test-court-replay.mjs scripts/test-court-replay-panel.mjs
           docker compose -f court-game/compose.yaml config --quiet
           docker compose -f court-game/docker/compose.image.yaml config --quiet
           docker build -f court-game/Dockerfile --build-arg SOURCE_REVISION="$GITHUB_SHA" -t eduai-court:preview .
@@ -31,7 +32,8 @@ jobs:
           cmp play/index.html /tmp/court.html
           curl --fail http://127.0.0.1:8080/play/ -o /tmp/court-play.html
           cmp play/index.html /tmp/court-play.html
-          for file in index.html court.css court.js game-panels.js npc-status.js protocol.js client-state.js transport.js action-panel.js npc-action.js action-targets.js pending-journal.js recovery-notice.js; do
+          for asset in court/*.js court/*.css court/*.html; do
+            file="${asset#court/}"
             curl --fail "http://127.0.0.1:8080/court/$file" -o /tmp/court-preview
             cmp "court/$file" /tmp/court-preview
           done
@@ -54,11 +56,12 @@ jobs:
           cp court-game/docker/README.md handoff/README.md
           cp court-game/docker/compose.image.yaml handoff/compose.image.yaml
           cp PLATFORM-STATUS.md handoff/PLATFORM-STATUS.md
+          cp docs/GAME-EDUCATION-PHASE.md handoff/GAME-EDUCATION-PHASE.md
           printf '%s\n' "$GITHUB_SHA" > handoff/SOURCE_COMMIT.txt
           (cd play && find . -type f -print0 | sort -z | xargs -0 sha256sum) > handoff/WEBGL-SHA256SUMS
           docker save eduai-court:preview | gzip > handoff/eduai-court-preview.tar.gz
           cd handoff
-          sha256sum eduai-court-preview.tar.gz README.md compose.image.yaml SOURCE_COMMIT.txt WEBGL-SHA256SUMS PLATFORM-STATUS.md > SHA256SUMS
+          sha256sum eduai-court-preview.tar.gz README.md compose.image.yaml SOURCE_COMMIT.txt WEBGL-SHA256SUMS PLATFORM-STATUS.md GAME-EDUCATION-PHASE.md > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: eduai-court-docker
