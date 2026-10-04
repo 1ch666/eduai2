@@ -28,5 +28,37 @@ Voluntary research collection stays at its existing production setting (default
 off); synthetic local pre/post results are not research findings.
 
 Previous Worker rollback version: `0215495e-d5a6-47d8-b2dc-e67682683617`.
-Deployment, CI, Docker and public asset verification results will be recorded
-below after actual completion. Do not infer success from this planned checkpoint.
+## Actual release results
+
+- Source: `d1cbe5ea54160f2e1de28d57dfeb4bc20bb3cd76` (main).
+- Fast regression checks `37181925780`: success, including isolated workerd
+  investigation and complete court/assessment lifecycle gates.
+- GitHub Pages build/deployment `37181925503`: success, main/root source.
+- Court Docker handoff `37181949587`: success, actual build/run and HTTP checks.
+  Downloaded `outputs/docker-d1cbe5e`; all seven SHA256SUMS entries matched.
+  Image archive SHA256:
+  `0ae45ad235808e475640b69752b2d2bdb5ba8c24a98f468f65f55a6798deea1e`.
+- Worker version `3750726a-8d39-4b1e-81e4-f5be7102f69b`: deployed successfully
+  from an isolated git archive of that commit after TypeScript and dry-run passed.
+  Existing bindings and schedule unchanged; `--keep-vars` used; no secret writes,
+  new migration configuration, data reset or paid service activation.
+- Worker `/court/court.js`, `/court/education-host.js`,
+  `/court/investigation-board.js` and `/play/index.html` matched the release
+  copy byte-for-byte. Anonymous auth returns `user:null`; capabilities respond
+  successfully. AI configured/canAttempt does not prove a live model response.
+- Production browser `/court/` rendered the new tablet investigation template
+  and normal login entry. No production account or research records were created.
+- Direct Pages resource verification remains inconclusive: repeated connections
+  reset in Node, curl, PowerShell and the browser; one HTTP 200 script response
+  did not match the release hash. Could not distinguish edge cache from other
+  response differences. Do not claim Pages public bytes were verified merely
+  because its deployment job succeeded. Worker public bytes are verified.
+
+Camera proof: `outputs/camera-fixed-20261004.jpg` (local synthetic readonly case).
+No browser error/warn captured in that check. No new C# build was required;
+the existing Unity binary is unchanged. Docker still excludes the live backend.
+
+Development is paused at the user's request after this release. On explicit
+resume, first check Pages public asset freshness, then continue the existing
+Game/Education acceptance gaps before returning to Backend Goal Audit. Do not
+claim formal human experiments, full mobile acceptance or phase completion.
