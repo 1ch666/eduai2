@@ -29,7 +29,7 @@ test('dedup compares narrative, not title or random ID',()=>{
 test('calls model once, parses bounded JSON and fails closed without AI',async()=>{
  const original=globalThis.fetch;let calls=0;
  try{
-  globalThis.fetch=async(url,init)=>{calls++;const body=JSON.parse(init.body);assert.equal(body.think,false);assert.equal(body.format,'json');assert.equal(body.options.num_predict,1600);assert.equal(init.redirect,'manual');return Response.json({message:{content:JSON.stringify(draft)}});};
+  globalThis.fetch=async(url,init)=>{calls++;const body=JSON.parse(init.body);assert.equal(body.think,false);assert.equal(body.format,'json');assert.equal(body.options.num_predict,3200);assert.equal(init.redirect,'manual');return Response.json({message:{content:JSON.stringify(draft)}});};
   await assert.rejects(generateModelCase({},CASES[0],[]));assert.equal(calls,0);
   const env={OLLAMA_API_KEY:'mock-not-real'},provider=()=>createOllamaProvider({apiKey:env.OLLAMA_API_KEY,model:'test',thinking:false});
   await assert.rejects(generateModelCase(env,CASES[0],[]));assert.equal(calls,0,'raw provider must not be constructed implicitly');
@@ -43,8 +43,8 @@ test('vendor-independent case provider is bounded, untrusted, and cannot bypass 
  let calls=0;
  const previous=CASES.map(c=>structuredClone(c));const before=structuredClone(previous);
  const provider={contractVersion:1,id:'fake',model:'offline',async generate(input,context){
-  calls++;assert.deepEqual(context,{timeoutMs:20000,maxResponseBytes:18000});
-  assert.equal(input.output,'json');assert.equal(input.temperature,.9);assert.equal(input.maxOutputTokens,1600);
+  calls++;assert.deepEqual(context,{timeoutMs:40000,maxResponseBytes:18000});
+  assert.equal(input.output,'json');assert.equal(input.temperature,.9);assert.equal(input.maxOutputTokens,3200);
   assert.equal(JSON.parse(input.messages[1].content).category,CASES[0].id);
   return {ok:true,value:{text:JSON.stringify(draft),usage:{inputTokens:null,outputTokens:null}}};
  }};

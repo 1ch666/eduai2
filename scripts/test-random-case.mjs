@@ -115,11 +115,29 @@ test('AI not configured or preferAi=false uses the library without calling a mod
  try{
   for(const [env,preferAi] of [[{COURT_AI_ENABLED:'false'},true],[{},true],[aiEnv,false]]){
    const {learner:l,db}=learner(env);const r=await l.generateRandom(uuid(),preferAi,'owner');
-   assert.ok(isLibrary(r.template));assert.equal(db.prepare('SELECT error FROM generation_attempts').get().error,'SKIP');
+   assert.ok(isLibrary(r.template));assert.match(db.prepare('SELECT error FROM generation_attempts').get().error,/^SKIP:/);
   }
   assert.equal(ai.calls,0);
  }finally{ai.restore();}
 });
+test('truncated output is rejected once; persisted reasons distinguish cooldown and replay',async()=>{
+ const ai=mockOllama((n,url,init)=>{
+  const body=JSON.parse(init.body);assert.equal(body.think,'low');assert.equal(body.options.num_predict,3200);
+  return Response.json({message:{content:JSON.stringify(draft())},done:true,done_reason:'length'});
+ });
+ try{
+  const {learner:l}=learner(),id=uuid();
+  const first=await l.generateRandom(id,true,'owner');
+  assert.deepEqual(first.generation,{mode:'library',reason:'OUTPUT_TRUNCATED'});
+  assert.ok(isLibrary(first.template));
+  assert.deepEqual(await l.generateRandom(id,true,'owner'),first);
+  const nextId=uuid(),next=await l.generateRandom(nextId,true,'owner');
+  assert.equal(next.generation.reason,'COOLDOWN');
+  assert.deepEqual(await l.generateRandom(nextId,true,'owner'),next);
+  assert.equal(ai.calls,1);
+ }finally{ai.restore();}
+});
+
 test('duplicate requestId replays the same case without another model call',async()=>{
  const ai=mockOllama(()=>ollamaJson(draft(2)));
  try{

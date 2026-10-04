@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {installRandomCase,RANDOM_CASE_BUSY} from '../court/random-case.js';
+import {installRandomCase,RANDOM_CASE_BUSY,generationMessage} from '../court/random-case.js';
 const html=await readFile(new URL('../court/index.html',import.meta.url),'utf8');
 const shell=await readFile(new URL('../court/court.js',import.meta.url),'utf8');
 
@@ -16,6 +16,14 @@ function harness({api,ready=()=>true}={}){
  return {button,click,statuses,opened,calls,errors};
 }
 const view={id:'11111111-1111-4111-8111-111111111111',title:'[AI虛構] 測試'};
+test('fallback reasons are distinct and unknown content is never rendered',()=>{
+ for(const [reason,expected] of [['OUTPUT_TRUNCATED','長度上限'],['COOLDOWN','冷卻'],['BUDGET','次數'],['QUOTA','供應商'],['INVALID_DRAFT','安全檢查']]){
+  assert.ok(generationMessage({mode:'library',reason}).includes(expected));
+ }
+ for(const reason of ['<script>secret</script>','__proto__','constructor']){
+  assert.equal(generationMessage({mode:'library',reason}),'AI 暫不可用，已改用題庫隨機案件並保存場次。');
+ }
+});
 
 test('setup page offers both entries and keeps the manual form',async()=>{
  assert.match(html,/<button id="random-case" type="button">完全隨機 AI 案件<\/button>/);

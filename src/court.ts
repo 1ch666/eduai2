@@ -435,17 +435,23 @@ export class Learner extends DurableObject<AppEnv>{
     }
     const result=await this.generate(requestId,config,owner,trace,preferAi);
     if(result.error!==undefined)return {error:result.error,status:result.status};
-    return {id:result.id,template:result.template,config};
+    return {id:result.id,template:result.template,config,generation:result.generation};
   }
   async generate(requestId:string,config:CourtConfig,owner?:string,trace?:TraceContext,preferAi=true){
     trace=copyTrace(trace);
     const payload=JSON.stringify(config);
     const previous=this.ctx.storage.sql.exec<{payload:string;room:string;body:string}>('SELECT payload,room,body FROM generated_requests WHERE id=?',requestId).toArray()[0];
-    if(previous)return previous.payload===payload?{id:previous.room,template:JSON.parse(previous.body) as ReturnType<typeof generatedCandidates>[number]}:{error:'請求識別已使用',status:409};
+    const receipt=()=>{
+      const error=this.ctx.storage.sql.exec<{error:string|null}>('SELECT error FROM generation_attempts WHERE id=?',requestId).toArray()[0]?.error;
+      // Only expose fixed reason codes, never stored upstream error text.
+      const reasons:Record<string,string>={'SKIP:COOLDOWN':'COOLDOWN','SKIP:BUDGET':'BUDGET','SKIP:DISABLED':'DISABLED','SKIP:LIBRARY':'LIBRARY','AI 案件輸出達長度上限，未接受不完整案件。':'OUTPUT_TRUNCATED','AI 案件生成逾時。':'TIMEOUT','AI 額度或頻率限制，未建立案件。':'QUOTA','AI 案件格式不合格，未建立案件。':'INVALID_DRAFT','生成內容與已有案件過於相似，已拒絕保存；請重新生成。':'SIMILAR'};
+      return {mode:error?'library':'ai',reason:error?(reasons[error]||'UNAVAILABLE'):'READY'};
+    };
+    if(previous)return previous.payload===payload?{id:previous.room,template:JSON.parse(previous.body) as ReturnType<typeof generatedCandidates>[number],generation:receipt()}:{error:'請求識別已使用',status:409};
     const attempt=this.ctx.storage.sql.exec<{payload:string;error:string|null}>('SELECT payload,error FROM generation_attempts WHERE id=?',requestId).toArray()[0];
     if(attempt)return {error:attempt.payload!==payload?'請求識別已用於不同內容':attempt.error||'生成處理中或已中斷，請稍後恢復；相同請求不重複呼叫模型。',status:409};
-    const withinBudget=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND (error IS NULL OR error!='SKIP')",Date.now()-86400000).one().n<10;
-    const coolingDown=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND error IS NOT NULL AND error!='SKIP'",Date.now()-300000).one().n>0;
+    const withinBudget=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND (error IS NULL OR error NOT LIKE 'SKIP%')",Date.now()-86400000).one().n<10;
+    const coolingDown=this.ctx.storage.sql.exec<{n:number}>("SELECT count(*) AS n FROM generation_attempts WHERE created>? AND error IS NOT NULL AND error NOT LIKE 'SKIP%'",Date.now()-300000).one().n>0;
     if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM courts').one().n>=100)return {error:'場次上限已達',status:409};
     const issuedAt=Date.now();
     this.ctx.storage.sql.exec('INSERT INTO generation_attempts VALUES(?,?,?,NULL)',requestId,payload,issuedAt);
@@ -458,13 +464,14 @@ export class Learner extends DurableObject<AppEnv>{
       // Older internal callers without it retain library fallback, never raw AI.
       if(!owner)throw Error('AI 准入身分缺失，改用題庫。');
       const provider=await createGovernedOllamaProvider(this.env,{kind:'case-generation',owner,
-        sessionId:'case-generation',requestKey:requestId,issuedAt},false,trace);
+        sessionId:'case-generation',requestKey:requestId,issuedAt},undefined,trace);
       template=await generateModelCase(this.env,CASES.find(t=>t.id===config.caseId)!,readHistory(),provider);
       // Re-read after provider I/O: concurrent generation may have saved a match.
       if([...CASES,...readHistory()].some(t=>similarCase(template,t)))throw Error('生成內容與已有案件過於相似，已拒絕保存；請重新生成。');
     }catch(e){
       const error=e instanceof Error&&e.name!=='TimeoutError'&&e.message.startsWith('AI ')?e.message:e instanceof Error&&e.message.startsWith('生成內容')?e.message:'AI 生成逾時或失敗，未建立案件；請稍後再試。';
-      this.ctx.storage.sql.exec('UPDATE generation_attempts SET error=? WHERE id=?',skipAI?'SKIP':error,requestId);
+      const skipReason=!preferAi?'LIBRARY':this.env.COURT_AI_ENABLED==='false'||!this.env.OLLAMA_API_KEY?'DISABLED':!withinBudget?'BUDGET':'COOLDOWN';
+      this.ctx.storage.sql.exec('UPDATE generation_attempts SET error=? WHERE id=?',skipAI?'SKIP:'+skipReason:error,requestId);
       template=randomLibraryCase(config.caseId,readHistory());
     }
     const id=crypto.randomUUID();
@@ -474,7 +481,7 @@ export class Learner extends DurableObject<AppEnv>{
       return true;
     });
     if(!saved)return {error:'場次上限已達',status:409};
-    return {id,template};
+    return {id,template,generation:receipt()};
   }
   addCourt(id:string,title:string){
     if(this.ctx.storage.sql.exec('SELECT id FROM courts WHERE id=?',id).toArray().length)return true;
@@ -547,7 +554,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     if('error' in proposal)return respond({error:proposal.error,...('code' in proposal?{code:proposal.code}:{})},proposal.status);
     const result=await env.COURT_ROOM.getByName(proposal.id).init(proposal.id,session.user.id,proposal.config,proposal.template);
     if('status' in result)return respond(result,result.status);
-    return respond({...result,generation:{mode:proposal.template.id.startsWith('ai-')?'ai':'library'}},201);
+    return respond({...result,generation:proposal.generation},201);
   }
   if(path==='/api/court/sessions'||path==='/api/court/cases/generate'){
     // Explicit projection: no owner, stage or score can be injected by a client.
