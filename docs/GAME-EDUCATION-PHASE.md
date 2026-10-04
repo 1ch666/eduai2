@@ -461,3 +461,17 @@ deletion/backup handling and workerd tests. Initialization adds three new tables
 only; rollback may leave them unused, but an eventual collection rollback must
 keep authorized erasure and retention available. Request hashes are not a claim
 of anonymity or encryption. No formal user experiment has occurred.
+
+Education retention increment (2026-10-04): the internal adapter adds an
+`education_expiry` table and a fixed 30-day deadline starting at consent. This is
+an implementation default awaiting disclosure in the consent UI, not a legal
+retention determination. Reads, initialization, mutations and explicit `prune`
+erase overdue assessment state, receipts and deadline in one transaction; the
+withdrawal guard prevents late work from reviving them. Retries do not extend
+the deadline. Tests exercise expiry boundaries, delayed digest completion,
+rollback on erase failure, and legacy data lacking a deadline (reject without
+reset; authorized withdrawal remains possible). No production migration ran.
+This is access-time expiry plus an internal maintenance method, NOT a scheduled
+deletion guarantee: the owning DO alarm still needs wiring and runtime testing
+before research collection can be enabled. Existing backups/exported copies
+also need the documented retention/withdrawal policy applied during integration.

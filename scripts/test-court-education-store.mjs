@@ -1,14 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {CourtEducationStore} from '../src/court-education-store.ts';
+import {CourtEducationStore,EDUCATION_RETENTION_MS as ttl} from '../src/court-education-store.ts';
 function fixture(){
  const db=new DatabaseSync(':memory:');let fail='';
  const storage={sql:{exec(q,...args){if(fail&&q.startsWith(fail))throw Error('injected');let rows;if(q.startsWith('CREATE')){db.exec(q);rows=[];}else rows=db.prepare(q).all(...args);return {toArray:()=>rows,one(){assert.equal(rows.length,1);return rows[0];}};}},transactionSync(fn){db.exec('BEGIN');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}};
- const scope=crypto.randomUUID(),store=new CourtEducationStore(storage,scope);store.initialize();
- return {db,storage,scope,store,setFail:v=>fail=v};
+ let now=1800000000000;
+ const scope=crypto.randomUUID(),store=new CourtEducationStore(storage,scope,()=>now);store.initialize();
+ return {db,storage,scope,store,setFail:v=>fail=v,setNow:v=>now=v};
 }
 const cmd=(action,expectedRevision=0,requestId=crypto.randomUUID())=>JSON.stringify({requestId,expectedRevision,action});
+test('retention starts at consent, does not slide on retries, and atomically fences expiry',async()=>{
+ const f=fixture();try{
+  const start=1800000000000;assert.equal(f.store.prune().nextExpiry,null);
+  const body=cmd({kind:'consent'});await f.store.apply(body,()=> 'not_started',true);
+  assert.equal(f.store.prune().nextExpiry,start+ttl);
+  f.setNow(start+ttl-1);await f.store.apply(body,()=> 'not_started',true);assert.equal(f.store.prune().nextExpiry,start+ttl);
+  f.setNow(start+ttl);f.setFail('UPDATE education_meta');assert.throws(()=>f.store.prune(),/injected/);f.setFail('');
+  assert.equal(f.db.prepare('SELECT count(*) n FROM education_receipts').get().n,1);
+  assert.equal(f.store.prune().nextExpiry,null);assert.deepEqual(f.store.view(),{phase:'withdrawn'});
+  assert.equal((await f.store.apply(body,()=> 'not_started',true)).code,'WITHDRAWN');
+  for(const table of ['education_state','education_receipts','education_expiry'])assert.equal(f.db.prepare(`SELECT count(*) n FROM ${table}`).get().n,0);
+ }finally{f.db.close();}
+});
+test('reads and delayed mutations enforce expiry; missing legacy deadline never silently renews consent',async()=>{
+ for(const path of ['read','pending','missing']){
+  const f=fixture();try{
+   const body=cmd({kind:'consent'});await f.store.apply(body,()=> 'not_started',true);
+   if(path==='missing'){
+    f.db.exec('DELETE FROM education_expiry');
+    assert.throws(()=>f.store.initialize(),/Invalid education/);
+    assert.equal(f.db.prepare('SELECT count(*) n FROM education_receipts').get().n,1);
+    f.store.withdraw();assert.deepEqual(f.store.view(),{phase:'withdrawn'});
+   }else{
+    const pending=path==='pending'?f.store.apply(body,()=> 'not_started',true):null;
+    f.setNow(1800000000000+ttl);
+    if(pending)assert.equal((await pending).code,'WITHDRAWN');
+    assert.deepEqual(f.store.view(),{phase:'withdrawn'});
+   }
+  }finally{f.db.close();}
+ }
+});
 test('full persisted assessment keeps scores hidden until post-test and erases receipts atomically',async()=>{
  const f=fixture();try{
   const version=f.store.view().version;
