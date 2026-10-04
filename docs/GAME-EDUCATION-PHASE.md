@@ -386,3 +386,35 @@ deployment. Authentication, session, AI and DO storage are not in this image.
 Artifact retention remains one day; the local copy is retained for handoff.
 CI also reported upcoming Node-action/runtime and Ubuntu-label migration
 warnings; these were not build failures and have not been represented as fixed.
+
+Education instrument scaffold (2026-10-04):
+`src/court-education-instrument.ts` contains the original, versioned
+`court-reasoning-draft-1` pre/post forms (three questions each) and four fixed
+Likert survey items. Server-only scoring checks the trusted host phase, exact
+version/question IDs and bounded integer answers. Public output excludes answer
+keys; survey input rejects identity fields and free text. This is an unvalidated
+teaching draft, NOT a validated research scale or proof of educational benefit.
+The paired forms have not been checked for equivalent difficulty by experts.
+
+This module is NOT connected to HTTP routes, the court UI, storage or telemetry.
+Existing learning-event store/scheduler infrastructure is not a consent flow.
+No participant collection has been enabled. Before integration:
+- Obtain explicit, optional consent with withdrawal and retention explanation;
+  declining research must not block ordinary gameplay.
+- Derive pre/post eligibility from server session progression, not client phase;
+  pre-test precedes play, post-test follows authoritative completion.
+- Commit first submissions with existing owner, CSRF, version, journal and
+  recovery protections; retries must not overwrite scores or count twice.
+- Return only the currently eligible form; do not reveal pre-test scores or
+  answer feedback before post-test submission.
+- Keep research identifiers separate from public account/display information;
+  bound retention and deletion, and never store prompts, tokens or private truth.
+- Associate game metrics with actual authoritative events; do not manufacture
+  completion times or treat synthetic QA sessions as participant observations.
+- Have an education expert review the questions and study design before using
+  results to claim learning effectiveness.
+
+Focused tests cover answer-key omission, detached public data, phase/version
+validation, bounded scores/ratings and rejection of extra fields/accessors.
+尚未進行正式使用者實驗。The full Game/Education acceptance remains open;
+the original `docs/BACKEND-GOAL-AUDIT.md` goals are retained, not cancelled.
