@@ -16,3 +16,14 @@ test('board renders server discoveries as text, debrief is read-only and clearin
  assert(elements.every(e=>!Object.hasOwn(e,'innerHTML')));assert(!elements.some(e=>['img','button','input'].includes(e.tag)));
  ui.render(null);assert(ui.element.hidden);assert.equal(text(ui.element),'');
 });
+
+test('challenge hides contradiction target/count without changing findings, judgment or scores',()=>{
+ const ui=createInvestigationBoard({createElement:tag=>new Element(tag)}),s=newInvestigation();
+ const board={...investigationBoard(s),completed:true,debrief:investigationDebrief(s,'使用者的最終判讀')};
+ const original=structuredClone(board);
+ ui.render(board,'challenge');assert(!text(ui.element).includes('發現矛盾 0 項'));
+ assert(!text(ui.element).includes('找出陳述與證物的矛盾'));
+ assert(text(ui.element).includes('使用者的最終判讀'));
+ ui.render(board,'normal');assert(text(ui.element).includes('發現矛盾 0 項'));
+ assert.deepEqual(board,original);
+});

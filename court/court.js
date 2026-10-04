@@ -31,7 +31,7 @@ const actionPanel=installActionPanel({window,document,getView:()=>view,getAccoun
  if(!snapshot||view?.id!==snapshot.sessionId)return;
  const id=view.id,owner=account?.id,p=await api('/api/court/sessions/'+id);
  if(view?.id===id&&account?.id===owner&&p.view.version>=view.version){view=p.view;render();scene();}
-}});
+},onPresentationChanged:(mode,cleared)=>investigationBoard.render(cleared?null:view?.investigation,mode)});
 const serverActions=document.createElement('button');serverActions.type='button';serverActions.textContent='伺服器程序操作';serverActions.hidden=onPages;serverActions.addEventListener('click',()=>{if(!busy&&!npcBusy)actionPanel.open();});$('back').after(serverActions);
 const gamePanels=installGamePanels({window,document,getView:()=>view,getAccount:()=>account,onClose:()=>stopVoice(true),canOpen:()=>!busy&&!npcBusy&&!actionPanel.working,openInvestigation:()=>actionPanel.open()});
 const replayPanel=installReplayPanel({window,document,getView:()=>view,getAccount:()=>account,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();}});
@@ -128,7 +128,7 @@ function render(){const v=view;$('hearing-title').textContent=v.title;$('stage')
 $('evidence').replaceChildren(...v.evidence.map(e=>{const box=node('div');box.className='evidence';box.append(node('strong',e.title),node('p',e.text));if(v.actions.includes('review'))box.append(button(v.reviewed.includes(e.id)?'已查看':'記錄：已查看這份證據',()=>act('review',{evidenceId:e.id})));return box;}));
 $('actions').replaceChildren();$('speech-form').hidden=!v.actions.includes('speak');$('observer').hidden=!v.actions.includes('step');$('turn-title').textContent=v.config.role==='judge'?'主持程序':v.config.role==='observer'?'觀察程序':'代表你的角色發言';
 $('turn-help').textContent=v.stage===0?'先確認身分、程序與表達權利。':v.stage===1?'依固定事實說明爭點；法官請整理雙方爭點。':v.stage===2?'逐一核對證據能證明什麼，不能證明什麼。':v.stage===3?'回應證據與不同觀點；法官請整理尚待釐清事項。':v.stage===4?v.question:'本輪結束，可回到案件設定。';
-investigationBoard.render(v.investigation);
+investigationBoard.render(v.investigation,actionPanel.difficulty);
 if(v.actions.some(id=>id.startsWith('investigate.')))$('actions').append(button('調查、出示證物與追問',()=>actionPanel.open()));
 if(v.actions.includes('acknowledge'))$('actions').append(button('確認程序權利，開始陳述',()=>act('acknowledge')));
 if(v.actions.includes('closeEvidence'))$('actions').append(button(v.config.role==='judge'?'結束證據調查':'完成證據檢視，繼續',()=>act('closeEvidence')));

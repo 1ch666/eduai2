@@ -290,3 +290,20 @@ rulings and procedure labels in the real browser. This uses synthetic local data
 with AI disabled, not participant research or live-provider acceptance. No Worker,
 database, API contract or Unity binary changes in this increment; production
 publication and full Game/Education acceptance remain pending.
+
+Hint-difficulty presentation increment (2026-10-04): the authenticated procedure
+panel now offers tutorial/normal/challenge modes for the authored investigation.
+Tutorial adds operation guidance; normal retains basic hints; challenge hides
+the explicit hint button, demo guide, contradiction target checklist and numeric
+contradiction summary. Discovered facts, lawful operations, final judgment and
+server scores do not change. The outer notebook uses the same preference. Mode
+resets on context clear/reload, is not cloud-persisted and is not an experiment
+assignment or ranking property. The UI explicitly states these limitations.
+Tests cover stale hint-button callbacks, unchanged source snapshots, preserved
+judgment and counts restored in normal mode. All 480 local root/court-tool tests
+(excluding dictionary corpus suite) and frontend checks passed. Real local
+browser verified the selector and challenge presentation on the completed v13
+synthetic case without advancing its version. Active-case mode switching,
+physical-mobile acceptance and research integration remain pending; this is not
+completion of the whole difficulty/research requirement. No backend/schema,
+Unity binary, formal data or Cloudflare deployment changed in this increment.

@@ -8,7 +8,7 @@ export function createInvestigationControls({document,onAction}){
  const label=make('label','向誰詢問或出示？'),select=make('select'),actions=make('div'),notice=make('p'),hints=make('div');
  label.append(select);notice.setAttribute('role','status');
  root.append(title,discover,evidence,label,actions,notice,hints);
- let snapshot=null,locked=true,identity='',selected='';
+ let snapshot=null,locked=true,identity='',selected='',difficulty='normal';
  const available=()=>snapshot?.state.allowedActions||[];
  const relevant=()=>available().filter(a=>isInvestigationControlAction(a.actionId));
  function button(action,parent){
@@ -16,7 +16,7 @@ export function createInvestigationControls({document,onAction}){
   const b=make('button',action.label);b.type='button';b.disabled=locked||!action.enabled||action.requiredTarget!=='none';
   b.onclick=()=>{
    const current=available().find(a=>a.actionId===action.actionId);
-   if(locked||binding!==identity||version!==snapshot?.stateVersion||snapshot?.state.completed||!current?.enabled||current.requiredTarget!=='none')return;
+   if(locked||binding!==identity||version!==snapshot?.stateVersion||snapshot?.state.completed||!current?.enabled||current.requiredTarget!=='none'||(difficulty==='challenge'&&current.actionId==='investigate.hint'))return;
    if(npc&&(selected!==npc||!snapshot.state.npcs.some(n=>n.npcId===npc&&n.visible&&n.interactable&&n.requestState!=='pending')))return;
    // Only send an identifier from the current server snapshot. The owning
    // transport adds version/idempotency and rechecks before issuing a request.
@@ -39,13 +39,13 @@ export function createInvestigationControls({document,onAction}){
   for(const a of items.filter(a=>selected&&a.actionId.endsWith('.'+selected)))button(a,actions);
   if(!npcs.length)notice.textContent='目前沒有可調查的角色。';
   else if(locked)notice.textContent='正在同步或等待操作結果，請先完成恢復。';
-  else notice.textContent='先聽取陳述，再出示已取得的證物；可追問時會顯示追問按鈕。';
-  for(const a of items.filter(a=>a.actionId==='investigate.hint'))button(a,hints);
+  else notice.textContent=difficulty==='challenge'?'依據已取得資料自行調查。':difficulty==='tutorial'?'先選擇角色聽取原始陳述，再調查現場紀錄。比較時間與內容，向相關角色出示證物；伺服器確認矛盾後才會解鎖追問。發現矛盾不等於證明犯罪。':'先聽取陳述，再出示已取得的證物；可追問時會顯示追問按鈕。';
+  if(difficulty!=='challenge')for(const a of items.filter(a=>a.actionId==='investigate.hint'))button(a,hints);
  }
  select.onchange=()=>{selected=select.value;render();};
- return {element:root,setSnapshot(next,blocked=false){
+ return {element:root,setSnapshot(next,blocked=false,mode='normal'){
   const key=next?next.sessionId+':'+next.caseId:'';
   if(key!==identity){selected='';identity=key;}
-  snapshot=next;locked=blocked;render();
+  snapshot=next;locked=blocked;difficulty=mode;render();
  }};
 }

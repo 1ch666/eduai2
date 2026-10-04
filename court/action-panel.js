@@ -10,7 +10,7 @@ import {createDemoGuide} from './demo-guide.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
-export function installActionPanel({document,window,getView,getAccount,csrf,beforeOpen,onUpdated}){
+export function installActionPanel({document,window,getView,getAccount,csrf,beforeOpen,onUpdated,onPresentationChanged=()=>{}}){
  const transport=new CourtTransport({origin:window.location.origin,csrf,journalFactory:createPendingJournal({getStorage:()=>window.sessionStorage,getOwner:()=>getAccount()?.id})});
  const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
  const dialog=make('dialog');dialog.className='game-panel';dialog.setAttribute('aria-label','伺服器程序操作');
@@ -29,8 +29,12 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const investigation=createInvestigationControls({document,onAction:actionId=>void execute(()=>transport.act(actionId),true)});
  const board=createInvestigationBoard(document);
  const demo=createDemoGuide(document);
+ const difficultyLabel=make('label','提示難度'),difficultySelect=make('select');
+ for(const [value,name] of [['tutorial','教學'],['normal','一般'],['challenge','挑戰']]){const option=make('option',name);option.value=value;difficultySelect.append(option);}
+ difficultySelect.value='normal';difficultyLabel.append(difficultySelect);
+ const difficultyNote=make('p','只調整本次頁面的提示，不改答案、判分或雲端場次；重新開啟頁面恢復一般模式。');
  // Keep actionable controls before the growing notebook on small screens.
- dialog.append(close,heading,notice,demo.element,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
+ dialog.append(close,heading,notice,difficultyLabel,difficultyNote,demo.element,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
  const recoveryNotice=createRecoveryNotice({document,onOpen:open});
  document.getElementById('notice')?.after(recoveryNotice.element);
@@ -42,13 +46,15 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   const reply=transport.lastDialogue,feedback=snapshot?.state.feedback||'';
   dialogue.hidden=!reply&&!feedback;dialogue.textContent=[reply?`${reply.speaker}：${reply.text}`:'',feedback!==reply?.text?feedback:''].filter(Boolean).join('\n\n');
   evidenceViewer.setSnapshot(snapshot);
-  investigation.setSnapshot(snapshot,working||!transport.canAct);
+  investigation.setSnapshot(snapshot,working||!transport.canAct,difficultySelect.value);
   // The board comes from the authenticated public view, not private truth. Do not
   // display old-session or old-version discoveries beside a newer action state.
   const currentView=getView();
   const currentBoard=snapshot&&valid()&&currentView.version===snapshot.stateVersion?currentView.investigation:null;
-  board.render(currentBoard);
-  demo.setState(snapshot,currentBoard,working||!transport.canAct);
+  difficultyLabel.hidden=difficultyNote.hidden=!currentBoard;
+  difficultySelect.disabled=working||!!pending||transport.recoveryBlocked;
+  board.render(currentBoard,difficultySelect.value);
+  demo.setState(difficultySelect.value==='challenge'?null:snapshot,currentBoard,working||!transport.canAct);
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;
   recover.hidden=retry.hidden=!pending;actions.replaceChildren();
@@ -95,10 +101,14 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   finally{if(started===generation){working=false;render();}}
  }
  refresh.onclick=()=>void execute(()=>transport.refresh());
+ difficultySelect.onchange=()=>{
+  if(!['tutorial','normal','challenge'].includes(difficultySelect.value))difficultySelect.value='normal';
+  render();onPresentationChanged(difficultySelect.value);
+ };
  target.onchange=npc.onchange=render;
  recover.onclick=()=>void execute(()=>transport.recoverPending(),true);
  retry.onclick=()=>void execute(()=>transport.retry(),true);
- function clear(){generation++;context=null;working=false;transport.clear();text.value='';notice.textContent='';render();if(dialog.open)dialog.close();}
+ function clear(){generation++;context=null;working=false;transport.clear();text.value='';notice.textContent='';difficultySelect.value='normal';render();onPresentationChanged('normal',true);if(dialog.open)dialog.close();}
  dialog.addEventListener('close',()=>{if(!dialog.open&&returnFocus?.isConnected)returnFocus.focus();});
  window.addEventListener('pagehide',clear);
  document.getElementById('logout')?.addEventListener('click',clear,{capture:true});
@@ -129,5 +139,5 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   else if(transport.pending)notice.textContent='上次操作結果尚未確認，請先查詢結果。重新整理後只查詢，不自動重送。';
   else void execute(()=>transport.refresh());
  }
- return {clear,resume,askNpc,open,get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;}};
+ return {clear,resume,askNpc,open,get difficulty(){return difficultySelect.value;},get pending(){return !!transport.pending||transport.recoveryBlocked;},get working(){return working;}};
 }

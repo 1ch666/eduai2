@@ -35,3 +35,13 @@ test('old buttons cannot cross sessions or target a hidden NPC; new action kinds
  ui.setSnapshot({...s,sessionId:'two'});next.onclick();assert.equal(calls.length,0);
  assert.equal(isInvestigationControlAction('investigate.futureAction'),false);
 });
+
+test('presentation difficulty changes hints, never server actions or case data',()=>{
+ const {ui,calls,buttons}=setup(),s=fixture(),original=structuredClone(s);
+ ui.setSnapshot(s,false,'normal');const oldHint=buttons().find(b=>b.textContent==='investigate.hint');
+ ui.setSnapshot(s,false,'challenge');
+ assert(!buttons().some(b=>b.textContent==='investigate.hint'));oldHint.onclick();assert.equal(calls.length,0);
+ buttons().find(b=>b.textContent==='investigate.question.Witness').onclick();assert.equal(calls.length,1);
+ ui.setSnapshot(s,false,'tutorial');assert(walk(ui.element).some(e=>e.textContent.includes('發現矛盾不等於證明犯罪')));
+ assert(buttons().some(b=>b.textContent==='investigate.hint'));assert.deepEqual(s,original);
+});
