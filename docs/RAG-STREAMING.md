@@ -12,7 +12,7 @@ processedUpToMutation=02560940-cc76-4153-867a-3af7ab09f853。
 三個中文問題分別以第一名命中民法第12條、勞基法第30條、刑法第320條。
 這是冒煙檢索檢查，不是完整召回率評測。匯入尚在非同步處理時曾看到部分結果及500，
 確認完整筆數後三題檢查通過，故驗收腳本現在要求完整索引才開始查詢。
-本機設定已啟用 `LEGAL_RAG_ENABLED=true` 及上述版本，正式發布與瀏覽器驗收仍待完成。
+正式 Worker 已啟用 `LEGAL_RAG_ENABLED=true` 及上述版本，真實助教回答與來源已驗收。
 新環境部署前須建立並匯入同名索引；未匯入的環境必須設false，不要直接照搬true。
 
 ## 法規資料
@@ -90,7 +90,30 @@ processedUpToMutation=02560940-cc76-4153-867a-3af7ab09f853。
 12項既有admission測試、7項助教HTTP整合測試（含串流／429）、5項tracing測試；
 Wrangler deploy --dry-run 通過。語料 metadata 最大3333 bytes，未超過10KiB。
 上述單元測試使用mock；另已完成3,635筆真實embedding／匯入及三題中文檢索檢查。
-待完成：正式發布、瀏覽器串流實測、正式串流中斷／限流驗收及更廣泛檢索品質評測。
+乾淨發布副本完整 `scripts/ci-fast.mjs`：565 tests / 565 pass / 0 fail，
+另包含型別、前端與既有WebGL大小預算檢查；沒有重新編譯或修改Unity。
+待完成：正式站手動中斷串流驗收、更廣泛檢索品質評測；不以mock取代這兩項。
+
+## 正式發布與驗收紀錄（2026-10-04）
+
+- Runtime source commit：7903b73（含1a35f14）。只從此提交的乾淨副本建置，
+  原工作區的groups改動、provider手動註解、README其他段落均未混入提交／部署。
+  `redirect:'manual'` 已在基底提交內，發布版本保留，沒有回退連線修正。
+- Worker version：40ca3214-a825-4dc4-af49-1d3b9f2ddc72。
+  正式網址：https://civic-law-lab-212.yichengc869.workers.dev/
+- 使用 `wrangler deploy --keep-vars`；既有Secret、DO與排程保留，沒有新增migration，
+  沒有更換owner/account或付費方案。只有index.html靜態資源需重新上傳。
+- 已登入瀏覽器實測工時提問：Ollama完成回答，顯示勞基法30、30-1、32、36條來源，
+  附官方連結與2026-09-01快照。證據圖保留於本機outputs/rag-live-20261004.jpg。
+- 另以無登入憑證的正式HTTP測試提出成年年齡問題，回200 application/x-ndjson；
+  觀察60個delta事件、60個網路讀取封包，首個delta約1,863ms、完成約2,621ms。
+  這是單次測量，不是效能承諾。終端done帶matched與民法第12條來源。
+- 同一測試client接續三次辭典查詢均200／MOE dictionary（無模型推論），
+  第五次總請求回429、RATE_LIMITED、Retry-After:60。沒有用大量壓測刷額度。
+- RAG不是法律正確性保證；模型生活例子仍可能過度簡化。未命中／索引故障時會明示，
+  不把向量相似度當法律判斷；法條施行日期與修法沿革仍須由官方來源核對。
+- 回滾：可回到部署前Worker版本686c5083-fd35-4d17-a4dd-fa86f6c2c555，或停用RAG旗標。
+  不需刪索引、帳號、場次或reset migration；操作前由管理者核對最新部署。
 
 官方參考（2026-10-04查核）：
 - https://developers.cloudflare.com/vectorize/platform/pricing/

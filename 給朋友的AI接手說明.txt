@@ -1,11 +1,14 @@
-【2026-10-04 新授權：法律 RAG／Streaming／README（本機開發，未發布）】
+【2026-10-04 法律 RAG／Streaming／README 已發布】
 使用者要求這三項後端必要工作，僅在此範圍取代下方 freeze，不恢復所有 Backend Audit。
 先讀 docs/RAG-STREAMING.md：法律語料3,635筆／8部法規，版本law-34ca5304c03c655b。
-已確認Workers Free，完成真實embedding與3,635筆Vectorize匯入；本機RAG旗標true。
+已確認Workers Free，完成真實embedding與3,635筆Vectorize匯入；正式RAG旗標true。
 三題中文檢索分別以第一名命中民法12、勞基法30、刑法320條；不是完整品質評測。
 本機已有檢索＋上下文＋來源回傳、真NDJSON助教串流、429 Retry-After，沿用原限流與admission。
-README加入架構圖與快照限制。單元／HTTP mock測試及部署乾跑通過，正式瀏覽器驗收待完成。
-未部署Worker或更新Unity；README、Ollama檔案原有協作者修改保留，切勿全量提交混入其他工作。
+README加入架構圖與快照限制。乾淨版本完整回歸565項通過；正式瀏覽器可見模型答案與法規來源。
+正式HTTP確認60個delta事件及matched；同client第5次請求429／Retry-After:60。
+Worker版本40ca3214-a825-4dc4-af49-1d3b9f2ddc72，來源7903b73，已推eduai2/main。
+未修改Unity／重建Docker，未改正式帳號資料或migration；協作者未提交改動保留且未混入部署。
+未做完整法律召回率評測或正式串流中斷測試；不要把三題檢索與單次效能數字當全面保證。
 
 【2026-10-04 正式站 Live AI 驗收補記】
 詳見 docs/RELEASE-CLOSEOUT.md「正式站 Live AI 單場驗收」。
