@@ -46,3 +46,26 @@ test('v2 unknown routes cannot fall through to creation/deletion and preflight d
  const denied=await handleCourtV2(new Request(path,{method:'OPTIONS'}),env,send,trace);
  assert.equal(denied.status,403);assert.equal(courtV2Response(await denied.json()),true);
 });
+
+test('v2 deletion checks session, CSRF, rate and strict command before RPC, and retries index cleanup',async()=>{
+ const command={apiVersion:1,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,caseId:'sale',expectedStateVersion:0,actionId:'session.delete',targetId:'',text:''};
+ const deleted={apiVersion:2,requestId:command.requestId,idempotencyKey:command.idempotencyKey,sessionId:id,eventId:crypto.randomUUID(),previousVersion:0,stateVersion:1,timestamp:new Date().toISOString(),outcome:'deleted'};
+ let deletes=0,cleanups=0,failCleanup=true,allowed=true;
+ const env={ACCOUNT_STORE:{getByName:()=>({session:async()=>({user:{id:'owner'},csrfToken:'csrf'})})},
+  LEARNER:{getByName:()=>({allow:async()=>allowed,removeCourt:async()=>{cleanups++;if(failCleanup)throw Error('private index failure');}})},
+  COURT_ROOM:{getByName:sessionId=>({removeV2:async(owner,m)=>{deletes++;assert.equal(owner,'owner');assert.equal(sessionId,id);assert.deepEqual(m,command);return deleted;}})}};
+ const headers={'Content-Type':'application/json',Cookie:'__Host-civic_session='+'a'.repeat(64),'X-CSRF-Token':'csrf'};
+ const call=(body=JSON.stringify(command),h=headers,trusted=origin)=>handleCourtV2(new Request(path,{method:'DELETE',headers:h,body}),env,send,trace,trusted);
+ assert.equal((await call(undefined,{'Content-Type':'application/json'})).status,401);
+ assert.equal((await call(undefined,{...headers,'X-CSRF-Token':'wrong'})).status,403);
+ assert.equal((await call(undefined,headers,'')).status,403);
+ allowed=false;assert.equal((await call()).status,429);allowed=true;
+ assert.equal((await call(undefined,{...headers,'Content-Type':'text/plain'})).status,415);
+ assert.equal((await call(' '.repeat(8193))).status,413);
+ for(const raw of [JSON.stringify({...command,text:'not empty'}),JSON.stringify({...command,sessionId:crypto.randomUUID()}),JSON.stringify(command).replace('"apiVersion":1','"apiVersion":1,"apiVersion":1')])assert.equal((await call(raw)).status,400);
+ assert.equal(deletes,0);assert.equal(cleanups,0);
+ const failed=await call();assert.equal(failed.status,500);assert.equal((await failed.json()).data,null);
+ failCleanup=false;const retry=await call(),body=await retry.json();assert.equal(retry.status,200);
+ assert.deepEqual(body.data,deleted);assert.equal(courtV2Response(body),true);assert.equal(body.stateVersion,1);
+ assert.equal(cleanups,2);assert.equal(deletes,2);
+});

@@ -6,7 +6,7 @@ import {build} from 'esbuild';
 import {parseEvent,parseSnapshot,canonical} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
 import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
-import {courtV2Events} from './court-schema-check.mjs';
+import {courtV2Events,courtV2Deletion} from './court-schema-check.mjs';
 import {readFile} from 'node:fs/promises';
 import Ajv from 'ajv';
 const privateRowsSchema=new Ajv({strict:true}).compile(JSON.parse(await readFile('contracts/court-private-journal-v1.schema.json','utf8')));
@@ -31,7 +31,7 @@ test('isolated encrypted SQLite drill preserves court history, receipts and dele
  // Test-only, fixed table inventory. No file paths, network or production RPC.
  // This is NOT a general importer: only this harness's synthetic rows are used.
  const tables=['state','court_deleted','requests','dialogue','court_dialogue_attempts','npc_requests',
-  'court_events','court_v1_requests','court_v1_npc_pending','court_replay_meta','court_replay_context','court_replay_state'];
+  'court_events','court_v1_requests','court_v1_npc_pending','court_replay_meta','court_replay_context','court_replay_state','court_v2_deletion'];
  const source=setup(),target=setup(config,{},false);
  const rows=db=>Object.fromEntries(tables.map(t=>[t,db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()]));
  try{
@@ -457,6 +457,41 @@ function setup(selectedConfig=config,env={},initialize=true){
  const room=new CourtRoom(ctx,env),id=crypto.randomUUID();if(initialize)room.init(id,'owner',selectedConfig);
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
+
+test('v2 deletion erases content, preserves a stable retry receipt and never revives the scene',()=>{
+ const {room,db,ctx,id}=setup();try{
+  const command={...mutation(id),actionId:'session.delete'};
+  assert.equal(room.removeV2('other',command).status,404);
+  assert.equal(room.removeV2('owner',{...command,expectedStateVersion:1}).status,409);
+  assert.equal(room.removeV2('owner',{...command,text:'unexpected'}).status,400);
+  const result=room.removeV2('owner',command);
+  assert.equal(courtV2Deletion(result),true,JSON.stringify(courtV2Deletion.errors));
+  assert.equal(result.stateVersion,result.previousVersion+1);
+  for(const table of ['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending','court_replay_state','court_replay_context'])assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n,0,table);
+  const restarted=new CourtRoom(ctx,{});
+  assert.deepEqual(restarted.removeV2('owner',command),result);
+  assert.equal(restarted.removeV2('other',command).status,404);
+  assert.equal(restarted.removeV2('owner',{...command,idempotencyKey:crypto.randomUUID()}).status,409);
+  assert.equal(restarted.init(id,'owner',config).status,404);
+  restarted.remove('owner');assert.deepEqual(restarted.removeV2('owner',command),result,'legacy retry preserves v2 guard');
+ }finally{db.close();}
+});
+test('v2 deletion rollback preserves content and rejects reused action identities',()=>{
+ const {room,db,ctx,id}=setup();try{
+  const action=mutation(id);room.actionV1('owner',action);
+  const command={...mutation(id,1),actionId:'session.delete'};
+  assert.equal(room.removeV2('owner',{...command,requestId:action.requestId}).status,409);
+  assert.equal(room.removeV2('owner',{...command,idempotencyKey:action.idempotencyKey}).status,409);
+  const before=db.prepare('SELECT body FROM state').get().body,exec=ctx.storage.sql.exec;
+  ctx.storage.sql.exec=(sql,...args)=>{if(sql.startsWith('INSERT INTO court_v2_deletion'))throw Error('injected deletion failure');return exec(sql,...args);};
+  assert.throws(()=>room.removeV2('owner',command),/injected deletion/);
+  assert.equal(db.prepare('SELECT body FROM state').get().body,before);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,2);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_deleted').get().n,0);
+  ctx.storage.sql.exec=exec;room.remove('owner');
+  assert.equal(room.removeV2('owner',command).status,409,'legacy delete does not invent a receipt');
+ }finally{db.close();}
+});
 
 function graphFor(template){
  return {schemaVersion:1,facts:template.facts.map((_,i)=>({id:`fact-${i}`})),

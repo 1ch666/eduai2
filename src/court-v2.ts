@@ -1,8 +1,9 @@
 import {handleCourt} from './court';
-import {responseHeaders,type Responder} from './http';
+import {responseHeaders,readTextWithLimit,type Responder} from './http';
 import type {AppEnv} from './env';
 import type {TraceContext} from './trace-context';
-import {resolveSession} from './session';
+import {resolveSession,csrfTokenMatches} from './session';
+import {parseDeletion} from './court-deletion';
 
 /** Additive transport version, not a second court engine. Raw POST bytes are
  * forwarded unchanged to the v1 parser (duplicate-key/Unicode/size guards).
@@ -21,11 +22,27 @@ export async function handleCourtV2(request:Request,env:AppEnv,send:Responder,
   };
   try{
     const url=new URL(request.url);
-    // Do not alias unversioned creation/deletion until their mutation/recovery
-    // contracts are complete. Unknown v2 routes still receive a v2 error.
+    // Creation is not aliased until its recovery contract is complete.
     if(!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:actions|events|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
     if(request.method==='OPTIONS')return trustedOrigin?
       new Response(null,{status:204,headers:responseHeaders(trustedOrigin)}):respond(null,403);
+    if(request.method==='DELETE'&&/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}$/i.test(url.pathname)){
+      const session=await resolveSession(request,env);if(!session)return respond(null,401);
+      if(!trustedOrigin||!csrfTokenMatches(request,session))return respond(null,403);
+      const learner=env.LEARNER.getByName(session.user.id);
+      if(!await learner.allow('court',40))return respond(null,429);
+      if(request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()!=='application/json')return respond(null,415);
+      const raw=await readTextWithLimit(request.body,8192);
+      if(raw.tooLarge)return respond(null,413);
+      const m=raw.invalidEncoding?null:parseDeletion(raw.text);
+      if(!m||m.sessionId!==url.pathname.split('/').at(-1))return respond(null,400);
+      const result=await env.COURT_ROOM.getByName(m.sessionId).removeV2(session.user.id,{...m});
+      if('status' in result)return respond(null,result.status);
+      // Room receipt survives this second-DO cleanup failing. Exact DELETE retry
+      // recovers the same receipt and retries index cleanup, not a new deletion.
+      await learner.removeCourt(m.sessionId);
+      return respond(result);
+    }
     if(url.pathname.endsWith('/events')){
       if(request.method!=='GET')return respond(null,405);
       const session=await resolveSession(request,env);if(!session)return respond(null,401);

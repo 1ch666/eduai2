@@ -51,8 +51,54 @@ No SQL migration, data rewrite, new binding, cookie or secret. Legacy routes and
 web/Unity clients remain unchanged. Rollback restores old code without database
 conversion; new v2 clients must explicitly support the v1 transport or wait for
 redeployment. Never automatically retry an uncertain mutation through another
-version. Creation/deletion and other platform API contracts still require
+version. Creation and other platform API contracts still require
 separate versioning work; unimplemented v2 routes return a v2 404.
+
+## Versioned deletion candidate — 2026-10-04 (not deployed)
+
+DELETE `/api/v2/court/sessions/:sessionId` now accepts the existing explicit v1
+command shape, with actionId=`session.delete` and empty targetId/text. Login,
+trusted Origin, CSRF and the existing court quota are mandatory. Content-Type is
+application/json, body limit 8192 bytes, duplicate keys/invalid UTF-8/unknown
+fields are rejected. Session ID must match the route; owner, case and expected
+state version must match the stored session. Used action/NPC request IDs and
+idempotency keys cannot be reused for deletion.
+
+Success data follows `court-v2-deletion.schema.json`: immutable event/request/key
+identity, session ID, previousVersion, terminal stateVersion=previousVersion+1,
+timestamp and outcome=deleted. It is a deletion receipt, not a playable snapshot
+or replay event. Case content, private snapshots, dialogue and action receipts
+are erased transactionally. Only the existing owner deletion guard and one small
+v2 receipt row survive (command metadata, no free text). Provider backups are not
+securely erased by this operation. No restoration of the deleted case is offered.
+
+Retry the **identical DELETE** after a lost response/500; never generate fresh IDs.
+The receipt survives restart and old-route deletion retries. Different command
+after deletion returns 409, foreign owner 404. A scene deleted by the old route
+has no v2 receipt: return 409 rather than inventing one. Existing GET requests/:id
+does not recover deletion; it only recovers v1 action/NPC commands.
+
+The room commits first, then Learner removes its index/generated/random copies.
+These two DOs are not a distributed transaction. If index cleanup fails, return
+500; an exact retry retrieves the receipt and retries the idempotent cleanup.
+Until then the list may have a stale entry, but the room is fenced against reads,
+actions and delayed provider writes. An orphan-cleanup operator remains future work.
+
+Migration: additive `court_v2_deletion` table with schema_version=1 and one row
+per deleted room; no ALTER, DROP, binding or secret changes, no backfill. Rollback
+keeps this table and existing `court_deleted` guard intact. Old code ignores the
+new receipt and still honors deletion; v2 DELETE becomes unavailable until
+redeployment. Never restore an older archive over a deletion guard. No production
+migration/restore or user-data deletion was executed in this batch.
+
+Evidence: TypeScript and local fast gate 425 tests passed; actual local workerd
+HTTP suite passed authenticated/foreign-owner/CSRF/stale-version checks, parallel
+same-command deletion, exact receipt recovery, index removal and legacy retry.
+SQLite tests cover transaction rollback after erasure and before receipt write,
+restart, ID collisions and the expanded 13-table synthetic backup inventory.
+Handler tests inject second-DO cleanup failure. Remote CI and production release
+verification must be recorded separately. Existing frontend/Unity still use their
+old deletion flow; this addition does not silently change their behavior.
 
 ## Evidence and limits
 

@@ -45,6 +45,12 @@ open. Original unrelated README changes remain uncommitted.
 
 ## Latest verified increment — 2026-09-28
 
+2026-10-04 candidate: v2 DELETE with strict v1 command identity, version fencing,
+atomic content erasure and durable terminal receipt. Local fast gate 425 tests
+and real workerd HTTP checks passed; not yet deployed. Additive one-row receipt
+table, legacy API preserved, no actual user data deleted. See COURT-API-V2.md.
+Creation versioning, complete mutation provenance and broader goal remain open.
+
 Private snapshot journal (deployed from 684bf9d): deduplicated immutable context
 plus per-event mutable snapshots now permit exact internal version reconstruction.
 See COURT-PRIVATE-JOURNAL.md. Public/API replay still excludes these records.

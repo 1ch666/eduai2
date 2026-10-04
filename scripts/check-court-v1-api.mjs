@@ -42,7 +42,23 @@ const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,re
  assert.equal((await call(v2+'/events?after=1e0',undefined,b)).status,400);
  assert.equal((await call(v2+'/events',{},b)).status,405);
  assert.equal((await call('/api/court/sessions/'+id+'/events',undefined,b)).data.events.length,2);
+ const deletion={...command,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),actionId:'session.delete',expectedStateVersion:1};
+ const remove=async(auth,body=deletion)=>{
+  const r=await fetch(base+v2,{method:'DELETE',headers:{Origin:base,'Content-Type':'application/json',...(auth.cookie?{Cookie:auth.cookie}:{}),...(auth.csrf?{'X-CSRF-Token':auth.csrf}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});
+  const data=await r.json();assert.equal(courtV2Response(data),true);return {status:r.status,data};
+ };
+ assert.equal((await remove({})).status,401);
+ assert.equal((await remove({cookie:b.cookie})).status,403);
+ assert.equal((await remove(a)).status,404);
+ assert.equal((await remove(b,{...deletion,expectedStateVersion:0})).status,409);
+ const removed=await Promise.all([remove(b),remove(b)]);
+ assert.ok(removed.every(r=>r.status===200));assert.deepEqual(removed[0].data.data,removed[1].data.data);
+ assert.equal(removed[0].data.stateVersion,2);
+ assert.equal((await remove(b,{...deletion,idempotencyKey:crypto.randomUUID()})).status,409);
+ assert.equal((await call(get,undefined,b)).status,404);
+ assert.equal((await call('/api/court/sessions',undefined,b)).data.sessions.some(s=>s.id===id),false);
  assert.equal((await call('/api/court/sessions/'+id+'/delete',{confirm:true},b)).status,200);
+ assert.deepEqual((await remove(b)).data.data,removed[0].data.data);
 }
 // CI runs with AI disabled and no key. Exercise actual Worker -> CourtRoom RPC
 // and additive SQLite initialization without an inference or production account.
