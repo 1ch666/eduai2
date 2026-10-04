@@ -61,7 +61,9 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   difficultyLabel.hidden=difficultyNote.hidden=!currentBoard;
   difficultySelect.disabled=working||!!pending||transport.recoveryBlocked;
   board.render(currentBoard,difficultySelect.value);
-  demo.setState(difficultySelect.value==='challenge'?null:snapshot,currentBoard,working||!transport.canAct);
+  // A settled completed court is read-only, not waiting for recovery. Keep the
+  // review shortcut available, but never during an unresolved request.
+  demo.setState(difficultySelect.value==='challenge'?null:snapshot,currentBoard,working||!!pending||transport.recoveryBlocked||(!snapshot?.state.completed&&!transport.canAct));
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;
   recover.hidden=retry.hidden=!pending;actions.replaceChildren();

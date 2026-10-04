@@ -12,7 +12,30 @@ class Element{
  replaceChildren(...nodes){this.children=nodes;} addEventListener(k,f){(this.listeners[k]??=[]).push(f);}
  fire(k){for(const f of this.listeners[k]||[])f();}
  showModal(){this.open=true;} close(){this.open=false;this.fire('close');}
+ scrollIntoView(){this.scrolled=true;} focus(){this.focused=true;}
 }
+
+test('completed court demo can navigate to read-only analysis without a mutation',async()=>{
+ const elements=[],document=new Element('document');document.body=new Element('body');document.getElementById=()=>null;
+ document.createElement=tag=>{const e=new Element(tag);elements.push(e);return e;};
+ const window=new Element('window');Object.assign(window,{location:{origin:'https://court.test'},sessionStorage:{getItem:()=>null,setItem(){},removeItem(){}}});
+ const snapshot=structuredClone(fixture);Object.assign(snapshot.state,{completed:true,allowedActions:[],roleId:'respondentCounsel',procedure:'criminal'});
+ const board={completed:true,objectives:[],questionedNpcIds:[],evidence:[],statements:[],contradictions:[]};
+ const old=globalThis.fetch,calls=[];
+ globalThis.fetch=async(url,options)=>{calls.push(options.method);return Response.json({...snapshot,requestId:new URL(url).searchParams.get('requestId')});};
+ const walk=e=>[e,...e.children.flatMap(walk)];
+ try{
+  const panel=installActionPanel({document,window,getView:()=>({id:snapshot.sessionId,version:snapshot.stateVersion,config:{caseId:snapshot.caseId},investigation:board}),getAccount:()=>({id:'owner'}),csrf:()=>'',beforeOpen(){},onUpdated:async()=>{}});
+  panel.open();for(let i=0;i<100&&panel.working;i++)await new Promise(r=>setTimeout(r,2));assert.equal(panel.working,false);
+  const demo=elements.find(e=>e.attributes?.['aria-label']==='比賽展示導覽');
+  const toggle=walk(demo).find(e=>e.tag==='input');toggle.checked=true;toggle.onchange();
+  assert(walk(demo).some(e=>e.textContent?.includes('你的角色：辯護人')));
+  const review=walk(demo).find(e=>e.tag==='button'&&e.textContent==='查看庭後分析');assert(review);
+  review.onclick();const notebook=elements.find(e=>e.attributes?.['aria-label']==='案件筆記');
+  assert.equal(notebook.focused,true);assert.equal(notebook.scrolled,true);assert.deepEqual(calls,['GET']);
+  panel.clear();assert.equal(demo.hidden,true);review.onclick();assert.deepEqual(calls,['GET']);
+ }finally{globalThis.fetch=old;}
+});
 test('restored pending marker shows recovery outside closed dialog and resolves with GET only',async()=>{
  const elements=[],document=new Element('document'),anchor=new Element('notice');document.body=new Element('body');
  document.getElementById=id=>id==='notice'?anchor:null;

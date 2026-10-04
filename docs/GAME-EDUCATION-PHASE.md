@@ -13,6 +13,22 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- Demo guidance now derives each next-step suggestion from enabled public server
+  descriptors as well as recorded objectives. Non-judge investigation paths no
+  longer instruct players to make judicial rulings; a missing/disabled follow-up
+  does not get advertised as unlocked. Unknown actions produce an honest neutral
+  instruction rather than an invented stage. Role introductions distinguish the
+  player responsibilities; no hidden facts, answer choices or automatic actions
+  are added. A settled completed court can navigate to read-only analysis instead
+  of being mistaken for an unresolved request. Pending/recovery still blocks it.
+  Twenty-nine concentrated demo, panel, transport and investigation-control tests
+  passed; frontend checks passed. Local Chromium restored the completed defense
+  court, enabled the guide and used its review shortcut: focus moved to the
+  notebook and the displayed result stayed version 11. This verifies the hosted
+  DOM guide, not full 3D replay or physical-device acceptance. The pure guide also
+  handles observer step descriptors, but the host still requires an investigation
+  board; no claim is made that all observer cases expose this guide.
+
 - Defense-role browser pass: local Chromium loaded the actual Unity WebGL frame,
   then used the host procedure panel to finish the authored tablet case through
   original statements, evidence discovery/presentation, contradiction follow-up,
