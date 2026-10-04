@@ -1,5 +1,6 @@
 import '../auth-sync.js';
 import {createInvestigationBoard} from './investigation-board.js';
+import {createGuidancePresentation} from './guidance-presentation.js';
 import { installGamePanels } from './game-panels.js';
 import { npcNotice } from './npc-status.js';
 import { installReplayPanel } from './replay-panel.js';
@@ -10,6 +11,7 @@ import { createNpcTicketGate } from './npc-action.js';
 import { installRandomCase } from './random-case.js';
 installAccessibility({document,window});
 const $=id=>document.getElementById(id);
+const guidancePresentation=createGuidancePresentation({elements:[$('guidance').previousElementSibling,$('guidance'),$('ask-guide'),$('read-guide')],cancelSpeech:()=>window.speechSynthesis?.cancel()});
 const investigationBoard=createInvestigationBoard(document);$('evidence').after(investigationBoard.element);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
@@ -31,7 +33,10 @@ const actionPanel=installActionPanel({window,document,getView:()=>view,getAccoun
  if(!snapshot||view?.id!==snapshot.sessionId)return;
  const id=view.id,owner=account?.id,p=await api('/api/court/sessions/'+id);
  if(view?.id===id&&account?.id===owner&&p.view.version>=view.version){view=p.view;render();scene();}
-},onPresentationChanged:(mode,cleared)=>investigationBoard.render(cleared?null:view?.investigation,mode)});
+},onPresentationChanged:(mode,cleared)=>{
+ investigationBoard.render(cleared?null:view?.investigation,mode);
+ guidancePresentation.update(cleared?null:view,mode,account?.id);
+}});
 const serverActions=document.createElement('button');serverActions.type='button';serverActions.textContent='伺服器程序操作';serverActions.hidden=onPages;serverActions.addEventListener('click',()=>{if(!busy&&!npcBusy)actionPanel.open();});$('back').after(serverActions);
 const gamePanels=installGamePanels({window,document,getView:()=>view,getAccount:()=>account,onClose:()=>stopVoice(true),canOpen:()=>!busy&&!npcBusy&&!actionPanel.working,openInvestigation:()=>actionPanel.open()});
 const replayPanel=installReplayPanel({window,document,getView:()=>view,getAccount:()=>account,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();}});
@@ -129,6 +134,7 @@ $('evidence').replaceChildren(...v.evidence.map(e=>{const box=node('div');box.cl
 $('actions').replaceChildren();$('speech-form').hidden=!v.actions.includes('speak');$('observer').hidden=!v.actions.includes('step');$('turn-title').textContent=v.config.role==='judge'?'主持程序':v.config.role==='observer'?'觀察程序':'代表你的角色發言';
 $('turn-help').textContent=v.stage===0?'先確認身分、程序與表達權利。':v.stage===1?'依固定事實說明爭點；法官請整理雙方爭點。':v.stage===2?'逐一核對證據能證明什麼，不能證明什麼。':v.stage===3?'回應證據與不同觀點；法官請整理尚待釐清事項。':v.stage===4?v.question:'本輪結束，可回到案件設定。';
 investigationBoard.render(v.investigation,actionPanel.difficulty);
+guidancePresentation.update(v,actionPanel.difficulty,account?.id);
 if(v.actions.some(id=>id.startsWith('investigate.')))$('actions').append(button('調查、出示證物與追問',()=>actionPanel.open()));
 if(v.actions.includes('acknowledge'))$('actions').append(button('確認程序權利，開始陳述',()=>act('acknowledge')));
 if(v.actions.includes('closeEvidence'))$('actions').append(button(v.config.role==='judge'?'結束證據調查':'完成證據檢視，繼續',()=>act('closeEvidence')));
@@ -153,8 +159,8 @@ const fullscreenButton=node('button','全螢幕');fullscreenButton.type='button'
 fullscreenButton.onclick=async()=>{if($('scene').hidden){status('請先載入 3D 場景。');return;}try{if(document.fullscreenElement)await document.exitFullscreen();else if($('scene').requestFullscreen)await $('scene').requestFullscreen();else status('此瀏覽器不支援全螢幕，請使用遊戲右上角的展開畫面。');}catch{status('瀏覽器未允許全螢幕，請使用遊戲右上角的展開畫面。');}};
 document.addEventListener('fullscreenchange',()=>{fullscreenButton.textContent=document.fullscreenElement?'退出全螢幕':'全螢幕';});
 $('seat').onclick=()=>scene('seat');$('overview').onclick=()=>scene('overview');$('walk').onclick=()=>scene('walk');
-$('ask-guide').onclick=()=>run(async()=>{const id=view.id,version=view.version;$('guidance').textContent='正在取得引導…';const p=await api(`/api/court/sessions/${id}/dialogue`,{});if(view.id===id&&view.version===version){const modeLabel=p.mode==='scripted'?'固定台詞（AI 暫不可用）':p.mode==='ai-dialogue'?`AI 對話（${p.speaker}）`:'AI 程序引導';$('guidance').textContent=`${modeLabel}：${p.text}`;}});
-$('read-guide').onclick=()=>{if(!('speechSynthesis'in window)){status('此瀏覽器不支援朗讀。');return;}stopVoice(true);speechSynthesis.cancel();const u=new SpeechSynthesisUtterance($('guidance').textContent);u.lang='zh-TW';speechSynthesis.speak(u);};
+$('ask-guide').onclick=()=>run(async()=>{if(!guidancePresentation.allowed)return;const id=view.id,version=view.version,ticket=guidancePresentation.ticket();$('guidance').textContent='正在取得引導…';const p=await api(`/api/court/sessions/${id}/dialogue`,{});if(view?.id===id&&view.version===version&&guidancePresentation.accepts(ticket)){const modeLabel=p.mode==='scripted'?'固定台詞（AI 暫不可用）':p.mode==='ai-dialogue'?`AI 對話（${p.speaker}）`:'AI 程序引導';$('guidance').textContent=`${modeLabel}：${p.text}`;}});
+$('read-guide').onclick=()=>{if(!guidancePresentation.allowed)return;if(!('speechSynthesis'in window)){status('此瀏覽器不支援朗讀。');return;}stopVoice(true);speechSynthesis.cancel();const u=new SpeechSynthesisUtterance($('guidance').textContent);u.lang='zh-TW';speechSynthesis.speak(u);};
 function stopVoice(cancel=false){cancelVoice=cancel;if(recognition){cancel?recognition.abort():recognition.stop();} }
 // Cancel before navigation or a submitted action, including multi-touch input.
 $('speech-form').addEventListener('submit',()=>stopVoice(true),{capture:true});

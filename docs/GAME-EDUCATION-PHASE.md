@@ -307,3 +307,15 @@ synthetic case without advancing its version. Active-case mode switching,
 physical-mobile acceptance and research integration remain pending; this is not
 completion of the whole difficulty/research requirement. No backend/schema,
 Unity binary, formal data or Cloudflare deployment changed in this increment.
+
+Active-case difficulty correction (2026-10-04): inspection found the outer shell
+still offered AI guidance and speech while the investigation panel was in
+challenge mode. `guidance-presentation.js` now synchronizes those controls,
+cancels ongoing hint speech when suppressed and rejects delayed guidance after
+owner/session/version/mode changes or context clear. Completed review and legacy
+cases retain guidance. This is presentation only, not a server permission rule.
+Nine focused tests and frontend checks passed. A new synthetic local case was
+created through the real browser; switching to challenge and closing the panel
+hid all outer guidance controls while preserving opening actions and version 0.
+Live provider latency, full active-case completion under every mode and mobile
+acceptance remain unverified. No production data or deployed Worker changed.
