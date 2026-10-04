@@ -5,7 +5,9 @@ import type {TokenUsage} from './contracts';
 
 // Explicit opt-in policy. Not a promise of vendor free quota. All production
 // Ollama entry points compose through this shared provider-account budget.
-const policy:AdmissionPolicy={concurrency:2,queue:8,daily:100,userDaily:20,sessionDaily:12,
+// Owner-approved daily headroom (2026-10-04); retain concurrency, cooldowns,
+// existing usage records and upstream quota enforcement. No paid auto-upgrade.
+const policy:AdmissionPolicy={concurrency:2,queue:8,daily:300,userDaily:60,sessionDaily:30,
   queueMs:5000,leaseMs:60000,failureThreshold:3,cooldownMs:30000,quotaCooldownMs:60000,maxRecords:2048};
 interface AdmissionEnvironment {AI_ADMISSION_ENABLED?:string}
 export class AIAdmission extends DurableObject<AdmissionEnvironment> {

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {emptyAdmission,reduceAdmission,pruneAdmission} from '../src/providers/admission.ts';
 import {parseAdmissionState} from '../src/providers/admission-state.ts';
 const policy={concurrency:2,queue:2,daily:20,userDaily:10,sessionDaily:5,queueMs:5000,leaseMs:10000,
@@ -7,6 +8,23 @@ const policy={concurrency:2,queue:2,daily:20,userDaily:10,sessionDaily:5,queueMs
 const request=(id,extra={})=>({id,fingerprint:'hash_'+id,userKey:'user',sessionKey:'session',...extra});
 const admit=(id,extra)=>({type:'admit',request:request(id,extra)});
 const finish=(id,outcome='success')=>({type:'finish',id,outcome,usage:{inputTokens:null,outputTokens:12}});
+test('production daily headroom preserves persisted usage and still enforces all three caps',()=>{
+ const source=readFileSync(new URL('../src/providers/admission-coordinator.ts',import.meta.url),'utf8');
+ const body=source.match(/const policy:AdmissionPolicy=\{([^}]+)\}/)[1];
+ const p=Object.fromEntries([...body.matchAll(/(\w+):(\d+)/g)].map(([,k,v])=>[k,Number(v)]));
+ assert.deepEqual(p,{concurrency:2,queue:8,daily:300,userDaily:60,sessionDaily:30,queueMs:5000,leaseMs:60000,failureThreshold:3,cooldownMs:30000,quotaCooldownMs:60000,maxRecords:2048});
+ let state=emptyAdmission();
+ for(let i=0;i<300;i++){
+  const req=request('production_'+i,{userKey:'u'+Math.floor(i/60),sessionKey:'s'+Math.floor(i/30)});
+  const result=reduceAdmission(state,{type:'admit',request:req},100,p,true);
+  assert.equal(result.code,'ACCEPTED');
+  state=reduceAdmission(result.state,finish(req.id),100,p,true).state;
+  if(i===29)assert.equal(reduceAdmission(state,{type:'admit',request:request('over_session',{userKey:'u0',sessionKey:'s0'})},100,p,true).code,'BUDGET');
+  if(i===59)assert.equal(reduceAdmission(state,{type:'admit',request:request('over_user',{userKey:'u0',sessionKey:'new'})},100,p,true).code,'BUDGET');
+ }
+ assert.equal(state.records.length,300);
+ assert.equal(reduceAdmission(state,{type:'admit',request:request('over_global',{userKey:'new',sessionKey:'new'})},100,p,true).code,'BUDGET');
+});
 function harness(p=policy){let state=emptyAdmission();return {
  run(c,t=100,enabled=true){const result=reduceAdmission(state,c,t,p,enabled);state=result.state;return result;},
  get state(){return state;}
