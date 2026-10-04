@@ -1,5 +1,14 @@
 # 庭審重播介面進度
 
+本批正式發布來源 `39bf599cfd135ba5ce06303432eb9883cdb7acf1`，Worker
+`4a6d49a9-19be-4677-abd8-0c5d4bf66bf2`。CI 37192462465、Pages
+37192462245、Docker 37192486767 均 success。Worker 和 Pages 的
+question-review.js／replay-panel.js 皆 HTTP 200 且正規化換行後與提交
+來源相同。從獨立 git archive 發布，未包含工作樹原有修改；types、TS、
+dry-run 通過，保留既有變數／Secret／binding／正式資料。回滾版本為
+`e89d31b1-982d-461a-9e8b-cee036b9fc8f`。Unity 成品 unchanged。
+Docker 已實際 build/run 及 HTTP 校驗；仍是靜態預覽，不含正式登入／AI。
+
 ## 2026-10-04 問答回顧與導航（優先於以下歷史紀錄）
 
 新增第一筆／已讀最後一筆、目前位置與已讀數量、事件類型中文篩選。

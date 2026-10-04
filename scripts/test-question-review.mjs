@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {completedQuestions,createQuestionReview} from '../court/question-review.js';
+test('only the leading close button sticks over scrollable replay content',async()=>{
+ const css=await readFile(new URL('../court/court.css',import.meta.url),'utf8');
+ assert.match(css,/\.game-panel>button:first-of-type\{position:sticky/);
+ assert.doesNotMatch(css,/\.game-panel>button\{position:sticky/);
+});
 class Element{
  constructor(tag){this.tag=tag;this.children=[];this.listeners={};this.value='';}
  setAttribute(){} append(...n){this.children.push(...n);}replaceChildren(...n){this.children=n;}

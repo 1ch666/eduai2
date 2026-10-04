@@ -3,7 +3,7 @@
 .game-panel::backdrop{background:rgba(20,28,30,.65)}
 .investigation-controls{border-block:1px solid var(--line);padding:12px 0;overflow-wrap:anywhere}.investigation-controls>div{display:grid;gap:8px;margin:12px 0}.investigation-controls button{width:100%;text-align:left;white-space:normal}.investigation-controls p{margin:4px 0;white-space:pre-wrap}.investigation-controls label{margin-top:16px}
 .session-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line)}#sessions .session-row>button:first-child{flex:1;min-width:0;overflow-wrap:anywhere}#sessions .delete-session{width:auto;flex:none;color:#773c30}
-.game-panel>button{position:sticky;top:0;z-index:1;background:#344b50;color:white;margin-bottom:16px}
+.game-panel>button:first-of-type{position:sticky;top:0;z-index:1;background:#344b50;color:white;margin-bottom:16px}
 .game-panel h2{margin-top:8px}.game-panel #evidence:empty::before{content:'本場次尚未提供可查看的證物。'}
 .evidence-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:12px 0}.evidence-comparison>*{min-width:0;overflow-wrap:anywhere}.evidence-card{border:1px solid var(--line);padding:12px}.evidence-card dt{font-weight:600}.evidence-card dd{margin:0 0 8px}.evidence-text{white-space:pre-wrap}.evidence-viewer summary{min-height:44px;padding:8px 0;cursor:pointer}.evidence-viewer mark{color:#000;background:#ffe08a;text-decoration:underline;text-decoration-thickness:2px}@media(max-width:600px){.evidence-comparison{grid-template-columns:1fr}}
 .skip-link{position:fixed;left:12px;top:12px;transform:translateY(-200%);z-index:100;background:white;color:black;padding:12px;border:2px solid black}.skip-link:focus{transform:none}
