@@ -553,3 +553,18 @@ the actual deterministic flow module. This is an unmounted component, NOT a
 released user flow: authenticated HTTP client/recovery, court host wiring,
 rendered browser/mobile verification and consent review remain pending. No
 Cloudflare flag was enabled and no user experiment was conducted.
+
+Education browser transport (2026-10-04): `court/education-client.js` now calls
+the authenticated same-origin v2 assessment endpoint with bounded response
+reading, deadline cancellation, owner/session-context clearing and strict public
+view validation. It never imports server answer keys. Unknown POST outcomes
+remain pending; explicit retry reuses the identical request ID/body. A GET can
+reconcile advancement but a same-revision read does not prove a pending POST
+failed. No automatic write retry, browser persistence, credentials in payloads
+or client-side scoring is introduced. View getters return detached copies.
+Four transport tests plus four presentation tests passed, covering lost replies,
+exact retry, context changes, timeout, hidden-field/early-score rejection,
+oversized responses, withdrawal and login loss. The transport is not yet wired
+into the court page. Pending commands currently live only in memory; host wiring,
+reload recovery review, rendered browser testing and actual workerd verification
+remain unfinished. No production deployment or research collection was enabled.
