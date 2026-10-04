@@ -13,6 +13,32 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- Multi-role runtime gate: `scripts/check-investigation-api.mjs` now exercises
+  judge, claimant, respondent, claimantCounsel, respondentCounsel and observer
+  against the actual loopback Worker, Durable Object RPC and SQLite. The five
+  player paths include original statements, discovery, presentation, deterministic
+  contradiction, labelled fallback follow-up, wrong-answer retry, debrief and
+  immutable review. Counsel configurations explicitly select private assistance.
+  Non-judges cannot issue the judge's procedural rulings. Observer is step-only,
+  receives no invented player investigation or score and cannot submit player
+  actions. All received events also pass the production JavaScript client reducer;
+  saved events are loaded into the separate replay store and seeking cannot
+  change the live client or persisted completed result. Receipt lookup is
+  owner-only; exact retry produces one event, stale versions are rejected.
+  The check preserves the real rate limit: only its explicit pre-mutation 429
+  permits one bounded wait/retry with identical request data. Timeout and unknown
+  outcomes are not blindly retried. Each successful run deletes only the six
+  synthetic courts it creates; synthetic accounts remain in local test storage.
+  Consolidated run passed all six role paths on the live local port 8798 Worker
+  with NPC AI disabled. The related investigation/control/board/debrief/protocol/
+  replay suite passed 24 tests, plus script syntax and diff checks. The existing
+  Fast regression workflow runs this same expanded script on isolated workerd;
+  its CI result must be checked separately after push. The preliminary run hit
+  the real limiter and failed cleanup of one local synthetic court; the final
+  bounded-wait run completed all six cleanups. No unrelated records were removed.
+  This is one authored case, not all templates, Unity input, live AI or mobile
+  acceptance. No deployed runtime, migration, research flag or Unity asset changed.
+
 - Completed-court question review now displays existing owner-authorized saved
   questions alongside replies with honest AI/dictionary/scripted labels. It is
   separate from event replay because legacy question times/stages were not saved.
