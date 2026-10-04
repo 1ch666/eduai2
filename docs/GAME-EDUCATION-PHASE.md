@@ -13,6 +13,15 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- Added a read-only statement/evidence comparison to the investigation board.
+  It renders only server-projected heard statements and discovered evidence,
+  never imports hidden case definitions or decides contradictions. Completed
+  courts explicitly remain read-only. Five comparison/board tests passed,
+  covering missing discoveries, selection, clearing, stale callbacks, literal
+  HTML-like text, unchanged source data and challenge-mode behavior. Rendered
+  locally using the existing completed synthetic version-13 court; this is not
+  mobile hardware, live AI or a new end-to-end court completion test.
+
 - Fixed host camera commands resetting the walking player's position on every
   authoritative revision. Normal updates now preserve position; explicit view
   selection, a changed session/role/procedure and a ready/reloaded Unity frame
