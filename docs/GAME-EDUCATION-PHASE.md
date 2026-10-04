@@ -358,3 +358,16 @@ rollback without data conversion. Court/board/debrief tests verify all roles,
 retry propagation, invalid/missing attempt counts and unchanged source state.
 Production deployment and real-browser rendering of the new classification are
 still pending; this does not complete the full error-analysis/research requirement.
+
+Debrief runtime checkpoint (2026-10-04): the real loopback Worker/DO integration
+test now submits one wrong judgment, verifies the case stays unfinished with no
+debrief, then corrects it. Completed output records two attempts as a retry,
+keeps unsupported semantic categories unassessed, and exposes only the four
+documented fields per classification. Existing owner/CSRF, duplicate recovery,
+completion and read-only assertions all passed. The script removes only its own
+new synthetic local case afterwards; formal data was not touched. A browser
+reload of a previously completed one-attempt case rendered all eight categories,
+including the four explicit insufficient-data explanations, at unchanged version
+13. No migration was required. This replaces the pending local classification
+rendering check above; live AI, production publication and human research remain
+unverified.
