@@ -13,8 +13,10 @@ No authenticated production mutation/model test, migration or static asset chang
 - POST `/api/v2/court/sessions/:sessionId/actions`
 - GET `/api/v2/court/sessions/:sessionId/requests/:commandRequestId`
 - GET `/api/v2/court/sessions/:sessionId/events?after=-1`
+- DELETE `/api/v2/court/sessions/:sessionId` (see deletion section)
+- Candidate POST `/api/v2/court/sessions` (see COURT-V2-CREATION.md)
 
-The POST body is the existing explicit **domain command v1**, defined by
+The action POST body is the existing explicit **domain command v1**, defined by
 `court-v1-command.schema.json#/definitions/mutation`. It still requires
 `apiVersion:1`, `requestId`, `idempotencyKey`, `expectedStateVersion`, session/case
 IDs and the action fields. HTTP transport v2 does not silently invent a second
@@ -51,8 +53,9 @@ No SQL migration, data rewrite, new binding, cookie or secret. Legacy routes and
 web/Unity clients remain unchanged. Rollback restores old code without database
 conversion; new v2 clients must explicitly support the v1 transport or wait for
 redeployment. Never automatically retry an uncertain mutation through another
-version. Creation and other platform API contracts still require
-separate versioning work; unimplemented v2 routes return a v2 404.
+version. Fixed-case creation is implemented separately with its own v2 schema;
+random/AI creation and other platform APIs still require versioning work.
+Unimplemented v2 routes return a v2 404.
 
 ## Versioned deletion — released 2026-10-04
 

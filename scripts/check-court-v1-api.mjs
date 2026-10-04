@@ -43,6 +43,10 @@ const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,re
  assert.equal(stale.status,409);assert.equal(courtV2Response(stale.data),true);
  const audit=await call(v2+'/events',undefined,b);assert.equal(audit.status,200);assert.equal(courtV2Response(audit.data),true,JSON.stringify(courtV2Response.errors));
  assert.equal(audit.data.data.events.length,2);assert.equal(audit.data.stateVersion,1);
+ assert.equal(audit.data.data.events[0].provenance,'verified-creation-v2');
+ assert.equal(audit.data.data.events[0].previousVersion,null);
+ assert.equal(audit.data.data.events[0].newVersion,0);
+ assert.equal(audit.data.data.events[0].idempotencyKey,creation.idempotencyKey);
  assert.equal(audit.data.data.events[1].previousVersion,0);assert.equal(audit.data.data.events[1].idempotencyKey,command.idempotencyKey);
  assert.deepEqual(audit.data.data.events[1].payload,replies[1].data);
  const empty=await call(v2+'/events?after=1',undefined,b);assert.equal(courtV2Response(empty.data),true);assert.deepEqual(empty.data.data.events,[]);

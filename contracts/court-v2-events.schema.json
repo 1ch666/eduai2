@@ -19,8 +19,12 @@
    "newVersion":{"type":"integer","minimum":0,"maximum":9007199254740991},
    "timestamp":{"$ref":"urn:eduai:court:v1:state#/definitions/timestamp"},
    "idempotencyKey":{"anyOf":[{"type":"null"},{"$ref":"urn:eduai:court:v1:command#/definitions/uuid"}]},
-   "provenance":{"enum":["verified-command-v1","unattributed"]}
+   "provenance":{"enum":["verified-command-v1","verified-creation-v2","unattributed"]}
   },
-  "allOf":[{"if":{"properties":{"provenance":{"const":"unattributed"}}},"then":{"properties":{"actorRole":{"type":"null"},"previousVersion":{"type":"null"},"idempotencyKey":{"type":"null"}}},"else":{"properties":{"actorRole":{"type":"string"},"previousVersion":{"type":"integer"},"idempotencyKey":{"type":"string"}}}}]
+  "allOf":[
+   {"if":{"properties":{"provenance":{"const":"unattributed"}}},"then":{"properties":{"actorRole":{"type":"null"},"previousVersion":{"type":"null"},"idempotencyKey":{"type":"null"}}}},
+   {"if":{"properties":{"provenance":{"const":"verified-command-v1"}}},"then":{"properties":{"actorRole":{"type":"string"},"previousVersion":{"type":"integer"},"idempotencyKey":{"type":"string"}}}},
+   {"if":{"properties":{"provenance":{"const":"verified-creation-v2"}}},"then":{"properties":{"eventType":{"const":"session_started"},"actorRole":{"type":"string"},"previousVersion":{"type":"null"},"newVersion":{"const":0},"idempotencyKey":{"type":"string"}}}}
+  ]
  }}
 }

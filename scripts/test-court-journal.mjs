@@ -476,6 +476,28 @@ test('v2 creation commits once, recovers after restart and refuses altered keys,
   assert.equal(restarted.outcomeV2('owner',id,c.requestId).status,404);
  }finally{db.close();}
 });
+test('v2 creation audit verifies genesis command and role without mutating state or guessing legacy metadata',()=>{
+ const {room,db,ctx,id}=setup(config,{},false);try{
+  const c={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,expectedStateVersion:0,config};
+  const event=room.initV2('owner',c),exec=ctx.storage.sql.exec;
+  ctx.storage.sql.exec=(query,...args)=>{assert.match(query,/^SELECT /);return exec(query,...args);};
+  const page=room.eventsV2('owner',-1);assert.equal(courtV2Events(page),true,JSON.stringify(courtV2Events.errors));
+  assert.deepEqual(page.events[0],{eventVersion:2,eventId:event.eventId,eventType:'session_started',sessionId:id,
+   actorRole:'judge',payload:event,previousVersion:null,newVersion:0,timestamp:event.timestamp,
+   idempotencyKey:c.idempotencyKey,provenance:'verified-creation-v2'});
+  assert.equal(courtV2Events({...page,events:[{...page.events[0],previousVersion:0}]}),false);
+  assert.equal(courtV2Events({...page,events:[{...page.events[0],newVersion:1}]}),false);
+  for(const change of [{sessionId:crypto.randomUUID()},{requestId:crypto.randomUUID()},
+   {config:{...config,role:'observer'}},{config:{...config,caseId:'damage'}}]){
+   db.prepare('UPDATE court_v1_requests SET payload=?').run(canonical({...c,...change}));
+   assert.equal(room.eventsV2('owner',-1).events[0].provenance,'unattributed');
+  }
+  db.prepare('UPDATE court_v1_requests SET payload=?,event=?').run(canonical(c),JSON.stringify({...event,text:'changed receipt'}));
+  assert.equal(room.eventsV2('owner',-1).events[0].provenance,'unattributed');
+  assert.equal(room.eventsV2('other',-1).status,404);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,1);
+ }finally{db.close();}
+});
 test('v2 creation receipt failure rolls back state and both journals, legacy room is not overwritten',()=>{
  const {room,db,ctx,id}=setup(config,{},false);try{
   const c={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,expectedStateVersion:0,config};

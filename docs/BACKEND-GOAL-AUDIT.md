@@ -49,8 +49,10 @@ Candidate: fixed-case v2 POST creation with strict public schema, stable scoped
 command IDs, atomic state/journal/receipt commit and original-result recovery.
 Real local workerd concurrent/owner/CSRF tests passed after correcting null-
 prototype DTO serialization. No new schema or migration; existing APIs preserved.
-Cross-DO abandoned index reconciliation, v2 random/AI creation, full creation
-provenance and production acceptance remain open. See COURT-V2-CREATION.md.
+Creation provenance now verifies the persisted command, event and role with
+explicit genesis null predecessor; legacy unknown metadata stays unattributed.
+Cross-DO abandoned index reconciliation, v2 random/AI creation, full legacy/
+deletion provenance and production acceptance remain open. See COURT-V2-CREATION.md.
 
 Released d148853: v2 requests/:requestId now reads the owner-only terminal
 deletion receipt after a lost response. Deleted-room recovery is SELECT-only;

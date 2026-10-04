@@ -36,9 +36,15 @@ No new tables, bindings, secrets or migration tags. CourtRoom atomically writes
 state, public/private journals and canonical creation command + resulting event
 into the existing court_v1_requests receipt table. Legacy recovery can read the
 public event; subsequent v1 commands cannot reuse its request/key. No old data
-is rewritten. Deletion already erases this table. Existing public audit marks
-creation provenance unattributed; full creation audit metadata remains follow-up,
-not fabricated by subtracting one from version zero.
+is rewritten. Deletion already erases this table. The v2 public audit verifies
+the saved creation command against the exact persisted event, including session,
+request, case and role, and emits provenance `verified-creation-v2`. Genesis uses
+previousVersion=null (no predecessor), newVersion=0 and the saved idempotency key.
+It never invents a version -1 or treats an existing v0 state as its predecessor.
+Missing/mismatched receipts remain `unattributed`; historical records are not
+rewritten. Audit reads stay SELECT-only and owner-gated. Clients validating the
+v2 event enum must use the updated contract before consuming new creation events;
+v1 event DTOs and legacy creation behavior do not change.
 
 Learner reserves an index slot **before** CourtRoom initialization. Duplicate
 reservation succeeds even at capacity without rewriting the existing title.
@@ -61,6 +67,12 @@ CSRF/owner denial and compatibility with the existing actions/NPC/random routes.
 The runtime test initially caught null-prototype wire objects failing RPC;
 creation now copies config into a plain record, with a regression assertion.
 Focused tests, TypeScript and full fast gate ran; final focused rerun includes
-that serialization fix. Production authenticated creation and remote CI remain
+that serialization fix. Source df3dbf9 CI 37168204640 (fast + local-api) and
+37168204141 (Pages) passed. The subsequent provenance increment has 71 focused
+tests plus typecheck passing; the full fast gate and actual local workerd HTTP
+suite also passed with genesis provenance assertions. The SQLite audit test
+forbids all non-SELECT statements while reading and rejects false provenance
+for changed session/request/case/role or mismatched saved event.
+Production authenticated creation and the new increment's remote CI remain
 pending. No frontend/Unity adoption, generated-case v2 flow or complete
 mutation-provenance claim is made by this increment.
