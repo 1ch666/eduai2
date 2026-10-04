@@ -32,7 +32,8 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  function render(){
   const snapshot=transport.snapshot,pending=transport.pending;
   recoveryNotice.update({pending:!!pending,blocked:transport.recoveryBlocked,working});
-  const reply=transport.lastDialogue;dialogue.hidden=!reply;dialogue.textContent=reply?`${reply.speaker}：${reply.text}`:'';
+  const reply=transport.lastDialogue,feedback=snapshot?.state.feedback||'';
+  dialogue.hidden=!reply&&!feedback;dialogue.textContent=[reply?`${reply.speaker}：${reply.text}`:'',feedback].filter(Boolean).join('\n\n');
   evidenceViewer.setSnapshot(snapshot);
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;

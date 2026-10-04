@@ -14,7 +14,7 @@
    "type":"object","additionalProperties":false,
    "required":["caseId","role","claimantAge","claimantHearingAge","respondentAge","respondentHearingAge","claimantAid","respondentAid"],
    "properties":{
-    "caseId":{"enum":["sale","damage","tablet","injury","youth-property","youth-conflict"]},
+   "caseId":{"enum":["sale","damage","tablet","injury","youth-property","youth-conflict","tablet-time-discrepancy-v1"]},
     "role":{"enum":["judge","claimant","respondent","claimantCounsel","respondentCounsel","observer","juvenile","assistant"]},
     "claimantAge":{"type":"integer","minimum":0,"maximum":120},
     "claimantHearingAge":{"type":"integer","minimum":0,"maximum":120},

@@ -1,6 +1,7 @@
 import {CASES,RULE_VERSION,PROCEDURAL_REQUESTS,validateConfig,type CourtConfig,type CourtState,type CaseTemplate} from './court-rules';
 import {checkCaseReachability} from './court-reachability';
 import {parseBoundCourtGraph} from './court-graph';
+import {parseInvestigation,TABLET_INVESTIGATION} from './court-investigation';
 
 const id=(v:unknown):v is string=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(v);
 const text=(v:unknown,max=12000,min=1):v is string=>typeof v==='string'&&v.length>=min&&v.length<=max;
@@ -60,7 +61,7 @@ function copyData(value:unknown):unknown{
 export function parsePrivateCourtState(input:unknown,expected:{sessionId:string;owner:string}):CourtState|null{
  try{
   const v=copyData(input);
-  if(!record(v,['id','owner','config','stage','version','reviewed','statements','attempts','completed','feedback','createdAt','updatedAt','ruleVersion'],['rulings','generatedCase','generationVersion','privateGraph'])||
+  if(!record(v,['id','owner','config','stage','version','reviewed','statements','attempts','completed','feedback','createdAt','updatedAt','ruleVersion'],['rulings','generatedCase','generationVersion','privateGraph','investigation'])||
    !text(v.id,36,36)||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v.id)||
    !text(v.owner,160)||!/^[A-Za-z0-9_.:-]+$/.test(v.owner)||v.id!==expected.sessionId||v.owner!==expected.owner||
    !config(v.config)||validateConfig(v.config)!==null||!integer(v.stage,5)||!integer(v.version)||!integer(v.attempts)||
@@ -77,6 +78,15 @@ export function parsePrivateCourtState(input:unknown,expected:{sessionId:string;
   if(Object.hasOwn(v,'rulings'))s.rulings=v.rulings as string[]; // validated above
   if(Object.hasOwn(v,'generatedCase'))s.generatedCase=v.generatedCase as CaseTemplate;
   if(Object.hasOwn(v,'generationVersion'))s.generationVersion=v.generationVersion as string;
+  const expectsInvestigation=s.config.caseId===TABLET_INVESTIGATION.id&&!s.generatedCase&&s.config.role!=='observer';
+  if(Object.hasOwn(v,'investigation')!==expectsInvestigation)return null;
+  if(expectsInvestigation){
+   const investigation=parseInvestigation(v.investigation);if(!investigation)return null;
+   const count=investigation.questionedNpcIds.length+investigation.presentations.length+investigation.followedContradictionIds.length+investigation.hintCount;
+   if(investigation.viewedEvidenceIds.length!==s.reviewed.length||s.reviewed.some(id=>!investigation.viewedEvidenceIds.includes(id))||
+    s.stage<2&&(count||s.reviewed.length)||s.version<s.stage+s.reviewed.length+(s.rulings||[]).length+s.attempts-(s.completed?1:0)+count)return null;
+   s.investigation=investigation;
+  }
   const t=s.generatedCase||CASES.find(c=>c.id===s.config.caseId)!;
   if(s.completed!==(s.stage===5)||s.version<s.stage||s.attempts>s.version||s.reviewed.some(ref=>!t.evidence.some(e=>e.id===ref))||
     (s.rulings||[]).some(ref=>!PROCEDURAL_REQUESTS.some(r=>r.id===ref)))return null;

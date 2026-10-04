@@ -34,6 +34,7 @@ export function checkCaseReachability(template: CaseTemplate, baseId: string): R
       const timestamp='2000-01-01T00:00:00.000Z';
       let state = newCourtAt('validation-only', 'validation-only', config, timestamp);
       state.generatedCase = template;
+      delete state.investigation; // Narrative variants do not inherit authored contradictions.
       let count = 0;
       const act = (type: string, extra: Partial<CourtAction> = {}) => {
         if (++count > 32) throw Error('bound');

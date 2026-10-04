@@ -23,7 +23,8 @@ test('private state schema and runtime accept every legal role/template path inc
   check();
   if(role==='observer'){for(let i=0;i<5;i++)act('step');continue;}
   act('acknowledge');act('speak',{text:'確認資料與爭點'});
-  for(const e of t.evidence)act('review',{evidenceId:e.id});
+  if(s.investigation)act('investigate.discover');
+  else for(const e of t.evidence)act('review',{evidenceId:e.id});
   if(role==='judge')for(const r of PROCEDURAL_REQUESTS){act('rule',{rulingId:r.id,decision:r.correct==='allow'?'deny':'allow'});act('rule',{rulingId:r.id,decision:r.correct});}
   act('closeEvidence');act('speak',{text:'區分事實與推論'});
   act('answer',{answer:(t.correct+1)%t.answers.length});act('answer',{answer:t.correct});

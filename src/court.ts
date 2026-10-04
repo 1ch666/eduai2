@@ -2,7 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import {parseBoundCourtGraph} from './court-graph';
 import {checkCaseReachability} from './court-reachability';
 import {canConverse,isNpcId,publicCourtCast} from './court-cast';
-import {appendJournal,checkpointJournal,publicCourtSnapshot,type JournalEvent} from './court-journal';
+import {appendJournal,checkpointJournal,publicCourtSnapshot,investigationJournal,type JournalEvent} from './court-journal';
 import {parseMutation,parseEvent,canonical,type CourtMutation} from '../court/protocol.js';
 import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
@@ -21,6 +21,7 @@ import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 import {parseRandomCaseRequest,randomCourtConfig,RandomConfigError} from './court-random';
 import {initializeDeletion,eraseCourtContent,deleteCourt,deletionOutcome} from './court-deletion';
 import {parseCreation,type CourtCreation} from './court-creation';
+import {TABLET_INVESTIGATION} from './court-investigation';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -50,7 +51,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(configError)return {error:configError,status:400};
     if(generated&&!checkCaseReachability(generated,config.caseId).ok)return {error:'案件範本驗證未通過',status:400};
     const state=newCourt(id,owner,config);
-    if(generated){state.generatedCase=generated;state.generationVersion=GENERATION_VERSION;}
+    if(generated){state.generatedCase=generated;state.generationVersion=GENERATION_VERSION;delete state.investigation;}
     if(graph!==undefined){
       const parsed=parseBoundCourtGraph(graph,state);
       if(!parsed)return {error:'案件引用驗證未通過',status:400};
@@ -236,7 +237,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     return this.ctx.storage.transactionSync(()=>{
       checkpointJournal(this.ctx.storage.sql,s);
       this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
-      const event=appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==s.stage?'stage_changed':'checkpoint',requestId:m.requestId,speaker:'玩家',roleId:s.config.role,text:a.type==='speak'?m.text.trim():m.actionId,evidenceIds:a.type==='review'?[m.targetId]:[]});
+      const event=appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==s.stage?'stage_changed':'checkpoint',requestId:m.requestId,speaker:'玩家',roleId:s.config.role,text:a.type==='speak'?m.text.trim():m.actionId,evidenceIds:a.type==='review'?[m.targetId]:[],...investigationJournal(next,a.type)});
       this.ctx.storage.sql.exec('INSERT INTO court_v1_requests VALUES(?,?,?,?)',m.requestId,m.idempotencyKey,payload,JSON.stringify(event));
       return event;
     });
@@ -331,7 +332,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
         checkpointJournal(this.ctx.storage.sql,state);
         this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
         this.ctx.storage.sql.exec('INSERT INTO requests VALUES (?,?,?)',a.requestId,payload,JSON.stringify(view));
-        appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==state.stage?'stage_changed':'checkpoint',requestId:a.requestId,speaker:'玩家',roleId:state.config.role,text:a.type==='speak'?a.text!.trim():a.type==='rule'?`${a.rulingId}: ${a.decision}`:a.type,evidenceIds:a.type==='review'&&a.evidenceId?[a.evidenceId]:[]});
+        appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==state.stage?'stage_changed':'checkpoint',requestId:a.requestId,speaker:'玩家',roleId:state.config.role,text:a.type==='speak'?a.text!.trim():a.type==='rule'?`${a.rulingId}: ${a.decision}`:a.type,evidenceIds:a.type==='review'&&a.evidenceId?[a.evidenceId]:[],...investigationJournal(next,a.type)});
       });
       return {view};
     });
@@ -437,7 +438,7 @@ export class Learner extends DurableObject<AppEnv>{
 const validProtocolUuid=(s:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 export async function handleCourt(request:Request,env:AppEnv,respond:Responder,trustedOrigin?:string,trace?:TraceContext):Promise<Response>{
   const path=new URL(request.url).pathname;
-  if(path==='/api/court/cases' && request.method==='GET')return respond({version:RULE_VERSION,sources:LEGAL_SOURCES,ageLimits:AGE_LIMITS,cases:CASES.map(({correct,...t})=>({...t,roles:rolesFor(t.procedure),limits:AGE_LIMITS[t.procedure]}))});
+  if(path==='/api/court/cases' && request.method==='GET')return respond({version:RULE_VERSION,sources:LEGAL_SOURCES,ageLimits:AGE_LIMITS,cases:CASES.map(({correct,...t})=>({...t,...(t.id===TABLET_INVESTIGATION.id?{evidence:[],explanation:''}:{}),roles:rolesFor(t.procedure),limits:AGE_LIMITS[t.procedure]}))});
   const session=await resolveSession(request,env);
   if(!session)return respond({error:'請登入以建立或恢復雲端場次；遊客可玩既有固定練習。'},401);
   const learner=env.LEARNER.getByName(session.user.id);

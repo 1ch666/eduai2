@@ -458,6 +458,48 @@ function setup(selectedConfig=config,env={},initialize=true){
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
 
+test('authored investigation commits through real receipts, survives restart and locks reviewed results',()=>{
+ const caseId='tablet-time-discrepancy-v1';
+ const {room,db,ctx,id,setFail}=setup({...config,caseId});
+ try{
+  const command=(actionId,extra={})=>({...mutation(id,room.get('owner').view.version,actionId),caseId,...extra});
+  const act=(actionId,extra={})=>{
+   const m=command(actionId,extra),event=room.actionV1('owner',m);
+   assert.ok(parseEvent(JSON.stringify(event)),JSON.stringify(event));
+   assert.deepEqual(room.actionV1('owner',m),event);
+   assert.deepEqual(room.outcomeV1('owner',m.requestId),event);
+   const stored=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+   assert.deepEqual(reconstructPrivateState(ctx.storage.sql,stored.version,{sessionId:id,owner:'owner'}),stored);
+   return event;
+  };
+  assert(!JSON.stringify(room.get('owner')).includes('走廊影像時間紀錄'));
+  assert.equal(room.actionV1('owner',command('investigate.discover')).status,409);
+  act('acknowledge');act('speak',{text:'先釐清證人的離場時間'});
+  assert.equal(room.actionV1('other',command('investigate.discover')).status,404);
+  assert.equal(room.actionV1('owner',command('investigate.present.Witness')).status,409);
+  assert.equal(room.actionV1('owner',command('investigate.followUp.Witness')).status,409);
+  const discover=command('investigate.discover');setFail(true);
+  assert.throws(()=>room.actionV1('owner',discover),/journal write failure/);setFail(false);
+  assert.equal(room.get('owner').view.investigation.evidence.length,0);
+  act('investigate.discover');act('investigate.question.Witness');
+  act('investigate.question.Prosecutor');act('investigate.question.Lawyer');
+  const hint=act('investigate.hint');assert.equal(room.get('owner').view.investigation.contradictions.length,0);
+  assert.ok(hint.snapshot.state.feedback);
+  const found=act('investigate.present.Witness');assert.equal(found.kind,'evidence_presented');
+  assert.equal(room.get('owner').view.investigation.contradictions.length,1);
+  const reopened=new CourtRoom(ctx,{});assert.deepEqual(reopened.get('owner'),room.get('owner'));
+  const follow=act('investigate.followUp.Witness');assert.match(follow.text,/預寫教學回應/);
+  act('rule.heard.allow');act('rule.shortcut.deny');act('closeEvidence');act('speak',{text:'時間矛盾不代表已查明取走平板的人'});
+  act('answer.2');const before=room.get('owner');
+  assert.equal(before.view.investigation.debrief.hintsUsed,1);
+  assert.equal(before.view.investigation.debrief.npcCoverage,100);
+  assert.equal(before.view.investigation.debrief.contradictionsFound,1);
+  assert.equal(before.view.investigation.debrief.evidenceCoverage,100);
+  assert.equal(room.actionV1('owner',command('investigate.hint')).status,409);
+  assert.deepEqual(new CourtRoom(ctx,{}).get('owner'),before);
+ }finally{db.close();}
+});
+
 test('v2 creation commits once, recovers after restart and refuses altered keys, owners or deleted IDs',()=>{
  const {room,db,ctx,id}=setup(config,{},false);try{
   const c={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,expectedStateVersion:0,config};

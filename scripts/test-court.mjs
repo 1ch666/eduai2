@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AGE_LIMITS, CASES, rolesFor, validateConfig, newCourt, transition, courtView } from '../src/court-rules.ts';
 const config=t=>({caseId:t.id,role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:t.procedure==='juvenile'?15:20,respondentHearingAge:t.procedure==='juvenile'?15:20,claimantAid:'none',respondentAid:t.mandatory?'appointed':'none'});
-test('Every supported role completes each of six cases without skipping evidence',()=>{
+test('Every supported role completes every case without skipping evidence',()=>{
  for(const t of CASES)for(const role of rolesFor(t.procedure)){
   const c={...config(t),role};if(role==='claimantCounsel')c.claimantAid='private';if(['respondentCounsel','assistant'].includes(role))c.respondentAid='private';
   let s=newCourt('case','owner',c);const act=(type,extra={})=>s=transition(s,{requestId:crypto.randomUUID(),version:s.version,type,...extra});
   if(role==='observer'){for(let i=0;i<5;i++)act('step');}else{
    act('acknowledge');act('speak',{text:'請確認案件爭點'});
-   assert.throws(()=>act('closeEvidence'));for(const e of t.evidence)act('review',{evidenceId:e.id});
+   assert.throws(()=>act('closeEvidence'));
+   if(s.investigation){act('investigate.question.Witness');act('investigate.discover');act('investigate.present.Witness');act('investigate.followUp.Witness');}
+   else for(const e of t.evidence)act('review',{evidenceId:e.id});
    if(role==='judge'){
     assert.throws(()=>act('closeEvidence'));
     act('rule',{rulingId:'shortcut',decision:'allow'});assert.throws(()=>act('closeEvidence'));

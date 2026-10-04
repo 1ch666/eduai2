@@ -1,5 +1,6 @@
 // Deterministic rules plus legacy clock adapters for the court service.
 import type {CaseGraph} from './case-graph';
+import {INVESTIGATION_TEMPLATE,TABLET_INVESTIGATION,newInvestigation,investigationActionIds,investigationCommand,investigationBoard,investigationDebrief,type InvestigationState} from './court-investigation.ts';
 // Server-only synchronous hooks: trusted code can veto, never grant a bypass.
 export const COURT_VALIDATION_STAGES = ['schema','fact','role','evidence','procedure','policy'] as const;
 export type CourtValidationStage = typeof COURT_VALIDATION_STAGES[number];
@@ -62,6 +63,7 @@ export const CASES: CaseTemplate[] = [
   { id:'youth-property',title:'借走的遊戲機',procedure:'juvenile',summary:'少年保護事件：了解取走物品的經過與支持需求。',facts:['少年未事先告知便取走同學的遊戲機。','物品隔日已歸還。','是否得同意、行為原因與照顧支持仍待釐清。'],evidence:[{id:'chat',title:'對話摘要',text:'對話對借用是否獲得同意有歧異，不能只擷取一句話。'},{id:'support',title:'生活調查摘要',text:'學校願提供輔導，照顧者願共同討論支持措施。'}],question:'適當的程序重點是？',answers:['公開姓名供大家討論','未查明先責備少年','釐清事實並聽取少年與支持系統的意見','歸還後任何事都不用調查'],correct:2,explanation:'保護事件兼顧程序權利、事實釐清與健全成長，不是把成人刑事程序縮小。',mandatory:false,aidApproved:false },
   { id:'youth-conflict',title:'放學後的衝突',procedure:'juvenile',summary:'少年保護事件：調查衝突經過，討論適當支持。',facts:['兩名少年放學後發生衝突。','各自對衝突起因有不同說法。','本範本法院認為少年有輔佐人的必要。'],evidence:[{id:'accounts',title:'雙方紀錄',text:'雙方說法不一致，須分別聽取且避免誘導。'},{id:'school',title:'學校支持計畫',text:'可提供關係修復與持續輔導，但不是認定行為的證據。'}],question:'支持計畫與事實調查的關係？',answers:['有輔導就表示已認罪','支持需求與事件事實都要分別了解','只看誰說話大聲','交給旁觀群眾投票'],correct:1,explanation:'支持措施不等於認罪；少年有表達與程序保障，應釐清事實並討論需要的支持。',mandatory:true,aidApproved:true }
 ];
+CASES.push(INVESTIGATION_TEMPLATE);
 export const ROLE_LABELS: Record<Role,string> = { judge:'法官',claimant:'原告／告訴人',respondent:'被告',claimantCounsel:'原告代理人',respondentCounsel:'被告律師',observer:'旁觀者',juvenile:'少年',assistant:'少年輔佐人' };
 
 // Character descriptions used by the AI to maintain consistent voice per speaker.
@@ -123,14 +125,14 @@ export function scriptedTurn(s:CourtState) {
   const opponent = t.procedure==='juvenile'?'少年調查官':t.procedure==='criminal'?(claimantSide?'被告':'檢察官'):claimantSide?'被告':'原告';
   const speaker = s.stage===1?opponent:s.stage===2?'證據說明':s.stage===3?(t.procedure==='juvenile'?'少年輔佐人':'程序引導員'):s.config.role==='judge'?'書記官':'法官';
   const text = s.stage===0?'本案是虛構程序練習。請確認角色與法律協助，並尊重各方陳述的機會。':s.stage===1?t.summary:s.stage===2?t.evidence.map(e=>`${e.title}：${e.text}`).join('\n'):s.stage===3?'請指出已知事實、證据的限制及尚待釐清之處；不要用臆測補足空白。':s.stage===4?t.question:t.explanation;
-  return {speaker,text,mode:'scripted' as const,version:s.version};
+  return {speaker,text:s.investigation&&s.stage===2?'請調查現場紀錄、詢問角色，並將證物出示給相關角色。':text,mode:'scripted' as const,version:s.version};
 }
 export const PROCEDURAL_REQUESTS = [
   {id:'heard',text:'讓各方有機會說明證據的內容與限制。',correct:'allow',reason:'應給予各方陳述及回應的機會。'},
   {id:'shortcut',text:'不再核對資料，直接把單一片段或一方主張當作已證明的爭議事實。',correct:'deny',reason:'這些範本都仍有待釐清的爭點，不能跳過查證。'}
 ] as const;
 export type CourtAction = { requestId: string; version: number; type: string; text?: string; evidenceId?: string; answer?: number; rulingId?:string; decision?:string };
-export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string; generatedCase?:CaseTemplate; generationVersion?:string; privateGraph?:CaseGraph };
+export type CourtState = { id:string; owner:string; config:CourtConfig; stage:number; version:number; reviewed:string[]; rulings?:string[]; statements:string[]; attempts:number; completed:boolean; feedback:string; createdAt:string; updatedAt:string; ruleVersion:string; generatedCase?:CaseTemplate; generationVersion?:string; privateGraph?:CaseGraph; investigation?:InvestigationState };
 export function newCourt(id:string, owner:string, config:CourtConfig): CourtState {
   return newCourtAt(id,owner,config,new Date().toISOString());
 }
@@ -144,11 +146,13 @@ function requireCourtTimestamp(timestamp:string):void {
 export function newCourtAt(id:string, owner:string, config:CourtConfig, timestamp:string): CourtState {
   requireCourtTimestamp(timestamp);
   const error = validateConfig(config); if (error) throw new Error(error);
-  return { id,owner,config:structuredClone(config),stage:0,version:0,reviewed:[],statements:[],attempts:0,completed:false,feedback:'',createdAt:timestamp,updatedAt:timestamp,ruleVersion:RULE_VERSION };
+  return { id,owner,config:structuredClone(config),stage:0,version:0,reviewed:[],statements:[],attempts:0,completed:false,feedback:'',createdAt:timestamp,updatedAt:timestamp,ruleVersion:RULE_VERSION,
+    ...(config.caseId===TABLET_INVESTIGATION.id&&config.role!=='observer'?{investigation:newInvestigation()}:{}) };
 }
 export function allowedActions(s:CourtState): string[] {
   if(s.completed) return [];
   if(s.config.role === 'observer') return ['step'];
+  if(s.investigation&&s.stage===2)return [...investigationActionIds(s.investigation),...(s.config.role==='judge'?['rule']:[]),'closeEvidence'];
   return s.stage === 0 ? ['acknowledge'] : s.stage === 1 || s.stage === 3 ? ['speak'] : s.stage === 2 ? ['review',...(s.config.role==='judge'?['rule']:[]),'closeEvidence'] : ['answer'];
 }
 export function transition(s:CourtState, a:CourtAction): CourtState {
@@ -169,7 +173,7 @@ export function reduceCourt(s:CourtState, a:CourtAction, timestamp:string, hooks
       if(a.type==='rule'&&(!PROCEDURAL_REQUESTS.some(r=>r.id===a.rulingId)||!['allow','deny'].includes(a.decision||'')))throw new Error('程序決定格式錯誤');
       if(a.type==='answer'&&(!Number.isInteger(a.answer)||a.answer!<0||!t||a.answer!>=t.answers.length))throw new Error('答案格式錯誤');
     },
-    fact:()=>{if(!t)throw new Error('案件不存在');},
+    fact:()=>{if(!t)throw new Error('案件不存在');if(s.investigation&&(s.config.caseId!==TABLET_INVESTIGATION.id||s.generatedCase))throw new Error('調查規則不適用此案件');},
     role:()=>{if(!rolesFor(t!.procedure).includes(s.config.role))throw new Error('此程序不開放該角色');},
     evidence:()=>{
       if(a.type==='review'&&!t!.evidence.some(e=>e.id===a.evidenceId))throw new Error('證物不存在');
@@ -188,6 +192,12 @@ export function reduceCourt(s:CourtState, a:CourtAction, timestamp:string, hooks
     stateVersion:s.version,action:a.type,evidenceId:a.evidenceId??null},hooks);
   if(!t)throw new Error('案件不存在');
   const n = structuredClone(s);
+  if(a.type.startsWith('investigate.')){
+    if(!s.investigation)throw new Error('此案件沒有調查規則');
+    const result=investigationCommand(s.investigation,a.type,{stage:s.stage,completed:s.completed,role:s.config.role,
+      availableEvidenceIds:t.evidence.map(e=>e.id),responsiveNpcIds:TABLET_INVESTIGATION.npcs});
+    n.investigation=result.state;n.reviewed=[...result.state.viewedEvidenceIds];n.feedback=result.text;
+  }
   if(a.type === 'step') { n.stage++; if(n.stage===5){n.completed=true;n.feedback=t.explanation;} }
   if(a.type === 'acknowledge') n.stage++;
   if(a.type === 'speak') {
@@ -226,7 +236,11 @@ export function courtView(s:CourtState) {
     attempts:s.attempts,completed:s.completed,feedback:s.feedback,createdAt:s.createdAt,
     updatedAt:s.updatedAt,ruleVersion:s.ruleVersion,
     ...(s.generationVersion===undefined?{}:{generationVersion:s.generationVersion})};
-  return { ...state, title:t.title,procedure:t.procedure,summary:t.summary,facts:[...t.facts],evidence:t.evidence.map(e=>({id:e.id,title:e.title,text:e.text})),
+  return { ...state, title:t.title,procedure:t.procedure,summary:t.summary,facts:[...t.facts],evidence:t.evidence.filter(e=>!s.investigation||s.investigation.viewedEvidenceIds.includes(e.id)).map(e=>({id:e.id,title:e.title,text:e.text})),
+    ...(s.investigation?{investigation:{...investigationBoard(s.investigation),completed:s.completed,
+      objectives:[...investigationBoard(s.investigation).objectives,{id:'procedure',label:'完成法庭程序',done:s.stage>=4},
+        {id:'judgment',label:'完成最終判讀',done:s.completed}],
+      debrief:s.completed?investigationDebrief(s.investigation,t.answers[t.correct]):null}}:{}),
     question:t.question,answers:t.answers,actions:allowedActions(s),stageLabel:STAGES[s.stage],turn:scriptedTurn(s),
     proceduralRequests:s.config.role==='judge'?PROCEDURAL_REQUESTS.map(({id,text})=>({id,text,done:s.rulings?.includes(id)||false})):[],
     sources:LEGAL_SOURCES.filter(r=>r.applies===t.procedure),

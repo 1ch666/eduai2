@@ -30,7 +30,8 @@ test('every template and role reproduces complete state without wall clock or ra
    if(role==='observer'){for(let i=0;i<5;i++)act('step');}
    else{
     act('acknowledge');act('speak',{text:'確認案件爭點'});
-    for(const e of t.evidence)act('review',{evidenceId:e.id});
+    if(left.investigation){act('investigate.question.Witness');act('investigate.discover');act('investigate.present.Witness');act('investigate.followUp.Witness');}
+    else for(const e of t.evidence)act('review',{evidenceId:e.id});
     if(role==='judge')for(const r of PROCEDURAL_REQUESTS)act('rule',{rulingId:r.id,decision:r.correct});
     act('closeEvidence');act('speak',{text:'區分事實推論'});
     act('answer',{answer:(t.correct+1)%t.answers.length});act('answer',{answer:t.correct});

@@ -1,10 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { CASES } from '../src/court-rules.ts';
+import { CASES,newCourtAt,reduceCourt } from '../src/court-rules.ts';
 const bundle=await build({stdin:{contents:"export * from './src/truth-state.ts';export {npcKnowledge} from './src/court-npc.ts';",resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const {buildTruthState,projectKnowledge,npcKnowledge}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const ROLES=['Judge','Prosecutor','Lawyer','Defendant','Witness'];
+test('investigation NPC only receives own statement and evidence actually presented to that NPC',()=>{
+ const time='2026-10-04T00:00:00.000Z';
+ let s=newCourtAt(crypto.randomUUID(),'owner',{caseId:'tablet-time-discrepancy-v1',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'},time);
+ const act=(type,extra={})=>{s=reduceCourt(s,{requestId:crypto.randomUUID(),version:s.version,type,...extra},time);};
+ act('acknowledge');act('speak',{text:'核對案件資料'});act('investigate.discover');
+ for(const id of ROLES)assert(!JSON.stringify(npcKnowledge(s,id)).includes('20:17'));
+ act('investigate.question.Witness');act('investigate.present.Witness');
+ const witness=npcKnowledge(s,'Witness');assert(JSON.stringify(witness).includes('20:17'));assert(JSON.stringify(witness).includes('20:00'));
+ for(const id of ROLES.filter(id=>id!=='Witness'))assert(!JSON.stringify(npcKnowledge(s,id)).includes('20:17'));
+ for(const id of ROLES){const data=JSON.stringify(npcKnowledge(s,id));assert(!data.includes('contradictionId'));assert(!data.includes('answer-key'));assert(!data.includes('correct'));}
+ const before=structuredClone(s);npcKnowledge(s,'Witness');assert.deepEqual(s,before);
+});
 // Case configs differ per template (aid, ages); the projection reads only the case.
 const court=caseId=>({config:{caseId}});
 

@@ -15,7 +15,17 @@
   "createdAt":{"$ref":"#/definitions/timestamp"},"updatedAt":{"$ref":"#/definitions/timestamp"},
   "ruleVersion":{"type":"string","minLength":1,"maxLength":80},
   "generatedCase":{"$ref":"#/definitions/template"},"generationVersion":{"type":"string","minLength":1,"maxLength":80},
-  "privateGraph":{"$ref":"urn:eduai:case-graph:v1"}
+  "privateGraph":{"$ref":"urn:eduai:case-graph:v1"},
+  "investigation":{"type":"object","additionalProperties":false,"required":["caseId","questionedNpcIds","heardFactIds","viewedEvidenceIds","presentations","foundContradictionIds","followedContradictionIds","hintCount"],"properties":{
+   "caseId":{"const":"tablet-time-discrepancy-v1"},
+   "questionedNpcIds":{"type":"array","maxItems":3,"uniqueItems":true,"items":{"enum":["Witness","Prosecutor","Lawyer"]}},
+   "heardFactIds":{"type":"array","maxItems":1,"uniqueItems":true,"items":{"const":"witness-left-2000"}},
+   "viewedEvidenceIds":{"type":"array","maxItems":1,"uniqueItems":true,"items":{"const":"camera-time"}},
+   "presentations":{"type":"array","maxItems":3,"uniqueItems":true,"items":{"enum":["Witness:camera-time","Prosecutor:camera-time","Lawyer:camera-time"]}},
+   "foundContradictionIds":{"type":"array","maxItems":1,"uniqueItems":true,"items":{"const":"departure-time"}},
+   "followedContradictionIds":{"type":"array","maxItems":1,"uniqueItems":true,"items":{"const":"departure-time"}},
+   "hintCount":{"type":"integer","minimum":0,"maximum":100}
+  }}
  },
  "definitions":{
   "counter":{"type":"integer","minimum":0,"maximum":9007199254740991},

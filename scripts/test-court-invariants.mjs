@@ -49,7 +49,9 @@ test('seeded mixed action sequences preserve version, stage, evidence, roles and
   }
   assert.ok(accepted>500);assert.ok(rejected>500);
   assert.deepEqual([...stages].sort(),[0,1,2,3,4,5]);
-  assert.deepEqual([...acceptedTypes].sort(),['acknowledge','answer','closeEvidence','review','rule','speak','step'].sort());
+  assert.deepEqual([...acceptedTypes].sort(),['acknowledge','answer','closeEvidence','review','rule','speak','step',
+   'investigate.discover','investigate.hint','investigate.followUp.Witness',
+   ...['Witness','Prosecutor','Lawyer'].flatMap(id=>['investigate.question.'+id,'investigate.present.'+id])].sort());
 });
 
 test('transition refuses unsafe version and answer counters instead of overflowing',()=>{

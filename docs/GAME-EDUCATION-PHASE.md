@@ -104,7 +104,7 @@ Unity build, browser/device tests, deployed artifacts and real participant study
 Do not describe this phase as complete before the full eleven-step gameplay
 acceptance above and required evidence are present. No new paid service/assets.
 
-## First implementation checkpoint
+## Integrated implementation checkpoint — 2026-10-04
 
 `src/court-investigation.ts` now has the authored time-discrepancy definition,
 deterministic view/question/present/follow-up/hint transitions and an allowlisted
@@ -113,12 +113,51 @@ roles/NPCs/stages, undiscovered follow-ups and mutations after completion.
 Repeated discovery/follow-up does not duplicate their state. The initial board
 does not publish the hidden evidence title or total contradiction count.
 
-Two focused tests and TypeScript check pass. This module is **not yet connected**
-to CourtRoom persistence, command recovery, NPC knowledge projection or Unity.
-It is not a playable/released feature. Next integration must bind it to the exact
-new authored case ID, validate persisted state, record the actually delivered
-authored statement before marking it heard, compose the existing action validator,
-commit through the existing journal/version/idempotency path, and feed presented
-evidence through Knowledge Projection before a model call. Hint retry counting
-must use the same receipts as every other mutation. Do not expose private
-definitions, use an arbitrary frontend context, or infer facts from model output.
+The fixed `tablet-time-discrepancy-v1` template is now connected to CourtState,
+CourtRoom's existing action receipts, atomic public/private journals and strict
+private-state validation. Old templates and generated variants do not inherit
+its investigation state. No new DO, SQL migration or public protocol version.
+
+Implemented and locally tested:
+- Server action descriptors for investigation, authored original statements,
+  evidence presentation, deterministic contradiction, follow-up and counted hints.
+- Viewing evidence does NOT give it to NPCs. Only the specifically targeted NPC
+  gets it through Knowledge Projection after presentation. AI output never marks
+  a statement heard or unlocks a contradiction.
+- Original-statement and follow-up actions deliver explicitly labelled authored
+  text, not fake AI. Existing free-text AI dialogue uses the new projection.
+- New case catalogue and initial snapshots omit hidden evidence names/text.
+- Web `court/investigation-board.js` shows discoveries, server-derived objectives,
+  read-only completed review and basic coverage/hints/contradiction/concept analysis.
+  Unmeasured reasoning skills are not assigned fabricated diagnoses or scores.
+- `court/action-panel.js` renders the existing versioned action descriptors and
+  current feedback. `court/court.js` links the investigation panel and disables
+  random rewriting in setup when selecting the authored lesson.
+- Existing completion semantics remain: wrong objective answers invite retry;
+  a completed result cannot be changed. This is not a full first-attempt assessment.
+
+Verification: full `node scripts/ci-fast.mjs` passed (type generation, TypeScript,
+frontend checks, regression tests, existing WebGL integrity/size gate). Added
+SQLite-backed tests cover the investigation flow, owner isolation, stage rejection,
+duplicate receipt recovery, write rollback, object recreation, private journal
+reconstruction and completion lock. Projection tests verify evidence does not
+reach any NPC merely because the player viewed it; board tests render text only.
+These are local automated tests, not real browsers, Unity runtime or participants.
+
+Manual verification next: choose `平板失蹤：十七分鐘的落差`, create a fixed cloud
+session, acknowledge → statement → investigation panel → original statements →
+discover → present to Witness → follow-up → required procedural rulings → close
+investigation → response → final answer → read-only analysis. Reload at each
+step; verify the old WebGL bridge still renders the same server snapshot.
+
+NOT completed / next work:
+1. Dedicated Unity evidence/NPC presentation interaction and real browser acceptance;
+   no new Unity build or production deployment was done for this checkpoint.
+2. Follow-up automatically invoking governed AI with durable recovery (currently
+   explicit authored follow-up text; ordinary NPC AI remains a separate question).
+3. NPC animation/states, richer evidence UI/cameras, difficulty and honest Demo Mode.
+4. Complete error-category measurement, first-attempt judgment tracking and links.
+5. Pre/post tests, survey and consented gameplay event integration.
+6. Desktop/mobile end-to-end verification and a real participant round:
+   **尚未進行正式使用者實驗**.
+7. Only after the full Game / Education acceptance, resume Backend Goal Audit.

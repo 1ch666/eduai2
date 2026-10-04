@@ -1,8 +1,16 @@
 import {courtView, PROCEDURAL_REQUESTS, type CourtState} from './court-rules';
 import {publicCourtCast,canConverse} from './court-cast';
 import {appendPrivateState} from './court-private-journal';
+import {investigationActionLabel} from './court-investigation';
 
-export type JournalDetail = {kind:'session_started'|'checkpoint'|'statement'|'ruling'|'stage_changed'|'session_completed'|'npc_utterance';requestId:string;speaker:string;roleId:string;text:string;evidenceIds?:string[]};
+export type JournalDetail = {kind:'session_started'|'checkpoint'|'statement'|'ruling'|'stage_changed'|'session_completed'|'npc_utterance'|'evidence_presented';requestId:string;speaker:string;roleId:string;text:string;evidenceIds?:string[]};
+export function investigationJournal(s:CourtState,action:string):Partial<JournalDetail>{
+ if(!s.investigation||!action.startsWith('investigate.'))return {};
+ const [,kind,npc]=action.split('.'),names:Record<string,string>={Witness:'證人',Prosecutor:'檢察官',Lawyer:'辯護人'};
+ return {kind:kind==='present'?'evidence_presented':kind==='question'||kind==='followUp'?'npc_utterance':'checkpoint',
+  speaker:names[npc]||'系統',roleId:npc?.toLowerCase()||s.config.role,text:s.feedback,
+  evidenceIds:kind==='present'||kind==='discover'?[...s.investigation.viewedEvidenceIds]:[]};
+}
 // Explicit public projection. Never spread CourtState or generatedCase: those
 // contain owner data and answer keys. v0 facts are public in current templates;
 // future role-private evidence must be filtered here before persistence.
@@ -10,6 +18,7 @@ export function publicCourtSnapshot(s:CourtState, requestId:string,eventId:strin
  const v=courtView(s);
  const action=(actionId:string,label:string,category:string,requiredTarget='none')=>({actionId,label,category,requiredTarget,enabled:true,reasonDisabled:''});
  const allowedActions=v.actions.flatMap(id=>{
+  if(id.startsWith('investigate.'))return [action(id,investigationActionLabel(id),'evidence')];
   if(id==='answer')return v.answers.map((label,i)=>action('answer.'+i,label,'assessment'));
   if(id==='rule')return PROCEDURAL_REQUESTS.flatMap(r=>['allow','deny'].map(d=>action('rule.'+r.id+'.'+d,(d==='allow'?'准許：':'駁回：')+r.text,'procedure')));
   const labels:Record<string,string>={acknowledge:'確認程序',speak:'提出陳述',review:'查看證物',closeEvidence:'結束調查',step:'下一步'};

@@ -30,7 +30,7 @@ export function npcKnowledge(s:CourtState,id:NpcId){
   // other roles' private knowledge, player instructions or legal citations.
   const truth=buildTruthState(s),items=projectKnowledge(truth,id).items;
   const testimony=items.filter(i=>i.kind==='testimony');
-  const known=id!=='Witness'?items:testimony.length?testimony.map(i=>({...i,text:'案件所載證詞（須依原文區分親見及轉述）：'+i.text})):
+  const known=s.investigation||id!=='Witness'?items:testimony.length?testimony.map(i=>({...i,text:'案件所載證詞（須依原文區分親見及轉述）：'+i.text})):
     items.filter(i=>i.kind==='summary').map(i=>({...i,text:'本案未提供屬於我的親眼見聞，不能把其他人的說法當成我看到的。可先核對以下案件記錄：'+i.text}));
   // The model sees short k-ids only; sourceIds stay server-side for tracing.
   return {name:npcIdentity(truth.procedure,id).displayName,facts:known.map((i,n)=>({id:'k'+n,text:i.text})),

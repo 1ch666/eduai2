@@ -1,4 +1,5 @@
 import '../auth-sync.js';
+import {createInvestigationBoard} from './investigation-board.js';
 import { installGamePanels } from './game-panels.js';
 import { npcNotice } from './npc-status.js';
 import { installReplayPanel } from './replay-panel.js';
@@ -9,6 +10,7 @@ import { createNpcTicketGate } from './npc-action.js';
 import { installRandomCase } from './random-case.js';
 installAccessibility({document,window});
 const $=id=>document.getElementById(id);
+const investigationBoard=createInvestigationBoard(document);$('evidence').after(investigationBoard.element);
 const WORKER='https://civic-law-lab-212.yichengc869.workers.dev';
 const onPages=location.hostname.endsWith('github.io');
 const base=onPages?WORKER:'';
@@ -89,6 +91,9 @@ async function sessions(){
 $('new-session').onclick=()=>{if(busy||npcBusy||actionPanel.working)return;if(actionPanel.pending){status('請先查詢上次程序操作的結果，再切換場次。');return;}actionPanel.clear();pause();stopVoice(true);$('setup').hidden=false;$('hearing').hidden=true;$('scene').removeAttribute('src');$('scene').hidden=true;view=null;$('case').focus();$('setup-form').scrollIntoView({block:'start'});status('請設定案件與角色，再按「建立雲端場次」。');};
 function choices(select,items){select.replaceChildren(...items.map(([value,label])=>{const o=node('option',label);o.value=value;return o;}));}
 function setup(){const t=cases.find(c=>c.id===$('case').value);if(!t)return;$('procedure').value=procedureNames[t.procedure];$('case-summary').textContent=t.summary;
+const variation=$('setup-form').elements.variation;
+variation.disabled=t.id==='tablet-time-discrepancy-v1';
+if(variation.disabled){variation.checked=false;$('case-summary').textContent+=' 此為固定調查教學案件，不使用隨機改寫。';}
 choices($('role'),t.roles.map(r=>[r,t.procedure==='criminal'&&r==='claimant'?'告訴／被害人':t.procedure==='criminal'&&r==='respondentCounsel'?'辯護人':t.procedure==='criminal'&&r==='claimantCounsel'?'告訴代理人':labels[r]]));
 const f=$('setup-form').elements;f.respondentAge.value=f.respondentHearingAge.value=t.procedure==='juvenile'?15:20;f.respondentAid.value=t.mandatory?'appointed':'none';f.claimantAid.value='none';f.claimantAid.disabled=t.procedure==='juvenile';
 $('respondent-label').textContent=t.procedure==='juvenile'?'少年（虛構角色）':'被告（虛構角色）';$('claimant-label').textContent=t.procedure==='juvenile'?'受影響的一方（虛構角色）':t.procedure==='criminal'?'告訴／被害人（虛構角色）':'原告（虛構角色）';
@@ -123,6 +128,8 @@ function render(){const v=view;$('hearing-title').textContent=v.title;$('stage')
 $('evidence').replaceChildren(...v.evidence.map(e=>{const box=node('div');box.className='evidence';box.append(node('strong',e.title),node('p',e.text));if(v.actions.includes('review'))box.append(button(v.reviewed.includes(e.id)?'已查看':'記錄：已查看這份證據',()=>act('review',{evidenceId:e.id})));return box;}));
 $('actions').replaceChildren();$('speech-form').hidden=!v.actions.includes('speak');$('observer').hidden=!v.actions.includes('step');$('turn-title').textContent=v.config.role==='judge'?'主持程序':v.config.role==='observer'?'觀察程序':'代表你的角色發言';
 $('turn-help').textContent=v.stage===0?'先確認身分、程序與表達權利。':v.stage===1?'依固定事實說明爭點；法官請整理雙方爭點。':v.stage===2?'逐一核對證據能證明什麼，不能證明什麼。':v.stage===3?'回應證據與不同觀點；法官請整理尚待釐清事項。':v.stage===4?v.question:'本輪結束，可回到案件設定。';
+investigationBoard.render(v.investigation);
+if(v.actions.some(id=>id.startsWith('investigate.')))$('actions').append(button('調查、出示證物與追問',()=>actionPanel.open()));
 if(v.actions.includes('acknowledge'))$('actions').append(button('確認程序權利，開始陳述',()=>act('acknowledge')));
 if(v.actions.includes('closeEvidence'))$('actions').append(button(v.config.role==='judge'?'結束證據調查':'完成證據檢視，繼續',()=>act('closeEvidence')));
 if(v.actions.includes('rule'))for(const r of v.proceduralRequests){const row=node('section');row.append(node('p',r.text));if(r.done)row.append(node('p','已完成准駁'));else row.append(button('准許',()=>act('rule',{rulingId:r.id,decision:'allow'})),button('不准許',()=>act('rule',{rulingId:r.id,decision:'deny'})));$('actions').prepend(row);}

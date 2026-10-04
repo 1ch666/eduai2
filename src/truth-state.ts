@@ -1,5 +1,6 @@
 import {CASES,type CourtState,type CaseTemplate} from './court-rules';
 import {NPC_IDS,type NpcId} from './court-cast';
+import {TABLET_INVESTIGATION,INVESTIGATION_LINES} from './court-investigation';
 
 // Server-only case truth. Every item names the roles allowed to know it; an
 // empty holder list means no agent may ever receive it (answer key, rubric).
@@ -19,6 +20,18 @@ export const isTestimony=(e:{id:string;title:string})=>/witness|accounts/.test(e
 export function buildTruthState(s:CourtState):TruthState{
  const t=s.generatedCase||CASES.find(c=>c.id===s.config.caseId);
  if(!t)throw Error('unknown case');
+ if(s.investigation){
+  if(s.generatedCase||s.config.caseId!==TABLET_INVESTIGATION.id)throw Error('invalid investigation');
+  const d=TABLET_INVESTIGATION;
+  const items:TruthItem[]=[
+   {sourceId:'instruction:judge',kind:'instruction',text:JUDGE_INSTRUCTION,holders:['Judge']},
+   ...d.npcs.map((id):TruthItem=>({sourceId:'statement:'+id,kind:'testimony',text:INVESTIGATION_LINES[id],holders:[id]})),
+   {sourceId:'defendant-account',kind:'fact',text:'我否認取走平板；本案沒有提供我更多親見經過。',holders:['Defendant']},
+   {sourceId:'evidence:'+d.evidence.id,kind:'evidence',text:d.evidence.text,
+    holders:s.investigation.viewedEvidenceIds.includes(d.evidence.id)?d.npcs.filter(id=>s.investigation!.presentations.includes(id+':'+d.evidence.id)):[]}
+  ];
+  return Object.freeze({caseId:t.id,procedure:t.procedure,items:Object.freeze(items.map(i=>Object.freeze({...i,holders:Object.freeze([...i.holders])})))});
+ }
  const items:TruthItem[]=[
   {sourceId:'instruction:judge',kind:'instruction',text:JUDGE_INSTRUCTION,holders:['Judge']},
   {sourceId:'summary',kind:'summary',text:t.summary,holders:['Judge','Prosecutor','Witness']},
