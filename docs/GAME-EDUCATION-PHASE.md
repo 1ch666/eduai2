@@ -13,6 +13,13 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- In-game action-panel integration regression now proves the new comparison is
+  mounted inside the procedure/evidence panel, only renders the same-version
+  public board, clears before a changed session/account response, and issues
+  GET-only requests while viewing. Seven panel/board/comparison tests pass.
+  This uses the real transport with a synthetic HTTP/DOM adapter, not a claim of
+  additional Unity input, mobile hardware or production acceptance.
+
 - Added a read-only statement/evidence comparison to the investigation board.
   It renders only server-projected heard statements and discovered evidence,
   never imports hidden case definitions or decides contradictions. Completed
