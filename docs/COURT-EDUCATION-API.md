@@ -110,3 +110,16 @@ client/host/panel tests pass. Screenshot is a local artifact under
 This is partial browser acceptance, not a completed browser/Unity case or a
 human study. Browser post-test/survey/withdrawal, mobile devices, alarm delivery,
 privacy review and production deployment are still unverified.
+
+## Continuous regression coverage
+
+The existing `Fast regression checks` workflow now runs
+`scripts/check-education-api.mjs` in a separate local workerd instance on port
+8799 with an isolated runner-temporary storage directory. Assessment collection
+is enabled only for that synthetic test instance; NPC AI is disabled and no
+production or AI credentials are supplied. The step checks pre-test, the real
+deterministic court-action sequence, post-test, survey, repeated requests,
+ownership/CSRF rejection, result isolation, withdrawal and synthetic cleanup.
+Its exit status gates the existing local-api job. It adds no deployment step,
+new backend architecture or production collection setting. This API gate is
+not a replacement for browser, Unity, device, alarm-delivery or human tests.

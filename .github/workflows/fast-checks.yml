@@ -70,6 +70,15 @@ jobs:
           trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
           node scripts/wait-local-api.mjs http://127.0.0.1:8796
           node scripts/check-investigation-api.mjs http://127.0.0.1:8796
+      - name: Court and voluntary assessment lifecycle (synthetic, local only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node node_modules/wrangler/bin/wrangler.js dev --local --ip 127.0.0.1 --port 8799 --persist-to "$RUNNER_TEMP/education-state" --var COURT_AI_ENABLED:false --var COURT_EDUCATION_ENABLED:true --var OLLAMA_API_KEY: > "$RUNNER_TEMP/education.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
+          node scripts/wait-local-api.mjs http://127.0.0.1:8799
+          node scripts/check-education-api.mjs http://127.0.0.1:8799
       - name: Isolated admission coordinator RPC (local only)
         shell: bash
         run: |
