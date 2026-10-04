@@ -14,7 +14,11 @@ export class CourtTransport {
   if(journalFactory!==null&&typeof journalFactory!=='function')throw new TypeError('Invalid journal');this.#journalFactory=journalFactory;
  }
  get snapshot(){return this.#store.snapshot;}
- get lastDialogue(){return this.#lastDialogue?{...this.#lastDialogue}:null;}
+ get lastDialogue(){
+  const d=this.#lastDialogue;
+  // A dialogue is a presentation of one committed version, not timeless state.
+  return d&&d.stateVersion===this.#store.snapshot?.stateVersion?{speaker:d.speaker,text:d.text}:null;
+ }
  get canAct(){return this.#ready&&!this.#pending&&!this.#journalBlocked&&Boolean(this.#context);}
  get recoveryBlocked(){return this.#journalBlocked;}
  get pending(){return this.#pending?{requestId:this.#pending.value.requestId,attempts:this.#pending.attempts,inFlight:this.#pending.inFlight,retryAt:this.#pending.retryAt}:null;}
@@ -137,7 +141,8 @@ export class CourtTransport {
   if(['accepted','duplicate','stale'].includes(accepted)){
    try{this.#journal?.remove(p.value.requestId);}catch{this.#journalBlocked=true;return 'persistence-unavailable';}
    this.#pending=null;this.#journalBlocked=false;this.#ready=true;
-   if(e.kind==='npc_utterance')this.#lastDialogue={speaker:e.speaker,text:e.text};
+   // Recover the receipt without replaying an old utterance over a newer view.
+   if(accepted!=='stale')this.#lastDialogue=e.kind==='npc_utterance'?{speaker:e.speaker,text:e.text,stateVersion:e.stateVersion}:null;
   }else this.#ready=false;
   return accepted;
  }

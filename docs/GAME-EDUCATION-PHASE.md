@@ -231,3 +231,12 @@ research result. Role introductions/cameras, live AI and physical-device demo
 acceptance remain open. All 474 local root/court-tool regression tests (excluding
 the separate dictionary corpus suite) passed; frontend check passed. New guide
 browser/visual acceptance is still pending.
+
+Dialogue presentation correction (2026-10-04): `court/transport.js` now binds
+the latest displayed utterance to its committed stateVersion. Advancing the
+procedure or receiving a newer snapshot hides old speech; an older recovered NPC
+receipt still resolves the pending operation but cannot replay stale speech over
+the current view. Same-version refresh preserves the current utterance. Existing
+event history remains intact for replay. Regression tests cover normal sequence,
+refresh, late receipt recovery and logout; this does not claim live AI/Unity
+acceptance or add new protocol/backend state.

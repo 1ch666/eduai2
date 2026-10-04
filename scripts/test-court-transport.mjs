@@ -4,6 +4,35 @@ import {readFile} from 'node:fs/promises';
 import {CourtTransport} from '../court/transport.js';
 const fixture=JSON.parse(await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8'));
 const json=Response.json;
+
+test('NPC dialogue belongs to its committed version, not later procedure feedback',async()=>{
+ let version=0,kind='npc_utterance';const ids=new Map();
+ const id=v=>{if(!ids.has(v))ids.set(v,crypto.randomUUID());return ids.get(v);};
+ const t=setup(async(url,o)=>{
+  if(o.method==='GET')return json({...snapshot(url,version),eventId:id(version)});
+  const e=event(o.body);version++;Object.assign(e,{stateVersion:version,eventSequence:version,kind});
+  e.eventId=id(version);Object.assign(e.snapshot,{stateVersion:version,eventSequence:version,eventId:e.eventId});return json(e);
+ });
+ await t.refresh();await t.act('acknowledge');assert.deepEqual(t.lastDialogue,{speaker:'法官',text:'確認'});
+ assert.equal(await t.refresh(),'duplicate');assert.ok(t.lastDialogue);
+ kind='stage_changed';await t.act('acknowledge');assert.equal(t.lastDialogue,null);
+ kind='npc_utterance';await t.act('acknowledge');assert.ok(t.lastDialogue);
+ version++;await t.refresh();assert.equal(t.lastDialogue,null,'a newer GET cannot retain old speech');
+ t.clear();assert.equal(t.lastDialogue,null);
+});
+
+test('late NPC receipt resolves pending without redisplaying stale speech',async()=>{
+ let version=0,saved;
+ const t=setup(async(url,o)=>{
+  if(url.includes('/requests/'))return json(saved);
+  if(o.method==='GET')return json({...snapshot(url,version),eventId:version===0?fixture.eventId:crypto.randomUUID()});
+  saved=event(o.body);saved.kind='npc_utterance';return new Response('',{status:500});
+ });
+ await t.refresh();assert.equal(await t.act('acknowledge'),'unavailable');
+ version=2;assert.equal(await t.refresh(),'accepted');
+ assert.equal(await t.recoverPending(),'stale');assert.equal(t.pending,null);
+ assert.equal(t.snapshot.stateVersion,2);assert.equal(t.lastDialogue,null);
+});
 test('correlated terminal receipt releases pending request but requires fresh snapshot',async()=>{
  let sent,foreign=true;
  const t=setup(async(url,o)=>{
