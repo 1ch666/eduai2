@@ -1,5 +1,29 @@
 # 庭審重播介面進度
 
+## 辯護人流程與發布追補（2026-10-04）
+
+發布來源 `341c475b1926ffe1f9c288a74abcf53003ad2e2e`，已推送 main。
+修正程序條件拒絕的提示、同版本唯讀更新被誤稱已保存，以及回顧玩家角色
+顯示英文 ID。沒有改動伺服器判定、重送保護或授權機制。
+本機 Chromium 在載入 Unity 的頁面使用程序面板完成辯護人案件；結案
+版本 11、12 筆事件，重新載入後結果及目標保留，回顧已顯示「辯護人」。
+AI 關閉，以明確標示的預寫回應完成追問；不是模型成功或手機驗收證據。
+28 項集中測試及前端檢查通過。完整六角色 API 驗證見 GAME-EDUCATION-PHASE.md。
+
+Worker 版本 `21cf7d7e-193a-459a-abb0-4a45eebfc548`，回滾參考
+`9bbaaae6-a6f1-4b09-8755-ed053dfaf297`。從獨立 git archive 發布，
+未混入 README、groups、provider 等工作樹原有變更。沙箱中 types 曾因
+workerd 未正確推導 RPC 而造成型別錯誤；以核准的本機執行重新生成後，
+types、TypeScript、部署乾跑全部通過，未以忽略型別方式略過。
+Pages 37194134526 與 Docker 37194175116 success。Docker 交接 artifact
+`eduai-court-docker` 實際存在，46,692,078 bytes，保留一天；由 CI 完成
+建置、容器執行與資源比對，未在本機另行下載驗證。它仍為靜態預覽，
+不包含正式登入／AI 後端。Fast CI 37194134931 的 checks 已通過，
+local-api 於本筆記記錄時仍執行中，不能先宣稱全數通過。
+Worker 與 Pages 的 action-panel.js、replay-panel.js 都是 HTTP 200，
+正規化換行後與來源相同。未改 Unity 成品、migration、Secret、權限或
+付費方案；教育研究仍延後，整個 Game / Education Phase 尚未完整驗收。
+
 ## 回顧失效邊界追補（2026-10-04）
 
 回顧 API 回 401／403／404 時，清除事件、證物、完成場次問答、搜尋值與
