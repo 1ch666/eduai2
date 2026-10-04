@@ -14,6 +14,7 @@ import {proposeStageDialogue,type SavedStageDialogue} from './court-dialogue';
 import {aiOutcome} from './ai-outcome';
 import {createGovernedOllamaProvider} from './providers/governed-ollama';
 import {copyTrace,type TraceContext} from './trace-context';
+import {observeCourtAction} from './court-tracing';
 import {publicAuditEvent} from './court-audit';
 import {initializePrivateJournal} from './court-private-journal';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
@@ -209,7 +210,8 @@ export class CourtRoom extends DurableObject<AppEnv> {
       return event;
     });
   }
-  actionV1(owner:string,input:CourtMutation){
+  actionV1(owner:string,input:CourtMutation,trace?:TraceContext){
+    return observeCourtAction(trace,'versioned',()=>{
     // Validate again at RPC boundary; callers cannot inject score/state fields.
     const m=parseMutation(JSON.stringify(input));if(!m)return {error:'動作格式錯誤',status:400};
     const s=this.read();if(!s||s.owner!==owner||s.id!==m.sessionId)return {error:'場次不存在',status:404};
@@ -237,6 +239,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       const event=appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==s.stage?'stage_changed':'checkpoint',requestId:m.requestId,speaker:'玩家',roleId:s.config.role,text:a.type==='speak'?m.text.trim():m.actionId,evidenceIds:a.type==='review'?[m.targetId]:[]});
       this.ctx.storage.sql.exec('INSERT INTO court_v1_requests VALUES(?,?,?,?)',m.requestId,m.idempotencyKey,payload,JSON.stringify(event));
       return event;
+    });
     });
   }
   async npc(owner:string,id:NpcId,a:NpcInput,allowAI:boolean,trace?:TraceContext){
@@ -310,7 +313,8 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const cached=this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM dialogue WHERE version=?',version).toArray()[0];
     return {cached:cached?JSON.parse(cached.body) as SavedStageDialogue:null};
   }
-  action(owner:string,a:CourtAction){
+  action(owner:string,a:CourtAction,trace?:TraceContext){
+    return observeCourtAction(trace,'legacy',()=>{
     const state=this.read();
     if(!state || state.owner!==owner)return {error:'場次不存在',status:404};
     const payload=JSON.stringify(a);
@@ -320,8 +324,9 @@ export class CourtRoom extends DurableObject<AppEnv> {
     // reserved or committed by another interface in the same court session.
     if(this.ctx.storage.sql.exec('SELECT id FROM npc_requests WHERE id=? UNION ALL SELECT request_id FROM court_v1_requests WHERE request_id=? UNION ALL SELECT request_id FROM court_v1_npc_pending WHERE request_id=?',a.requestId,a.requestId,a.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(state.version>=100)return {error:'此場次操作上限已達，請開始新案件',status:409};
-    try{
-      const next=transition(state,a), view=courtView(next);
+    let next:CourtState;
+    try{next=transition(state,a);}catch(e){return {error:e instanceof Error?e.message:'動作不合法',status:409};}
+      const view=courtView(next);
       this.ctx.storage.transactionSync(()=>{
         checkpointJournal(this.ctx.storage.sql,state);
         this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
@@ -329,7 +334,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
         appendJournal(this.ctx.storage.sql,next,{kind:next.completed?'session_completed':a.type==='speak'?'statement':a.type==='rule'?'ruling':next.stage!==state.stage?'stage_changed':'checkpoint',requestId:a.requestId,speaker:'玩家',roleId:state.config.role,text:a.type==='speak'?a.text!.trim():a.type==='rule'?`${a.rulingId}: ${a.decision}`:a.type,evidenceIds:a.type==='review'&&a.evidenceId?[a.evidenceId]:[]});
       });
       return {view};
-    }catch(e){return {error:e instanceof Error?e.message:'動作不合法',status:409};}
+    });
   }
 }
 
@@ -451,7 +456,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     const input=raw.tooLarge||raw.invalidEncoding?null:parseMutation(raw.text);
     if(!input||input.sessionId!==v1[1])return respond({error:'動作格式或場次錯誤'},400);
     // Strict parser uses null-prototype records; DO RPC serializes plain objects.
-    const result=input.actionId==='npc.ask'?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4),trace):await room.actionV1(session.user.id,{...input});return respond(result,'status' in result?result.status:200);
+    const result=input.actionId==='npc.ask'?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4),trace):await room.actionV1(session.user.id,{...input},trace);return respond(result,'status' in result?result.status:200);
   }
   if(request.method==='GET'){
     if(path==='/api/court/sessions')return respond({sessions:await learner.list()});
@@ -529,6 +534,6 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
   }
   const b=body.value;
   if(typeof b.requestId!=='string'||!/^[0-9a-f-]{36}$/.test(b.requestId)||!Number.isInteger(b.version)||typeof b.type!=='string')return respond({error:'動作格式錯誤'},400);
-  const result=await room.action(session.user.id,{requestId:b.requestId,version:b.version as number,type:b.type,text:b.text as string|undefined,evidenceId:b.evidenceId as string|undefined,answer:b.answer as number|undefined,rulingId:b.rulingId as string|undefined,decision:b.decision as string|undefined});
+  const result=await room.action(session.user.id,{requestId:b.requestId,version:b.version as number,type:b.type,text:b.text as string|undefined,evidenceId:b.evidenceId as string|undefined,answer:b.answer as number|undefined,rulingId:b.rulingId as string|undefined,decision:b.decision as string|undefined},trace);
   return respond(result,'status' in result?result.status:200);
 }

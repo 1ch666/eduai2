@@ -1,0 +1,17 @@
+{
+  "$schema":"http://json-schema.org/draft-07/schema#",
+  "$id":"urn:eduai:court-action-trace:v1",
+  "type":"object","additionalProperties":false,
+  "required":["schemaVersion","requestId","traceId","event","spanId","interface","timestamp","latencyMs","status"],
+  "properties":{
+    "schemaVersion":{"const":1},
+    "requestId":{"$ref":"urn:eduai:trace-context:v1#/properties/requestId"},
+    "traceId":{"$ref":"urn:eduai:trace-context:v1#/properties/traceId"},
+    "event":{"const":"court.action.completed"},
+    "spanId":{"type":"string","pattern":"^[0-9a-f]{16}$"},
+    "interface":{"enum":["legacy","versioned"]},
+    "timestamp":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"},
+    "latencyMs":{"type":"integer","minimum":0},
+    "status":{"anyOf":[{"const":200},{"type":"integer","minimum":400,"maximum":599}]}
+  }
+}

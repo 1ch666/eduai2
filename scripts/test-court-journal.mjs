@@ -792,11 +792,34 @@ test('permanent content deletion is owner-only, idempotent and blocks resurrecti
 test('failed event insertion rolls back BOTH state and request result',()=>{
  const {room,db,setFail}=setup();try{
   const a={requestId:crypto.randomUUID(),version:0,type:'acknowledge'};setFail(true);
-  assert.equal(room.action('owner',a).status,409);setFail(false);
+  assert.throws(()=>room.action('owner',a),/journal write failure/);setFail(false);
   assert.equal(room.get('owner').view.version,0);assert.equal(room.events('owner',-1).events.length,1);
   assert.equal(db.prepare('SELECT count(*) AS n FROM requests').get().n,0);
   assert.equal(room.action('owner',a).view.version,1);assert.equal(room.events('owner',-1).events.length,2);
  }finally{db.close();}
+});
+test('action tracing distinguishes rule rejection and rolled-back storage failure without persisting trace',()=>{
+ for(const versioned of [false,true]){
+  const {room,db,id,setFail}=setup(),records=[],original=console.log;
+  const trace={schemaVersion:1,requestId:crypto.randomUUID(),traceId:crypto.randomUUID().replaceAll('-','')};
+  console.log=line=>records.push(JSON.parse(line));
+  try{
+   const command=versioned?mutation(id):{requestId:crypto.randomUUID(),version:0,type:'acknowledge'};
+   const invoke=(owner='owner',input=command)=>versioned?room.actionV1(owner,input,trace):room.action(owner,input,trace);
+   assert.equal(invoke('foreign').status,404);
+   setFail(true);assert.throws(()=>invoke(),/journal write failure/);setFail(false);
+   assert.equal(room.get('owner').view.version,0);
+   const accepted=invoke();assert.deepEqual(invoke(),accepted);
+   const stale={...command,requestId:crypto.randomUUID(),...(versioned?{idempotencyKey:crypto.randomUUID()}:{})};
+   assert.equal(invoke('owner',stale).status,409);
+   assert.deepEqual(records.map(r=>r.status),[404,500,200,200,409]);
+   assert(records.every(r=>r.traceId===trace.traceId&&r.interface===(versioned?'versioned':'legacy')));
+   for(const table of ['state','requests','court_v1_requests','court_events']){
+    const stored=JSON.stringify(db.prepare(`SELECT * FROM ${table}`).all());
+    assert(!stored.includes(trace.traceId));assert(!stored.includes(trace.requestId));
+   }
+  }finally{console.log=original;db.close();}
+ }
 });
 test('old sessions start at an honest checkpoint; new object reads persisted history',()=>{
  const {room,db,ctx}=setup();try{
