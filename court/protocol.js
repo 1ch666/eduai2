@@ -61,6 +61,8 @@ function parse(raw, check) {
 }
 export const parseSnapshot = raw => parse(raw,snapshot);
 export const parseMutation = raw => parse(raw,mutation);
+// Shared strict wire syntax only; callers must still validate their own schema.
+export const parseCourtWire = raw => parse(raw,()=>true);
 // Terminal server receipt, not a state update or legal event. It fences a
 // reserved NPC request so later provider replies cannot apply it.
 export const parseNotApplied = raw => parse(raw,record({apiVersion:one(API_VERSION),requestId:uuid,sessionId:uuid,caseId:id,outcome:one('not-applied'),reason:one('expired','state-changed')}));

@@ -4,10 +4,12 @@ import type {AppEnv} from './env';
 import type {TraceContext} from './trace-context';
 import {resolveSession,csrfTokenMatches} from './session';
 import {parseDeletion} from './court-deletion';
+import {parseCreation} from './court-creation';
+import {CASES} from './court-rules';
 
-/** Additive transport version, not a second court engine. Raw POST bytes are
- * forwarded unchanged to the v1 parser (duplicate-key/Unicode/size guards).
- * POST bodies retain court-v1-command; data retains court-v1 public DTOs.
+/** Additive transport version, not a second court engine. Raw action POST bytes
+ * reach the v1 parser unchanged; creation has a separate strict v2 contract.
+ * Action bodies retain court-v1-command; court data retains v1 public DTOs.
  * No retries: clients recover unknown mutation outcomes via requests/:id.
  */
 export async function handleCourtV2(request:Request,env:AppEnv,send:Responder,
@@ -22,10 +24,29 @@ export async function handleCourtV2(request:Request,env:AppEnv,send:Responder,
   };
   try{
     const url=new URL(request.url);
-    // Creation is not aliased until its recovery contract is complete.
-    if(!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:actions|events|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
+    const creation=url.pathname==='/api/v2/court/sessions';
+    if(!creation&&!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:actions|events|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
     if(request.method==='OPTIONS')return trustedOrigin?
       new Response(null,{status:204,headers:responseHeaders(trustedOrigin)}):respond(null,403);
+    if(creation){
+      if(request.method!=='POST')return respond(null,405);
+      const session=await resolveSession(request,env);if(!session)return respond(null,401);
+      if(!trustedOrigin||!csrfTokenMatches(request,session))return respond(null,403);
+      const learner=env.LEARNER.getByName(session.user.id);
+      if(!await learner.allow('create',6))return respond(null,429);
+      if(request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()!=='application/json')return respond(null,415);
+      const raw=await readTextWithLimit(request.body,4096);if(raw.tooLarge)return respond(null,413);
+      const c=raw.invalidEncoding?null:parseCreation(raw.text);if(!c)return respond(null,400);
+      // Reserve index capacity before room creation; identical retries reuse it.
+      // An ambiguous RPC failure leaves the reservation for exact-command recovery.
+      if(!await learner.addCourt(c.sessionId,CASES.find(t=>t.id===c.config.caseId)!.title))return respond(null,409);
+      const result=await env.COURT_ROOM.getByName(c.sessionId).initV2(session.user.id,c);
+      if('status' in result){
+        if(result.status===404)await learner.removeCourt(c.sessionId);
+        return respond(null,result.status);
+      }
+      return respond(result,201);
+    }
     if(request.method==='DELETE'&&/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}$/i.test(url.pathname)){
       const session=await resolveSession(request,env);if(!session)return respond(null,401);
       if(!trustedOrigin||!csrfTokenMatches(request,session))return respond(null,403);

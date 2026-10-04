@@ -1,7 +1,7 @@
 {
   "$schema":"http://json-schema.org/draft-07/schema#",
   "$id":"urn:eduai:court:v2:response",
-  "$comment":"v2 HTTP envelope; public domain DTOs and POST command bodies retain their explicit v1 contracts. requestId here is server HTTP correlation, not a mutation ID. OPTIONS 204 has no body.",
+  "$comment":"v2 HTTP envelope; public court DTOs and action POST bodies retain v1 contracts. Session creation uses court-v2-create. requestId here is server HTTP correlation, not a mutation ID. OPTIONS 204 has no body.",
   "type":"object","additionalProperties":false,
   "required":["ok","apiVersion","requestId","traceId","timestamp","errorCode","stateVersion","data"],
   "properties":{

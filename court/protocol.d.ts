@@ -3,6 +3,7 @@ export interface CourtMutation {
  caseId:string; expectedStateVersion:number; actionId:string; targetId:string; text:string;
 }
 export function parseMutation(raw:string):CourtMutation|null;
+export function parseCourtWire(raw:string):unknown;
 export function parseSnapshot(raw:string):unknown;
 export function parseEvent(raw:string):unknown;
 export function parseNotApplied(raw:string):{apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'}|null;

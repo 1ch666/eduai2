@@ -14,8 +14,17 @@ const a=await register(),b=await register();assert.equal(a.status,201);assert.eq
 const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
 // v2 is additive transport around the SAME persisted v1 command/outcome.
 {
- const created=await call('/api/court/sessions',config,b);assert.equal(created.status,201);
- const id=created.data.view.id,v2='/api/v2/court/sessions/'+id,v1='/api/court/v1/sessions/'+id;
+ const creation={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:crypto.randomUUID(),expectedStateVersion:0,config};
+ assert.equal((await call('/api/v2/court/sessions',creation)).status,401);
+ assert.equal((await call('/api/v2/court/sessions',creation,{cookie:b.cookie})).status,403);
+ const created=await Promise.all([call('/api/v2/court/sessions',creation,b),call('/api/v2/court/sessions',creation,b)]);
+ for(const r of created){assert.equal(r.status,201);assert.equal(courtV2Response(r.data),true);}
+ assert.deepEqual(created[0].data.data,created[1].data.data);
+ const id=creation.sessionId,v2='/api/v2/court/sessions/'+id,v1='/api/court/v1/sessions/'+id;
+ assert.deepEqual((await call(v2+'/requests/'+creation.requestId,undefined,b)).data.data,created[0].data.data);
+ assert.equal((await call('/api/v2/court/sessions',{...creation,idempotencyKey:crypto.randomUUID()},b)).status,409);
+ assert.equal((await call('/api/v2/court/sessions',creation,a)).status,404);
+ assert.equal((await call('/api/court/sessions',undefined,a)).data.sessions.some(s=>s.id===id),false);
  const get=v2+'?requestId='+crypto.randomUUID();
  for(const [auth,status] of [[{},401],[a,404],[b,200]]){
   const r=await call(get,undefined,auth);assert.equal(r.status,status);assert.equal(courtV2Response(r.data),true,JSON.stringify(courtV2Response.errors));

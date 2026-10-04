@@ -47,6 +47,20 @@ test('v2 unknown routes cannot fall through to creation/deletion and preflight d
  assert.equal(denied.status,403);assert.equal(courtV2Response(await denied.json()),true);
 });
 
+test('v2 creation rejects invalid wire before reserving and retains the same IDs on ambiguous RPC failure',async()=>{
+ const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,respondentAge:20,respondentHearingAge:20,claimantAid:'none',respondentAid:'none'};
+ const c={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,expectedStateVersion:0,config};
+ let adds=0,inits=0,cleanups=0,fail=true;
+ const env={ACCOUNT_STORE:{getByName:()=>({session:async()=>({user:{id:'owner'},csrfToken:'csrf'})})},
+  LEARNER:{getByName:()=>({allow:async()=>true,addCourt:async sid=>{assert.equal(sid,id);adds++;return true;},removeCourt:async()=>{cleanups++;}})},
+  COURT_ROOM:{getByName:sid=>({initV2:async(owner,input)=>{inits++;assert.equal(owner,'owner');assert.equal(sid,id);assert.deepEqual(JSON.parse(JSON.stringify(input)),c);if(fail)throw Error('lost RPC');return {status:404};}})}};
+ const headers={'Content-Type':'application/json',Cookie:'__Host-civic_session='+'a'.repeat(64),'X-CSRF-Token':'csrf'};
+ const call=raw=>handleCourtV2(new Request(origin+'/api/v2/court/sessions',{method:'POST',headers,body:raw}),env,send,trace,origin);
+ assert.equal((await call(JSON.stringify(c).replace('"apiVersion":2','"apiVersion":2,"apiVersion":2'))).status,400);
+ assert.equal((await call(' '.repeat(4097))).status,413);assert.equal(adds,0);assert.equal(inits,0);
+ assert.equal((await call(JSON.stringify(c))).status,500);assert.equal(cleanups,0);
+ fail=false;assert.equal((await call(JSON.stringify(c))).status,404);assert.equal(cleanups,1);assert.equal(adds,2);assert.equal(inits,2);
+});
 test('v2 outcome requires login, validates identifiers and never invokes mutation/index cleanup',async()=>{
  const requestId=crypto.randomUUID();let reads=0;
  const env={ACCOUNT_STORE:{getByName:()=>({session:async()=>({user:{id:'owner'}})})},

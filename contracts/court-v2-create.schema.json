@@ -1,0 +1,28 @@
+{
+ "$schema":"http://json-schema.org/draft-07/schema#",
+ "$id":"urn:eduai:court:v2:create",
+ "$comment":"POST /api/v2/court/sessions. Allocate all three UUIDs once and retain the identical command until recovery. Keys are scoped to owner and sessionId, not account-global. This creates a fixed teaching case; existing random/AI creation endpoints remain available. expectedStateVersion=0 means an absent room, not permission to overwrite version zero. Raw parser rejects duplicate keys and non-unsigned-integer tokens.",
+ "type":"object","additionalProperties":false,
+ "required":["apiVersion","requestId","idempotencyKey","sessionId","expectedStateVersion","config"],
+ "properties":{
+  "apiVersion":{"const":2},
+  "requestId":{"$ref":"urn:eduai:court:v1:command#/definitions/uuid"},
+  "idempotencyKey":{"$ref":"urn:eduai:court:v1:command#/definitions/uuid"},
+  "sessionId":{"type":"string","pattern":"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+  "expectedStateVersion":{"const":0},
+  "config":{
+   "type":"object","additionalProperties":false,
+   "required":["caseId","role","claimantAge","claimantHearingAge","respondentAge","respondentHearingAge","claimantAid","respondentAid"],
+   "properties":{
+    "caseId":{"enum":["sale","damage","tablet","injury","youth-property","youth-conflict"]},
+    "role":{"enum":["judge","claimant","respondent","claimantCounsel","respondentCounsel","observer","juvenile","assistant"]},
+    "claimantAge":{"type":"integer","minimum":0,"maximum":120},
+    "claimantHearingAge":{"type":"integer","minimum":0,"maximum":120},
+    "respondentAge":{"type":"integer","minimum":0,"maximum":120},
+    "respondentHearingAge":{"type":"integer","minimum":0,"maximum":120},
+    "claimantAid":{"enum":["none","private","legalAid","appointed"]},
+    "respondentAid":{"enum":["none","private","legalAid","appointed"]}
+   }
+  }
+ }
+}

@@ -458,6 +458,43 @@ function setup(selectedConfig=config,env={},initialize=true){
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
 
+test('v2 creation commits once, recovers after restart and refuses altered keys, owners or deleted IDs',()=>{
+ const {room,db,ctx,id}=setup(config,{},false);try{
+  const c={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,expectedStateVersion:0,config};
+  const event=room.initV2('owner',c);assert.ok(parseEvent(JSON.stringify(event)));assert.equal(event.kind,'session_started');
+  assert.equal(event.requestId,c.requestId);assert.equal(event.stateVersion,0);
+  const restarted=new CourtRoom(ctx,{});assert.deepEqual(restarted.initV2('owner',c),event);
+  assert.deepEqual(restarted.outcomeV2('owner',id,c.requestId),event);
+  for(const change of [{requestId:crypto.randomUUID()},{idempotencyKey:crypto.randomUUID()},{config:{...config,claimantAge:19}}])
+   assert.equal(restarted.initV2('owner',{...c,...change}).status,409);
+  assert.equal(restarted.initV2('other',c).status,404);
+  assert.ok(restarted.actionV1('owner',mutation(id)).snapshot);
+  assert.deepEqual(restarted.initV2('owner',c),event,'creation retry must not regress current state');
+  assert.equal(restarted.get('owner').view.version,1);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_events').get().n,2);
+  restarted.remove('owner');assert.equal(restarted.initV2('owner',c).status,404);
+  assert.equal(restarted.outcomeV2('owner',id,c.requestId).status,404);
+ }finally{db.close();}
+});
+test('v2 creation receipt failure rolls back state and both journals, legacy room is not overwritten',()=>{
+ const {room,db,ctx,id}=setup(config,{},false);try{
+  const c={apiVersion:2,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,expectedStateVersion:0,config};
+  const exec=ctx.storage.sql.exec;
+  ctx.storage.sql.exec=(query,...args)=>{if(query.startsWith('INSERT INTO court_v1_requests'))throw Error('receipt write failed');return exec(query,...args);};
+  assert.throws(()=>room.initV2('owner',c),/receipt write failed/);
+  for(const table of ['state','court_events','court_replay_state','court_v1_requests'])assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n,0);
+  ctx.storage.sql.exec=exec;room.init(id,'owner',config);assert.equal(room.initV2('owner',c).status,409);
+ }finally{db.close();}
+});
+test('learner index duplicate reservation succeeds at capacity without evicting another room',()=>{
+ const {db,ctx}=setup();try{
+  const learner=new Learner(ctx,{}),id=crypto.randomUUID();assert.equal(learner.addCourt(id,'keep'),true);
+  for(let i=1;i<100;i++)assert.equal(learner.addCourt(crypto.randomUUID(),'other'),true);
+  assert.equal(learner.addCourt(id,'changed'),true);
+  assert.equal(learner.addCourt(crypto.randomUUID(),'overflow'),false);
+  assert.equal(db.prepare('SELECT title FROM courts WHERE id=?').get(id).title,'keep');
+ }finally{db.close();}
+});
 test('v2 deletion erases content, preserves a stable retry receipt and never revives the scene',()=>{
  const {room,db,ctx,id}=setup();try{
   const command={...mutation(id),actionId:'session.delete'};

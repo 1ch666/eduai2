@@ -3,7 +3,7 @@ import {parseBoundCourtGraph} from './court-graph';
 import {checkCaseReachability} from './court-reachability';
 import {canConverse,isNpcId,publicCourtCast} from './court-cast';
 import {appendJournal,checkpointJournal,publicCourtSnapshot,type JournalEvent} from './court-journal';
-import {parseMutation,canonical,type CourtMutation} from '../court/protocol.js';
+import {parseMutation,parseEvent,canonical,type CourtMutation} from '../court/protocol.js';
 import type { AppEnv } from './env';
 import { readJsonObject, readTextWithLimit, type Responder } from './http';
 import { resolveSession, csrfTokenMatches } from './session';
@@ -19,6 +19,7 @@ import {initializePrivateJournal} from './court-private-journal';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 import {parseRandomCaseRequest,randomCourtConfig,RandomConfigError} from './court-random';
 import {initializeDeletion,eraseCourtContent,deleteCourt,deletionOutcome} from './court-deletion';
+import {parseCreation,type CourtCreation} from './court-creation';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -59,6 +60,30 @@ export class CourtRoom extends DurableObject<AppEnv> {
       appendJournal(this.ctx.storage.sql,state,{kind:'session_started',requestId:crypto.randomUUID(),speaker:'系統',roleId:state.config.role,text:'建立虛構教學場次。'});
     });
     return {view:courtView(state)};
+  }
+  initV2(owner:string,input:CourtCreation){
+    const c=parseCreation(JSON.stringify(input));if(!c)return {status:400 as const};
+    return this.ctx.storage.transactionSync(()=>{
+      if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return {status:404 as const};
+      const state=this.read();if(state&&(state.owner!==owner||state.id!==c.sessionId))return {status:404 as const};
+      const payload=canonical(c);
+      const old=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=? OR idempotency_key=?',c.requestId,c.idempotencyKey).toArray();
+      if(old.length){
+        if(!state)throw Error('Creation receipt without state');
+        if(old.length!==1||old[0].payload!==payload)return {status:409 as const};
+        if(!parseEvent(old[0].event))throw Error('Invalid creation receipt');
+        const event=JSON.parse(old[0].event) as JournalEvent;
+        if(event.kind!=='session_started'||event.stateVersion!==0||event.sessionId!==c.sessionId||event.requestId!==c.requestId||event.caseId!==c.config.caseId||event.snapshot.state.roleId!==c.config.role)throw Error('Mismatched creation receipt');
+        return event;
+      }
+      // No overwrite of an existing v0 room, including rooms created via legacy API.
+      if(state)return {status:409 as const};
+      const next=newCourt(c.sessionId,owner,c.config);
+      this.ctx.storage.sql.exec('INSERT INTO state VALUES(1,?)',JSON.stringify(next));
+      const event=appendJournal(this.ctx.storage.sql,next,{kind:'session_started',requestId:c.requestId,speaker:'系統',roleId:c.config.role,text:'建立虛構教學場次。'});
+      this.ctx.storage.sql.exec('INSERT INTO court_v1_requests VALUES(?,?,?,?)',c.requestId,c.idempotencyKey,payload,JSON.stringify(event));
+      return event;
+    });
   }
   remove(owner:string){
     const deleted=this.ctx.storage.sql.exec<{owner:string}>('SELECT owner FROM court_deleted WHERE id=1').toArray()[0];
@@ -392,6 +417,7 @@ export class Learner extends DurableObject<AppEnv>{
     return {id,template};
   }
   addCourt(id:string,title:string){
+    if(this.ctx.storage.sql.exec('SELECT id FROM courts WHERE id=?',id).toArray().length)return true;
     if(this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM courts').one().n>=100)return false;
     this.ctx.storage.sql.exec('INSERT OR IGNORE INTO courts VALUES(?,?,?)',id,title,new Date().toISOString());return true;
   }
