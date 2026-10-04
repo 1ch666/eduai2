@@ -143,6 +143,12 @@ Implemented and locally tested:
 - `court/action-panel.js` renders the existing versioned action descriptors and
   current feedback. `court/court.js` links the investigation panel and disables
   random rewriting in setup when selecting the authored lesson.
+- `court/investigation-controls.js` groups discovery, visible evidence, target NPC,
+  original statement, presentation and unlocked follow-up in the action panel.
+  It uses only current server descriptors, never computes contradictions, and
+  blocks stale buttons on version/session changes, hidden targets or pending
+  recovery. Future unknown investigation actions retain the generic UI fallback.
+  This is web procedure-mode integration, NOT yet a new Unity world interaction.
 - Existing completion semantics remain: wrong objective answers invite retry;
   a completed result cannot be changed. This is not a full first-attempt assessment.
 
@@ -153,6 +159,13 @@ duplicate receipt recovery, write rollback, object recreation, private journal
 reconstruction and completion lock. Projection tests verify evidence does not
 reach any NPC merely because the player viewed it; board tests render text only.
 These are local automated tests, not real browsers, Unity runtime or participants.
+
+Follow-up UI checkpoint: `scripts/test-investigation-controls.mjs` covers visible
+evidence, target selection, pending recovery, revoked actions, completed review,
+cross-session stale buttons and unknown-action compatibility. The 441 root
+`scripts/test-*.mjs` tests (excluding the separate dictionary corpus suite) and
+frontend check passed after this UI change. This run does not include Unity
+Editor/PlayMode, visual layout, live provider or physical mobile acceptance.
 
 Manual verification next: choose `平板失蹤：十七分鐘的落差`, create a fixed cloud
 session, acknowledge → statement → investigation panel → original statements →

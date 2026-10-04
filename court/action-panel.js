@@ -4,6 +4,7 @@ import {createPendingJournal} from './pending-journal.js';
 import {actionTargets,actionTargetStatus} from './action-targets.js';
 import {askNpcThroughTransport} from './npc-action.js';
 import {createRecoveryNotice} from './recovery-notice.js';
+import {createInvestigationControls,isInvestigationControlAction} from './investigation-controls.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
@@ -23,7 +24,8 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  for(const b of [refresh,recover,retry])b.type='button';
  recovery.append(refresh,recover,retry);body.append(textLabel,targetLabel,npcLabel,actions);
  const evidenceViewer=createEvidenceViewer({document});
- dialog.append(close,heading,notice,dialogue,evidenceViewer.element,body,recovery);document.body.append(dialog);
+ const investigation=createInvestigationControls({document,onAction:actionId=>void execute(()=>transport.act(actionId),true)});
+ dialog.append(close,heading,notice,dialogue,investigation.element,evidenceViewer.element,body,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
  const recoveryNotice=createRecoveryNotice({document,onOpen:open});
  document.getElementById('notice')?.after(recoveryNotice.element);
@@ -35,6 +37,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   const reply=transport.lastDialogue,feedback=snapshot?.state.feedback||'';
   dialogue.hidden=!reply&&!feedback;dialogue.textContent=[reply?`${reply.speaker}：${reply.text}`:'',feedback].filter(Boolean).join('\n\n');
   evidenceViewer.setSnapshot(snapshot);
+  investigation.setSnapshot(snapshot,working||!transport.canAct);
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;
   recover.hidden=retry.hidden=!pending;actions.replaceChildren();
@@ -48,6 +51,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
    if([...control.options].some(o=>o.value===selected))control.value=selected;
   }
   for(const action of snapshot?.state.allowedActions||[]){
+   if(isInvestigationControlAction(action.actionId))continue;
    const row=make('section'),button=make('button',action.label);button.type='button';
    const selection=()=>action.requiredTarget==='npc'?npc.value:target.value;
    const availability=actionTargetStatus(snapshot,action,selection());
