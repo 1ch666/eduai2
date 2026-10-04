@@ -45,6 +45,19 @@ open. Original unrelated README changes remain uncommitted.
 
 ## Latest verified increment — 2026-10-04
 
+Candidate: ordered schema/fact/role/evidence/procedure/policy action validation
+now runs before reducer mutation. Trusted synchronous fact/role/policy hooks can
+only veto; literal true cannot bypass built-in rules. Duplicate or unknown
+reviewed evidence/ruling IDs no longer satisfy equal-length completion checks.
+Full local fast CI passed; not yet deployed. Semantic hook adapters and other
+mutation paths remain open. See COURT-VALIDATION-PIPELINE.md.
+
+Released e244260: request IDs are fenced across legacy/versioned actions and NPC
+reservations while exact retries remain recoverable. CI 37169007578 passed;
+Worker 39be10c6-e93c-475c-8004-313fcd6ac882 deployed without asset/schema changes.
+Anonymous 200/200/401 probes passed; authenticated production mutation testing
+remains open. See COURT-API-V2.md for rollback and exact evidence.
+
 Released ae1cf00: fixed-case v2 POST creation with strict public schema, stable scoped
 command IDs, atomic state/journal/receipt commit and original-result recovery.
 Real local workerd concurrent/owner/CSRF tests passed after correcting null-

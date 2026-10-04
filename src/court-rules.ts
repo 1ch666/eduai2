@@ -1,5 +1,30 @@
 // Deterministic rules plus legacy clock adapters for the court service.
 import type {CaseGraph} from './case-graph';
+// Server-only synchronous hooks: trusted code can veto, never grant a bypass.
+export const COURT_VALIDATION_STAGES = ['schema','fact','role','evidence','procedure','policy'] as const;
+export type CourtValidationStage = typeof COURT_VALIDATION_STAGES[number];
+export type CourtValidationContext = Readonly<{
+  sessionId:string; caseId:string; role:string; stage:number; stateVersion:number;
+  action:string; evidenceId:string|null;
+}>;
+export type CourtValidationHooks = Partial<Record<'fact'|'role'|'policy',
+  (context:CourtValidationContext)=>boolean>>;
+export type CourtValidationChecks = Record<CourtValidationStage,()=>void>;
+export function validateCourtAction(checks:CourtValidationChecks,
+  context:CourtValidationContext,hooks:CourtValidationHooks={}):void{
+  const safeContext=Object.freeze({...context});
+  for(const stage of COURT_VALIDATION_STAGES){
+    checks[stage]();
+    if(stage==='fact'||stage==='role'||stage==='policy'){
+      const hook=hooks[stage];
+      if(hook!==undefined){
+        let accepted=false;
+        try{accepted=hook(safeContext)===true;}catch{/* No private hook error leaks. */}
+        if(!accepted)throw new Error(`場次驗證未通過：${stage}`);
+      }
+    }
+  }
+}
 // This is a bounded teaching simulation, NOT a jurisdiction/eligibility calculator.
 export const RULE_VERSION = 'tw-teaching-2026-09-24';
 export const LEGAL_SOURCES = [
@@ -129,27 +154,49 @@ export function allowedActions(s:CourtState): string[] {
 export function transition(s:CourtState, a:CourtAction): CourtState {
   return reduceCourt(s,a,new Date().toISOString());
 }
-export function reduceCourt(s:CourtState, a:CourtAction, timestamp:string): CourtState {
+export function reduceCourt(s:CourtState, a:CourtAction, timestamp:string, hooks:CourtValidationHooks={}): CourtState {
   requireCourtTimestamp(timestamp);
   // Never emit a version that cannot be represented exactly by JSON clients.
   // Reject corrupt/exhausted persisted state rather than repairing it silently.
   if(!Number.isSafeInteger(s.version) || s.version<0 || s.version>=Number.MAX_SAFE_INTEGER) throw new Error('場次版本超出安全範圍，請聯絡管理者');
-  if(a.version !== s.version) throw new Error('版本已變更，請重新讀取場次');
-  if(!allowedActions(s).includes(a.type)) throw new Error('目前階段不允許此動作');
-  const n = structuredClone(s), t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId)!;
+  const t = s.generatedCase || CASES.find(t=>t.id===s.config.caseId);
+  validateCourtAction({
+    schema:()=>{
+      if(!Number.isInteger(s.stage)||s.stage<0||s.stage>5||typeof s.completed!=='boolean'||
+        typeof a.type!=='string'||!Number.isSafeInteger(a.version))throw new Error('場次或動作格式錯誤');
+      if(a.version !== s.version)throw new Error('版本已變更，請重新讀取場次');
+      if(a.type==='speak'&&(typeof a.text!=='string'||a.text.trim().length<2||a.text.length>600))throw new Error('陳述需為2至600字');
+      if(a.type==='rule'&&(!PROCEDURAL_REQUESTS.some(r=>r.id===a.rulingId)||!['allow','deny'].includes(a.decision||'')))throw new Error('程序決定格式錯誤');
+      if(a.type==='answer'&&(!Number.isInteger(a.answer)||a.answer!<0||!t||a.answer!>=t.answers.length))throw new Error('答案格式錯誤');
+    },
+    fact:()=>{if(!t)throw new Error('案件不存在');},
+    role:()=>{if(!rolesFor(t!.procedure).includes(s.config.role))throw new Error('此程序不開放該角色');},
+    evidence:()=>{
+      if(a.type==='review'&&!t!.evidence.some(e=>e.id===a.evidenceId))throw new Error('證物不存在');
+      if(a.type==='closeEvidence'&&(s.reviewed.length!==t!.evidence.length||
+        new Set(s.reviewed).size!==s.reviewed.length||t!.evidence.some(e=>!s.reviewed.includes(e.id))))
+        throw new Error('請先查看每份證據再結束調查');
+    },
+    procedure:()=>{
+      if(!allowedActions(s).includes(a.type))throw new Error('目前階段不允許此動作');
+      if(a.type==='closeEvidence'&&s.config.role==='judge'&&
+        (s.rulings?.length!==PROCEDURAL_REQUESTS.length||PROCEDURAL_REQUESTS.some(r=>!s.rulings?.includes(r.id))))
+        throw new Error('請先完成法官的兩項程序准駁練習');
+    },
+    policy:()=>{const error=validateConfig(s.config);if(error)throw new Error(error);},
+  },{sessionId:s.id,caseId:s.config.caseId,role:s.config.role,stage:s.stage,
+    stateVersion:s.version,action:a.type,evidenceId:a.evidenceId??null},hooks);
+  if(!t)throw new Error('案件不存在');
+  const n = structuredClone(s);
   if(a.type === 'step') { n.stage++; if(n.stage===5){n.completed=true;n.feedback=t.explanation;} }
   if(a.type === 'acknowledge') n.stage++;
   if(a.type === 'speak') {
-    if(typeof a.text!=='string' || a.text.trim().length<2 || a.text.length>600) throw new Error('陳述需為2至600字');
-    n.statements.push(a.text.trim());n.stage++;
+    n.statements.push(a.text!.trim());n.stage++;
   }
   if(a.type === 'review') {
-    if(!t.evidence.some(e=>e.id===a.evidenceId)) throw new Error('證物不存在');
     if(!n.reviewed.includes(a.evidenceId!)) n.reviewed.push(a.evidenceId!);
   }
   if(a.type === 'closeEvidence') {
-    if(n.reviewed.length!==t.evidence.length) throw new Error('請先查看每份證據再結束調查');
-    if(n.config.role==='judge' && n.rulings?.length!==PROCEDURAL_REQUESTS.length) throw new Error('請先完成法官的兩項程序准駁練習');
     n.stage++;
   }
   if(a.type === 'rule') {
