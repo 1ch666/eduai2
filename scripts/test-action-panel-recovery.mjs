@@ -64,6 +64,8 @@ test('in-game panel comparison uses the same-version board and clears on context
   assert.match(text(dialog),/VISIBLE-EVIDENCE/);
   const refresh=elements.find(e=>e.textContent==='更新狀態');
   view={...view,version:fixture.stateVersion+1};refresh.onclick();await settled(panel);
+  assert.match(text(dialog),/已是目前伺服器紀錄，沒有新增操作/);
+  assert(!text(dialog).includes('這筆操作已保存'),'duplicate read must not claim a mutation succeeded');
   assert(!text(dialog).includes('HEARD-STATEMENT'),'do not combine a different-version board with action state');
   view={...view,version:fixture.stateVersion};refresh.onclick();await settled(panel);
   assert.match(text(dialog),/HEARD-STATEMENT/);
@@ -73,5 +75,32 @@ test('in-game panel comparison uses the same-version board and clears on context
   account={id:'second-owner'};panel.resume();
   assert(!text(dialog).includes('HEARD-STATEMENT'));assert(!text(dialog).includes('VISIBLE-EVIDENCE'));
   assert.equal(dialog.open,false);panel.clear();assert(calls.every(method=>method==='GET'));
+ }finally{globalThis.fetch=old;}
+});
+
+test('procedure rejection does not claim state changed and same-version refresh does not claim a saved action',async()=>{
+ const elements=[],document=new Element('document');document.body=new Element('body');document.getElementById=()=>null;
+ document.createElement=tag=>{const e=new Element(tag);elements.push(e);return e;};
+ const values=new Map(),window=new Element('window');Object.assign(window,{location:{origin:'https://court.test'},sessionStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)}});
+ const snapshot=structuredClone(fixture);snapshot.state.allowedActions=[{actionId:'closeEvidence',label:'結束調查',category:'procedure',requiredTarget:'none',enabled:true,reasonDisabled:''}];
+ const old=globalThis.fetch;let posts=0;
+ globalThis.fetch=async(url,options)=>{
+  if(options.method==='POST'){posts++;return Response.json({error:'請先查看每份證據再結束調查'},{status:409});}
+  return Response.json({...snapshot,requestId:new URL(url).searchParams.get('requestId')});
+ };
+ const walk=e=>[e,...e.children.flatMap(walk)];
+ const settle=async panel=>{for(let i=0;i<100&&panel.working;i++)await new Promise(r=>setTimeout(r,2));assert.equal(panel.working,false);};
+ try{
+  const panel=installActionPanel({document,window,getView:()=>({id:snapshot.sessionId,version:snapshot.stateVersion,config:{caseId:snapshot.caseId}}),getAccount:()=>({id:'owner'}),csrf:()=> 'synthetic-csrf',beforeOpen(){},onUpdated:async()=>{}});
+  panel.open();await settle(panel);
+  const dialog=elements.find(e=>e.tag==='dialog');
+  const button=()=>walk(dialog).find(e=>e.tag==='button'&&e.textContent==='結束調查');
+  button().onclick();await settle(panel);
+  assert(walk(dialog).some(e=>e.textContent==='動作條件不符或場次版本已變更；請更新狀態後確認。'));
+  assert.equal(button().disabled,true);assert.equal(panel.pending,false);
+  elements.find(e=>e.textContent==='更新狀態').onclick();await settle(panel);
+  assert(walk(dialog).some(e=>e.textContent==='已是目前伺服器紀錄，沒有新增操作。'));
+  assert.equal(button().disabled,false);assert.equal(posts,1,'refresh cannot resubmit the rejected action');
+  assert.equal(values.size,0);panel.clear();
  }finally{globalThis.fetch=old;}
 });

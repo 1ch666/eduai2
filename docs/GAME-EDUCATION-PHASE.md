@@ -13,6 +13,23 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- Defense-role browser pass: local Chromium loaded the actual Unity WebGL frame,
+  then used the host procedure panel to finish the authored tablet case through
+  original statements, evidence discovery/presentation, contradiction follow-up,
+  closing statement and final judgment (completed version 11, 12 saved events).
+  Reload restored the same completed result, objectives and read-only review.
+  NPC AI was disabled: the follow-up was explicitly labelled prewritten teaching
+  material, not a live model success. Console warning/error capture was empty.
+  This is not proof of all world-space interactions, all roles in browsers,
+  physical mobile, full 3D replay or educational effectiveness.
+  The pass found and fixed three presentation issues: prerequisite rejection no
+  longer claims only a version change, refreshing an unchanged snapshot no longer
+  claims an operation was saved, and replay player role IDs receive procedure-
+  appropriate Chinese display labels. Recovery/authorization/state logic remains
+  unchanged. Consolidated transport/action-panel/replay tests passed 28 tests;
+  frontend checks passed. No research collection or backend expansion was added.
+  The preceding six-role API commit f96ec7e also passed Fast CI run 37193603121.
+
 - Multi-role runtime gate: `scripts/check-investigation-api.mjs` now exercises
   judge, claimant, respondent, claimantCounsel, respondentCounsel and observer
   against the actual loopback Worker, Durable Object RPC and SQLite. The five

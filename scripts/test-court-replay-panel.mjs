@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {installReplayPanel} from '../court/replay-panel.js';
+import {installReplayPanel,replayRoleLabel} from '../court/replay-panel.js';
 const fixture=JSON.parse(await readFile(new URL('../court-game/Assets/Editor/Fixtures/court-v1.json',import.meta.url),'utf8'));
+test('replay names actual player roles using public procedure, preserving unknown IDs',()=>{
+ for(const [role,civil,criminal] of [['claimant','原告','告訴／被害人'],['claimantCounsel','原告代理人','告訴代理人'],['respondentCounsel','被告代理人','辯護人']]){
+  assert.equal(replayRoleLabel(role,'civil'),civil);assert.equal(replayRoleLabel(role,'criminal'),criminal);
+ }
+ for(const [role,name] of [['respondent','被告'],['juvenile','少年'],['assistant','少年輔佐人'],['investigator','少年調查官'],['judge','法官'],['observer','旁觀者']])assert.equal(replayRoleLabel(role,'juvenile'),name);
+ assert.equal(replayRoleLabel('future-role','civil'),'future-role');
+ assert.equal(replayRoleLabel('__proto__','civil'),'__proto__');
+});
 // Minimal DOM adapter for lifecycle/text rendering, not a real browser test.
 class Element {
  constructor(tag){this.tag=tag;this.children=[];this.listeners={};this.value='';this.open=false;}

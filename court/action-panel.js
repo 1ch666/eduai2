@@ -99,7 +99,9 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   const started=generation;working=true;notice.textContent='正在與伺服器同步…';render();
   try{
    const result=await operation();if(started!==generation)return;if(!valid()){clear();return;}
-   notice.textContent=result==='not-applied'?'本次提問未寫入證詞；請更新狀態後再提問。':result==='persistence-unavailable'?'瀏覽器無法保存或清除操作識別碼；已停止新操作，請恢復分頁儲存功能後重新開啟場次。':messages[result]||'操作尚未完成，請更新狀態或查詢結果。';
+   // A duplicate GET snapshot is not proof that a player operation committed.
+   // HTTP 409 also covers unmet procedure prerequisites, not only stale state.
+   notice.textContent=result==='duplicate'&&!mutation?'已是目前伺服器紀錄，沒有新增操作。':result==='conflict'?'動作條件不符或場次版本已變更；請更新狀態後確認。':result==='not-applied'?'本次提問未寫入證詞；請更新狀態後再提問。':result==='persistence-unavailable'?'瀏覽器無法保存或清除操作識別碼；已停止新操作，請恢復分頁儲存功能後重新開啟場次。':messages[result]||'操作尚未完成，請更新狀態或查詢結果。';
    if(['accepted','duplicate','stale'].includes(result)){
     if(mutation&&!transport.pending)text.value='';
     await onUpdated(transport.snapshot);

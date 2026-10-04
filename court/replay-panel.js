@@ -5,6 +5,15 @@ import {createQuestionReview} from './question-review.js';
 const eventLabels={session_started:'建立場次',session_completed:'庭審完成',statement:'陳述',objection:'異議',ruling:'程序裁定',stage_changed:'程序推進',checkpoint:'保存點',npc_utterance:'角色發言',evidence_presented:'出示證物'};
 const roleLabels={judge:'法官',plaintiff:'原告',defendant:'被告',prosecutor:'檢察官',defense:'辯護人',lawyer:'律師',witness:'證人',observer:'旁觀者'};
 const label=(labels,value)=>Object.hasOwn(labels,value)?labels[value]:value;
+// Display only: use the public procedure to name legacy player role IDs.
+// Unknown IDs remain literal; never infer legal authority from this label.
+export function replayRoleLabel(role,procedure){
+ const common={respondent:'被告',juvenile:'少年',assistant:'少年輔佐人',investigator:'少年調查官',counsel:'律師'};
+ if(role==='claimant')return procedure==='criminal'?'告訴／被害人':procedure==='civil'?'原告':'原告／告訴人';
+ if(role==='claimantCounsel')return procedure==='criminal'?'告訴代理人':'原告代理人';
+ if(role==='respondentCounsel')return procedure==='criminal'?'辯護人':'被告代理人';
+ return Object.hasOwn(common,role)?common[role]:label(roleLabels,role);
+}
 
 export function installReplayPanel({document,window,getView,getAccount,beforeOpen}){
  const loader=new CourtReplayLoader({origin:window.location.origin});
@@ -51,7 +60,7 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   // records or hidden case data. Reset options when rewinding or logging out.
   const prefix=replay.transcript(),choices={roleId:new Map(),stageId:new Map(),evidenceId:new Map(),kind:new Map()};
   for(const row of prefix){
-   choices.roleId.set(row.roleId,label(roleLabels,row.roleId));
+   choices.roleId.set(row.roleId,replayRoleLabel(row.roleId,event?.snapshot.state.procedure));
    choices.stageId.set(row.stageId,row.stageLabel);
    choices.kind.set(row.kind,label(eventLabels,row.kind));
    for(const id of row.evidenceIds)choices.evidenceId.set(id,id);
@@ -71,7 +80,7 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   const rows=replay.transcript(Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])));
   if(!rows.length)transcript.append(make('li','目前播放位置之前，沒有符合篩選的紀錄。'));
   for(const row of rows){
-   const li=make('li');li.append(make('p',`${row.speaker} · ${label(roleLabels,row.roleId)} · ${row.stageLabel} · ${label(eventLabels,row.kind)}`),make('p',row.timestamp),make('p',row.displayText));
+   const li=make('li');li.append(make('p',`${row.speaker} · ${replayRoleLabel(row.roleId,event.snapshot.state.procedure)} · ${row.stageLabel} · ${label(eventLabels,row.kind)}`),make('p',row.timestamp),make('p',row.displayText));
    if(row.evidenceIds.length)li.append(make('p',`關聯證物：${row.evidenceIds.join('、')}`));
    if(row.citationIds.length)li.append(make('p',`法源標記：${row.citationIds.join('、')}（以場次法律來源為準）`));
    li.append(button(`回看第 ${row.eventSequence+1} 筆`,()=>{replay.jump(row.eventId);render();}));transcript.append(li);
