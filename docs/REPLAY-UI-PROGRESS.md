@@ -1,5 +1,14 @@
 # 庭審重播介面進度
 
+版面追補 `2060ac4a1d5c63e3ba2c2d35a8dfcdd8ad8cc4e8`：只有第一個關閉
+按鈕 sticky，清除篩選不再覆蓋內容。瀏覽器 computed style 實測分別
+sticky／static；新增 CSS 回歸後問答與面板 5 項通過。Worker 最新版
+`7da3dbb7-193f-4b97-afb1-bf618c6ec98a`，回滾至下方 4a6d49a9 版本。
+CI 37192673476、Pages 37192672898、Docker 37192681569 皆 success；
+Worker／Pages CSS 200 與來源一致。Docker 最新包以 2060ac4 為準；
+先前 39bf599 包已下載 outputs/docker-39bf599、來源與七項校驗值通過，
+但不能當成最新版 CSS 交接包。沒有 Unity 二進位修改。
+
 本批正式發布來源 `39bf599cfd135ba5ce06303432eb9883cdb7acf1`，Worker
 `4a6d49a9-19be-4677-abd8-0c5d4bf66bf2`。CI 37192462465、Pages
 37192462245、Docker 37192486767 均 success。Worker 和 Pages 的
