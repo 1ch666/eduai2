@@ -105,4 +105,31 @@ In particular, do not restore an older recovery-code digest over a live account:
 doing so could revive a consumed code. A separately approved recovery point and
 credential invalidation policy are necessary before any production recovery.
 
+## Account domain format and validation
+
+`contracts/account-backup-v1.schema.json` specifies the private payload layout;
+`src/account-backup.ts` validates decrypted UTF-8 bytes before the isolated drill's
+import transaction. It has no network, database writes or production route.
+Its only success output is a detached parsed archive, never an authorization.
+
+Version 1 requires JSON.stringify framing (no extra whitespace, duplicate keys or
+alternate escape forms), exact fields/tables and `sessionPolicy: reauthenticate`.
+All five storage tables have an explicit policy: four included, sessions excluded.
+Validation enforces a 4 MiB byte cap, bounded row counts, credential digest/salt
+shapes and iteration bounds, unique IDs/usernames/recovery/progress/limit keys,
+existing account references, valid ISO dates and login ordering, valid bounded
+JSON progress with `self_reported:1`, and fixed-window rate-limit row shapes.
+Missing first-recovery rows are allowed for legacy accounts. Unknown fields fail
+closed so a future credential/schema version needs an explicit contract upgrade.
+Machine schema covers structure; the runtime validator additionally checks
+cross-row relations, byte lengths and actual date/JSON validity.
+
+The full restore drill now uses this validator after decryption. Negative tests
+cover corruption, orphan/duplicate rows, old sessions, credential fields, framing,
+invalid UTF-8, byte limits and self-reported score integrity. It cannot establish
+snapshot completeness, source authenticity by itself, age/freshness of credentials
+or absence of changes after export. Authenticated encryption and independently
+approved manifests/recovery points remain mandatory. No exporter or production
+restore endpoint is enabled by this module.
+
 Design reference: https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams

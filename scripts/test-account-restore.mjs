@@ -3,13 +3,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {build} from 'esbuild';
-const built=await build({entryPoints:['src/accounts.ts','src/backup-envelope.ts'],outdir:'unused',
+import {readFile} from 'node:fs/promises';
+import Ajv from 'ajv';
+const built=await build({entryPoints:['src/accounts.ts','src/backup-envelope.ts','src/account-backup.ts'],outdir:'unused',
  bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'mock-do',setup(b){
  b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));
  b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject {constructor(ctx,env){this.ctx=ctx;this.env=env;}}'}));
  }}]});
 const modules=await Promise.all(built.outputFiles.map(f=>import('data:text/javascript;base64,'+Buffer.from(f.text).toString('base64'))));
 const {AccountStore}=modules.find(m=>m.AccountStore),{sealBackup,openBackup}=modules.find(m=>m.sealBackup);
+const {parseAccountBackup,MAX_ACCOUNT_BACKUP_BYTES}=modules.find(m=>m.parseAccountBackup);
+const schema=new Ajv({strict:true}).compile(JSON.parse(await readFile('contracts/account-backup-v1.schema.json','utf8')));
+const encode=x=>new TextEncoder().encode(JSON.stringify(x));
 const tables=['auth_limits','progress','recovery_codes','sessions','users'];
 const restoredTables=['users','recovery_codes','progress','auth_limits'];
 function setup(){
@@ -64,7 +69,8 @@ test('encrypted account restore preserves identity, credentials and progress wit
   const manifest={schemaVersion:1,archiveId:crypto.randomUUID(),kind:'accounts',createdAt:new Date().toISOString(),sourceCommit:'a'.repeat(40),keyId:'synthetic-ephemeral'};
   const encrypted=await sealBackup(new TextEncoder().encode(plaintext),key,manifest);
   assert(!encrypted.includes(alice.user.username));
-  const decoded=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(await openBackup(encrypted,key,manifest)));
+  assert.equal(schema(exported),true,JSON.stringify(schema.errors));
+  const decoded=parseAccountBackup(await openBackup(encrypted,key,manifest));
   assert.equal(decoded.sessionPolicy,'reauthenticate');
   assert.throws(()=>restoreFixture(target,decoded.tables,'progress'),/synthetic restore interruption/);
   assert(tables.every(t=>rows(target.db,t).length===0),'partial import must roll back');
@@ -94,4 +100,40 @@ test('encrypted account restore preserves identity, credentials and progress wit
   assert.deepEqual(snapshot(target.db),targetBefore,'never overwrite a populated destination');
   assert.deepEqual(snapshot(source.db),before,'restore must not modify source');
  }finally{source.db.close();target.db.close();}
+});
+
+test('account archive validator rejects corrupt structure, credentials, references and sessions',()=>{
+ const id='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
+ const date='2026-10-04T00:00:00.000Z';
+ const fixture={schemaVersion:1,sessionPolicy:'reauthenticate',tables:{
+  users:[{id,username:'synthetic',display_name:'測試',password_hash:'a'.repeat(64),password_salt:'b'.repeat(32),password_iterations:20000,created_at:date,last_login_at:null}],
+  recovery_codes:[{user_id:id,code_hash:'c'.repeat(64)}],
+  progress:[{user_id:id,scope:'civics',payload:'{"synthetic":true}',self_reported:1,updated_at:date}],
+  auth_limits:[{key:'synthetic-limit',window_start:0,attempt_count:1}]
+ }};
+ assert(schema(fixture));assert.deepEqual(parseAccountBackup(encode(fixture)),fixture);
+ const mutations=[
+  x=>x.schemaVersion=2,x=>x.sessionPolicy='keep',x=>x.tables.sessions=[],x=>delete x.tables.progress,
+  x=>x.tables.users.push({...x.tables.users[0]}),x=>x.tables.users.push({...x.tables.users[0],id:other}),
+  x=>x.tables.users[0].password_hash='plaintext',x=>x.tables.users[0].password_salt='abc',
+  x=>x.tables.users[0].password_iterations=400001,x=>x.tables.users[0].password_iterations=1,
+  x=>x.tables.users[0].created_at='2026-02-30T00:00:00.000Z',
+  x=>x.tables.users[0].last_login_at='2025-01-01T00:00:00.000Z',
+  x=>x.tables.users[0].display_name='bad\u0000name',x=>x.tables.users[0].raw_password='PRIVATE',
+  x=>x.tables.recovery_codes[0].user_id=other,x=>x.tables.recovery_codes.push({...x.tables.recovery_codes[0]}),
+  x=>x.tables.progress[0].user_id=other,x=>x.tables.progress.push({...x.tables.progress[0]}),
+  x=>x.tables.progress[0].scope='ranked',x=>x.tables.progress[0].self_reported=0,
+  x=>x.tables.progress[0].payload='{',x=>x.tables.progress[0].payload=JSON.stringify('字'.repeat(3000)),
+  x=>x.tables.auth_limits[0].window_start=1,x=>x.tables.auth_limits[0].attempt_count=0,
+  x=>x.tables.auth_limits.push({...x.tables.auth_limits[0]})
+ ];
+ for(const mutate of mutations){const changed=structuredClone(fixture);mutate(changed);
+  assert.throws(()=>parseAccountBackup(encode(changed)),/^Error: Invalid account backup$/);
+ }
+ for(const raw of [new Uint8Array(),new Uint8Array([255]),new Uint8Array(MAX_ACCOUNT_BACKUP_BYTES+1),encode(null),encode([]),
+  new TextEncoder().encode(JSON.stringify(fixture).replace('{','{"schemaVersion":1,')),
+  new TextEncoder().encode(' '+JSON.stringify(fixture))])
+  assert.throws(()=>parseAccountBackup(raw),/^Error: Invalid account backup$/);
+ const legacy=structuredClone(fixture);legacy.tables.recovery_codes=[];
+ assert.deepEqual(parseAccountBackup(encode(legacy)),legacy,'legacy missing recovery code is preserved');
 });
