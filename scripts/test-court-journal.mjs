@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {build} from 'esbuild';
 import {parseEvent,parseSnapshot,canonical} from '../court/protocol.js';
 import {CourtTransport} from '../court/transport.js';
+import {CourtEducationStore} from '../src/court-education-store.ts';
 import {CASES,LEGAL_SOURCES} from '../src/court-rules.ts';
 import {courtV2Events,courtV2Deletion} from './court-schema-check.mjs';
 import {readFile} from 'node:fs/promises';
@@ -666,6 +667,27 @@ test('learner index duplicate reservation succeeds at capacity without evicting 
   assert.equal(learner.addCourt(crypto.randomUUID(),'overflow'),false);
   assert.equal(db.prepare('SELECT title FROM courts WHERE id=?').get(id).title,'keep');
  }finally{db.close();}
+});
+test('legacy and v2 deletion atomically erase assessments and fence delayed submissions',async()=>{
+ for(const v2 of [false,true]){
+  const {room,db,ctx,id}=setup();try{
+   const store=new CourtEducationStore(ctx.storage,id);store.initialize();
+   const body=JSON.stringify({requestId:crypto.randomUUID(),expectedRevision:0,action:{kind:'consent'}});
+   await store.apply(body,()=> 'not_started',true);
+   const remove=owner=>v2?room.removeV2(owner,{...mutation(id),actionId:'session.delete'}):room.remove(owner);
+   assert.equal(remove('other').status,404);assert.equal(store.view().phase,'pre');
+   const exec=ctx.storage.sql.exec;
+   ctx.storage.sql.exec=(sql,...args)=>{if(sql.startsWith('UPDATE education_meta'))throw Error('education erase failure');return exec(sql,...args);};
+   assert.throws(()=>remove('owner'),/education erase failure/);ctx.storage.sql.exec=exec;
+   assert.equal(store.view().phase,'pre');assert.equal(room.get('owner').view.version,0);
+   assert.equal(db.prepare('SELECT count(*) n FROM court_deleted').get().n,0);
+   const pending=store.apply(body,()=> 'not_started',true);remove('owner');
+   assert.equal((await pending).code,'WITHDRAWN');
+   for(const table of ['education_state','education_receipts','education_expiry'])assert.equal(db.prepare(`SELECT count(*) n FROM ${table}`).get().n,0,table);
+   const restarted=new CourtEducationStore(ctx.storage,id);restarted.initialize();assert.deepEqual(restarted.view(),{phase:'withdrawn'});
+   assert.equal(room.get('owner').status,404);
+  }finally{db.close();}
+ }
 });
 test('v2 deletion erases content, preserves a stable retry receipt and never revives the scene',()=>{
  const {room,db,ctx,id}=setup();try{

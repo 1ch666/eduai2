@@ -475,3 +475,14 @@ This is access-time expiry plus an internal maintenance method, NOT a scheduled
 deletion guarantee: the owning DO alarm still needs wiring and runtime testing
 before research collection can be enabled. Existing backups/exported copies
 also need the documented retention/withdrawal policy applied during integration.
+
+Court deletion integration (2026-10-04): both existing legacy and v2 deletion
+paths now erase optional education state, request receipts and expiry rows in
+the same court deletion transaction. A minimal withdrawal guard remains to
+reject an assessment request already awaiting its digest. Old rooms without
+education tables remain deletable; deletion does not create those tables.
+The actual CourtRoom Node/SQLite suite passed 79 tests, including unauthorized
+deletion, injected education-erasure rollback, both deletion paths and pending
+assessment completion after deletion. This integrates cleanup only, not the
+education API or collector. No production data was removed. Background alarm
+delivery and education UI/authenticated endpoint integration remain pending.

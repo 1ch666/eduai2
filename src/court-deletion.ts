@@ -1,7 +1,15 @@
 import {parseMutation,canonical,type CourtMutation} from '../court/protocol.js';
 import type {CourtState} from './court-rules';
 const contents=['state','requests','dialogue','court_dialogue_attempts','npc_requests','court_events','court_v1_requests','court_v1_npc_pending','court_replay_state','court_replay_context'] as const;
-export function eraseCourtContent(sql:SqlStorage){for(const table of contents)sql.exec(`DELETE FROM ${table}`);}
+export function eraseCourtContent(sql:SqlStorage){
+ for(const table of contents)sql.exec(`DELETE FROM ${table}`);
+ // Optional additive education tables: old rooms must remain deletable without
+ // creating research storage. The caller's existing transaction includes these
+ // erasures. Keep only a withdrawal guard to fence a delayed assessment request.
+ const educationTables=new Set(sql.exec<{name:string}>("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('education_state','education_receipts','education_expiry','education_meta')").toArray().map(r=>r.name));
+ for(const table of ['education_state','education_receipts','education_expiry'])if(educationTables.has(table))sql.exec(`DELETE FROM ${table}`);
+ if(educationTables.has('education_meta'))sql.exec('UPDATE education_meta SET withdrawn=1 WHERE id=1');
+}
 export function initializeDeletion(sql:SqlStorage){
  sql.exec('CREATE TABLE IF NOT EXISTS court_v2_deletion(id INTEGER PRIMARY KEY CHECK(id=1),schema_version INTEGER NOT NULL,payload TEXT NOT NULL,event_id TEXT NOT NULL,deleted_at TEXT NOT NULL)');
 }
