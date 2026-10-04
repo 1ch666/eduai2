@@ -16,6 +16,14 @@ namespace EduAI.Court.Core
         private Text caption;
         public static CourtRuntimeState Active { get; private set; }
         public CourtSnapshot Snapshot => state.Snapshot;
+        // Local accessibility preference, never persisted as court state.
+        [Preserve]
+        public void SetReducedMotion(string value)
+        {
+            if(value!="0"&&value!="1")return;
+            foreach(var actor in FindObjectsByType<NpcActorMotion>(FindObjectsInactive.Include,FindObjectsSortMode.None))
+                actor.SetReducedMotion(value=="1");
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()

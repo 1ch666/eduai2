@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace EduAI.Court
 {
+    public enum NpcDialogueActivity { None, Listening, Waiting, Speaking }
     // Imported CC0 animation clips; these gestures do not change game state.
     public sealed class NpcActorMotion : MonoBehaviour
     {
@@ -15,6 +16,16 @@ namespace EduAI.Court
         private Transform torso;
         private Quaternion torsoBefore,torsoAfter;
         private bool torsoAdjusted;
+        private NpcDialogueActivity dialogueActivity;
+        private float dialogueActivityUntil;
+        public NpcDialogueActivity DialogueActivity => dialogueActivity;
+        public bool ReducedMotion { get; private set; }
+        public void SetReducedMotion(bool enabled)
+        {
+            Initialize();RestoreTorso();ReducedMotion=enabled;
+            if(HasPublicState)Play(enabled?(PublicPlan.Pose=="sitting"?"sit":"idle"):PublicPlan.Clip,enabled||PublicPlan.Loop);
+            else if(enabled&&!serverControlled){until=0;Play("idle",true);}
+        }
         public bool HasPublicState { get; private set; }
         public NpcMotionPlan PublicPlan { get; private set; }
         public string ActiveClip { get; private set; }
@@ -46,6 +57,7 @@ namespace EduAI.Court
             serverControlled=true; until=0;
             if (!visible || !NpcMotionPlan.TryCreate(pose,emotion,speaking,request,out var plan))
             {
+                SetDialogueActivity(NpcDialogueActivity.None);
                 HasPublicState=false; PublicPlan=default; ActiveClip=null;
                 transform.localPosition=standingLocalPosition;
                 if (motion) motion.Stop();
@@ -57,17 +69,33 @@ namespace EduAI.Court
             // clear a desk, which leaves the soles floating above the floor.
             var lift=plan.Clip=="sit"?Vector3.up*.15f:Vector3.zero;
             transform.localPosition=standingLocalPosition+transform.localRotation*Vector3.Scale(transform.localScale,lift);
-            Play(plan.Clip,plan.Loop);
+            Play(ReducedMotion?(plan.Pose=="sitting"?"sit":"idle"):plan.Clip,ReducedMotion||plan.Loop);
         }
         // Guest dialogue only. Hosted animation is driven solely by validated
         // snapshots; history retrieval / text delivery cannot override that state.
         public void Speak()
         {
-            if (serverControlled || CourtPresentation.IsHosted) return;
+            if (serverControlled || CourtPresentation.IsHosted || ReducedMotion) return;
             until=Time.unscaledTime+2; Play("emote-yes",false);
         }
-        private void Update() { RestoreTorso(); if (until > 0 && Time.unscaledTime >= until) { until = 0; Play("idle",true); } }
-        private void OnDisable() { RestoreTorso(); }
+        // Local dialogue UX only: never changes PublicPlan, availability, court
+        // version or a server emotion. Only the correlated dialogue UI calls it.
+        public void SetDialogueActivity(NpcDialogueActivity activity)
+        {
+            RestoreTorso();
+            if(!HasPublicState||!isActiveAndEnabled)activity=NpcDialogueActivity.None;
+            dialogueActivity=activity;
+            dialogueActivityUntil=activity==NpcDialogueActivity.Waiting?Time.unscaledTime+25:
+                activity==NpcDialogueActivity.Speaking?Time.unscaledTime+3:0;
+        }
+        private void Update()
+        {
+            RestoreTorso();
+            if(dialogueActivityUntil>0&&Time.unscaledTime>=dialogueActivityUntil)
+                SetDialogueActivity(NpcDialogueActivity.Listening);
+            if(until>0&&Time.unscaledTime>=until){until=0;Play("idle",true);}
+        }
+        private void OnDisable() { SetDialogueActivity(NpcDialogueActivity.None);RestoreTorso(); }
         private void RestoreTorso()
         {
             // Undo only our own last output. If Animation has already sampled
@@ -80,10 +108,19 @@ namespace EduAI.Court
         public void ApplyPoseAdjustments()
         {
             RestoreTorso();
-            if(HasPublicState&&torso)
+            if(HasPublicState&&torso&&!ReducedMotion)
             {
                 torsoBefore=torso.localRotation;
-                torsoAfter=torsoBefore*Quaternion.Euler(PublicPlan.TorsoOffset(Time.unscaledTime));
+                var offset=PublicPlan.TorsoOffset(Time.unscaledTime);
+                // Preserve explicit server emotions / gestures. Waiting is a
+                // UI request indicator, not a claim that a model is running.
+                if(PublicPlan.Emotion=="neutral"&&PublicPlan.Pose=="sitting"&&PublicPlan.RequestState=="idle")
+                {
+                    if(dialogueActivity==NpcDialogueActivity.Waiting)offset=new Vector3(4,0,3);
+                    else if(dialogueActivity==NpcDialogueActivity.Speaking)offset=new Vector3(Mathf.Sin(Time.unscaledTime*2)*2,0,0);
+                    else if(dialogueActivity==NpcDialogueActivity.Listening)offset=new Vector3(3,0,0);
+                }
+                torsoAfter=torsoBefore*Quaternion.Euler(offset);
                 torso.localRotation=torsoAfter;torsoAdjusted=true;
             }
             // This miniature rig has one bone per leg, not articulated knees.

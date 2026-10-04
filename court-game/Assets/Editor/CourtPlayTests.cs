@@ -279,6 +279,24 @@ namespace EduAI.Court.Editor
             NpcMotionPlan.TryCreate("thinking","neutral","silent","idle",out var thinking);
             Require(listening.TorsoOffset(0)!=thinking.TorsoOffset(0),"Listening and thinking have distinct postures");
             Require(thinking.TorsoOffset(float.NaN)==Vector3.zero,"Invalid presentation time cannot corrupt bones");
+            motion.ApplyPublicState("sitting","neutral","silent","idle",true);
+            var localBase=torso.localRotation;var localRoot=motion.transform.localPosition;
+            foreach(var activity in new[]{NpcDialogueActivity.Listening,NpcDialogueActivity.Waiting,NpcDialogueActivity.Speaking})
+            {
+                motion.SetDialogueActivity(activity);motion.ApplyPoseAdjustments();
+                Require(motion.DialogueActivity==activity,"Local dialogue activity is explicit");
+                Require(motion.PublicPlan.SpeakingState=="silent"&&motion.PublicPlan.RequestState=="idle","Local UX never changes public server state");
+                Require(motion.ActiveClip=="sit"&&motion.transform.localPosition==localRoot,"Dialogue gestures preserve seated position");
+                motion.SetDialogueActivity(NpcDialogueActivity.None);
+                Require(Quaternion.Angle(torso.localRotation,localBase)<.001f,"Dialogue close restores torso baseline");
+            }
+            motion.SetDialogueActivity(NpcDialogueActivity.Waiting);
+            motion.SetReducedMotion(true);motion.ApplyPoseAdjustments();
+            Require(Quaternion.Angle(torso.localRotation,localBase)<.001f,"Reduced motion suppresses local torso gestures");
+            Require(motion.ActiveClip=="sit"&&motion.transform.localPosition==localRoot,"Reduced motion preserves sitting and root position");
+            motion.SetReducedMotion(false);
+            motion.ApplyPublicState("sitting","neutral","silent","idle",false);
+            Require(motion.DialogueActivity==NpcDialogueActivity.None,"Revoked projection clears waiting indicator");
             motion.ApplyPublicState("objecting","neutral","silent","idle",true);
             animation["emote-no"].time=.25f;
             motion.ApplyPublicState("objecting","neutral","silent","idle",true);

@@ -39,3 +39,14 @@ test('demo never chooses final answer and renders role names as text',()=>{
  assert.match(text(),/不代選答案/);assert.match(text(),/<img onerror/);
  assert(walk(ui.element).every(e=>!Object.hasOwn(e,'innerHTML')));
 });
+test('optional shortcuts only navigate and obsolete controls cannot act after state replacement',()=>{
+ const calls=[],ui=createDemoGuide({createElement:tag=>new Element(tag)},target=>calls.push(target));
+ const {state,board}=setup();ui.setState(state,board,false);
+ const toggle=walk(ui.element).find(e=>e.tag==='input');toggle.checked=true;toggle.onchange();
+ const button=walk(ui.element).find(e=>e.tag==='button');button.onclick();assert.deepEqual(calls,['investigation']);
+ ui.setState(state,board,true);button.onclick();assert.deepEqual(calls,['investigation']);
+ assert.equal(walk(ui.element).filter(e=>e.tag==='button').length,0);
+ state.state.completed=true;ui.setState(state,board,false);
+ const review=walk(ui.element).find(e=>e.tag==='button');review.onclick();assert.deepEqual(calls,['investigation','review']);
+ ui.setState(null,null,true);review.onclick();assert.equal(calls.length,2);
+});

@@ -657,3 +657,36 @@ pre-test. It remains synthetic API evidence, NOT rendered browser/Unity input,
 real mobile, automatic alarm delivery, live AI, production or participant evidence.
 The test deletes only its own synthetic court in finally; no production data or
 settings were changed. Browser acceptance and all original phase gates remain.
+
+## 2026-10-04 deadline batch — implementation in progress, NOT accepted
+
+The user deferred educational-effect evidence and requested one consolidated
+test pass after implementation. Do not enable research or treat this change as
+phase completion. Current uncommitted game changes include:
+
+- Server cast: authored witness nervous posture only after the confirmed public
+  time contradiction, cleared after follow-up/stage exit/completion. This is not
+  a credibility or guilt signal; no LLM-derived emotion or hidden-fact cue.
+- Unity dialogue: bounded local listening/waiting/reply gestures, separate from
+  authoritative snapshots; history/fallback/error do not simulate a new AI reply.
+  Close, timeout, revoked visibility and disabling clear the activity.
+- Demo guide: optional navigation shortcuts focus investigation, procedure,
+  statement or read-only review inside the game panel. No action is submitted,
+  NPC/answer selected or result changed by the shortcut. Re-render invalidates
+  stale callbacks; recovery disables shortcuts; challenge mode retains no guide.
+
+New/updated tests were authored, not run for the final batch. The earlier
+86-test pass predates the final snapshot-contract fixture correction and Unity
+dialogue changes. The successful WebGL revision 5f1234cfe7c9464f predates the new
+dialogue layer and is not a deployable proof for these sources. Consolidated
+verification must include Node tests, TypeScript, actual Unity Scene/Play/build,
+hosted scene interaction and restoration, then matching deployment/Docker.
+Current production assets and unrelated collaborator edits remain untouched.
+
+Consolidated validation update: the selected 111 Node tests and TypeScript pass;
+the added reduced-motion preference test also passes (template suite: 9 tests).
+Frontend checks pass. Official Unity 6000.6.2f1 Scene/Play exits 0 with both
+success markers in outputs/deadline-game-batch-play-20261004.log, including new
+dialogue activity and reduced-motion rig assertions. The known Editor search
+database exception remains. Release WebGL is building; no candidate binary has
+yet replaced play/, and hosted/browser/mobile/deployment gates remain open.

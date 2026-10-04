@@ -16,7 +16,7 @@ test('published shell and build template keep the game inside its viewport',asyn
  }
 });
 
-function createPage(pointerLock, rejectLoad = false, hosted = false) {
+function createPage(pointerLock, rejectLoad = false, hosted = false, motionMedia = null) {
   const sent = [];
   let calls = 0;
   let resolveLoad, reject;
@@ -25,6 +25,7 @@ function createPage(pointerLock, rejectLoad = false, hosted = false) {
   const nodes = Object.fromEntries(['game', 'start', 'status', 'progress', 'error', 'cover', 'input-mode', 'touch-ui'].map(id =>
     [id, { value: 0, hidden: false, listeners: {}, focusCalls: [], addEventListener(type, callback) { this.listeners[type] = callback; }, focus(options) {this.focusCalls.push(options);} }]));
   nodes.game.requestPointerLock = pointerLock;
+  if(motionMedia)nodes['reduce-motion']={checked:false,listeners:{},addEventListener(type,callback){this.listeners[type]=callback;}};
   const documentEvents = {};
   const windowEvents = {}, posts = [];
   const parent = {postMessage:(...args)=>posts.push(args)};
@@ -33,7 +34,7 @@ function createPage(pointerLock, rejectLoad = false, hosted = false) {
     document: { getElementById: id => nodes[id], createElement: () => ({}), querySelector:()=>({}),
       addEventListener: (type, callback) => { documentEvents[type] = callback; },
       body: { appendChild: element => element.onload() } },
-    window: { parent, addEventListener:(type,fn)=>windowEvents[type]=fn, devicePixelRatio: 2, CourtTouch: () => ({ enabled: false }) },
+    window: { parent, matchMedia:()=>motionMedia, addEventListener:(type,fn)=>windowEvents[type]=fn, devicePixelRatio: 2, CourtTouch: () => ({ enabled: false }) },
     createUnityInstance: (_canvas, _config, onProgress) => {
       calls++; reportProgress = onProgress; return loading;
     }
@@ -41,6 +42,18 @@ function createPage(pointerLock, rejectLoad = false, hosted = false) {
   return { nodes, sent, documentEvents, windowEvents, parent, posts, calls: () => calls, report: v => reportProgress(v),
     finish: () => resolveLoad({ SendMessage: (...args) => sent.push(args) }), fail: () => reject(new Error('load failed')) };
 }
+
+test('reduced motion follows system until explicit user choice and applies only after Unity is ready',async()=>{
+ let change;const media={matches:true,addEventListener:(type,fn)=>{assert.equal(type,'change');change=fn;}};
+ const p=createPage(()=>Promise.resolve(),false,false,media),toggle=p.nodes['reduce-motion'];
+ assert.equal(toggle.checked,true);assert.equal(p.sent.length,0);
+ p.finish();await tick();assert.deepEqual(p.sent,[['CourtRuntimeState','SetReducedMotion','1']]);
+ change({matches:false});assert.equal(toggle.checked,false);
+ assert.deepEqual(p.sent.at(-1),['CourtRuntimeState','SetReducedMotion','0']);
+ toggle.checked=true;toggle.listeners.change();const count=p.sent.length;
+ change({matches:false});assert.equal(toggle.checked,true);assert.equal(p.sent.length,count);
+ assert(p.sent.every(args=>args[0]==='CourtRuntimeState'&&args[1]==='SetReducedMotion'&&['0','1'].includes(args[2])));
+});
 
 test('Immediately initializes exactly once; cover only opens after ready', async () => {
   const page = createPage(() => Promise.resolve());

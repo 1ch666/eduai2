@@ -32,6 +32,9 @@ namespace EduAI.Court
         private readonly Vector3[] inputCorners=new Vector3[4];
         private string cloudTicket;
         private float cloudDeadline;
+        private string cloudOperation;
+        private void PresentActivity(NpcDialogueActivity activity)
+        { if(npc)npc.GetComponentInChildren<NpcActorMotion>(true)?.SetDialogueActivity(activity); }
         [System.Serializable] private class CloudReply { public string requestId; public string npcId; public string text; public string error; public string historyText; public string name; public string mode; public string notice; }
         private float keyboardInset;
         private RectTransform inputRect, sendRect;
@@ -123,6 +126,7 @@ namespace EduAI.Court
             if (!target || !target.CanInteract) return;
             BuildUI(); if (IsOpen) Close(); evidenceMode=false; npc = target; generation++;
             IsOpen = true;
+            PresentActivity(NpcDialogueActivity.Listening);
             FirstPersonController.Active?.ResetTouchInput(); FirstPersonController.Active?.Capture(false);
             FindFirstObjectByType<ChoiceSystem>()?.Close();
             heading.text = target.DisplayName + " · 固定平板案件\n玩家：調查練習者";
@@ -163,27 +167,32 @@ namespace EduAI.Court
         }
         private void RequestCloud(string operation,string text)
         {
+            cloudOperation=operation;
+            PresentActivity(operation=="message"?NpcDialogueActivity.Waiting:NpcDialogueActivity.Listening);
             cloudTicket=System.Guid.NewGuid().ToString();cloudDeadline=Time.unscaledTime+20;send.interactable=false;
             state.text="正在連接場次…";
 #if UNITY_WEBGL && !UNITY_EDITOR
             CourtNpcRequest(operation,npc.name,cloudTicket,text);
 #else
-            cloudTicket=null;send.interactable=true;state.text="Editor 尚未連接同源網頁橋接。";
+            cloudTicket=null;cloudOperation=null;PresentActivity(NpcDialogueActivity.Listening);send.interactable=true;state.text="Editor 尚未連接同源網頁橋接。";
 #endif
         }
         public void OnCloudReply(string json)
         {
-            if(!IsOpen||!CourtPresentation.IsHosted||json==null||json.Length>65536)return;
+            if(!IsOpen||!CourtPresentation.IsHosted||cloudTicket==null||!npc||json==null||json.Length>65536)return;
             CloudReply r;try{r=JsonUtility.FromJson<CloudReply>(json);}catch{return;}
             if(r==null||r.requestId!=cloudTicket||r.npcId!=npc.name)return;
-            cloudTicket=null;send.interactable=true;
+            bool freshMessage=cloudOperation=="message";
+            cloudTicket=null;cloudOperation=null;send.interactable=true;
+            PresentActivity(freshMessage&&string.IsNullOrEmpty(r.error)&&r.mode=="ai"?
+                NpcDialogueActivity.Speaking:NpcDialogueActivity.Listening);
             if(!string.IsNullOrEmpty(r.error)){state.text=r.error;return;}
             heading.text=(r.name??npc.DisplayName)+" · 雲端場次";
             history.text=r.historyText??r.text??"尚無對話";input.text="";
             state.text=!string.IsNullOrEmpty(r.notice)?r.notice:r.mode=="history"?"對話已恢復，可直接提問。":"已保存";
             Canvas.ForceUpdateCanvases();scroll.verticalNormalizedPosition=0;
-            // Receiving text (including history / fallback) is not a server
-            // speaking-state transition. CourtRuntimeState owns hosted motion.
+            // The short local reply gesture never changes server speaking state.
+            // History, fallback and errors do not replay an AI speaking gesture.
         }
         private void RenderHistory()
         {
@@ -221,7 +230,7 @@ namespace EduAI.Court
         {
             if (!IsOpen) return;
             generation++; if(pending!=null)StopCoroutine(pending); pending=null;
-            cloudTicket=null;
+            cloudTicket=null;cloudOperation=null;PresentActivity(NpcDialogueActivity.None);
             composing=false;
             input.DeactivateInputField(); EventSystem.current?.SetSelectedGameObject(null);
             IsOpen=false; panel.SetActive(false); keyboardInset=0;
@@ -248,7 +257,7 @@ namespace EduAI.Court
         private void Update()
         {
             if (!IsOpen) return;
-            if(cloudTicket!=null&&Time.unscaledTime>cloudDeadline){cloudTicket=null;send.interactable=true;state.text="連線逾時，請關閉再開啟恢復紀錄；未自動重送。";}
+            if(cloudTicket!=null&&Time.unscaledTime>cloudDeadline){cloudTicket=null;cloudOperation=null;PresentActivity(NpcDialogueActivity.Listening);send.interactable=true;state.text="連線逾時，請關閉再開啟恢復紀錄；未自動重送。";}
             bool portrait=Screen.height>Screen.width;
             Place(panelRect,new Vector2(portrait?.02f:.48f,keyboardInset+.02f),new Vector2(.98f,.98f),Vector2.zero,Vector2.zero);
             // Landscape keyboard can leave very little vertical room. Keep input,

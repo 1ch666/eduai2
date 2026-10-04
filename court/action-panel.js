@@ -28,7 +28,14 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const evidenceViewer=createEvidenceViewer({document});
  const investigation=createInvestigationControls({document,onAction:actionId=>void execute(()=>transport.act(actionId),true)});
  const board=createInvestigationBoard(document);
- const demo=createDemoGuide(document);
+ const demo=createDemoGuide(document,section=>{
+  if(!valid()||working||!transport.canAct&&!transport.snapshot?.state.completed)return;
+  const destination={investigation:investigation.element,procedure:actions,statement:text,review:board.element}[section];
+  if(!destination||destination.hidden)return;
+  // Navigation only: never selects a role/answer or invokes a server action.
+  destination.setAttribute('tabindex','-1');
+  destination.scrollIntoView({block:'start',behavior:'auto'});destination.focus({preventScroll:true});
+ });
  const difficultyLabel=make('label','提示難度'),difficultySelect=make('select');
  for(const [value,name] of [['tutorial','教學'],['normal','一般'],['challenge','挑戰']]){const option=make('option',name);option.value=value;difficultySelect.append(option);}
  difficultySelect.value='normal';difficultyLabel.append(difficultySelect);

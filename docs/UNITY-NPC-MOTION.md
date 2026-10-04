@@ -1,5 +1,18 @@
 # NPC 公開狀態與動畫接線（2026-09-27）
 
+## 整批驗證更新（2026-10-04，優先於以下待測紀錄）
+
+NPC cast、調查規則、事件／重送恢復、展示導覽、面板、模板／觸控／
+中文橋接共 111 項 Node 測試通過；另補 system reduced-motion / 手動
+覆蓋測試後，模板 9 項通過。TypeScript、前端檢查與 diff whitespace
+檢查通過。先前 snapshot fixture 的 UUID／ISO 時間問題已在此批驗證。
+官方 Unity 6000.6.2f1 Scene／Play exit 0，日誌
+`outputs/deadline-game-batch-play-20261004.log` 有兩個成功標記。
+包含本機 dialogue activity 不改 public state、坐姿位置不變、清除／
+撤銷及減少動態不疊加 torso 的斷言；Editor SearchDatabase 既知例外仍在。
+Release 建置進行中：`outputs/deadline-game-batch-build-20261004.log`。
+尚未發布本批 WASM，瀏覽器 hosted 全流程／手機仍不能宣稱已驗收。
+
 ## 2026-10-04 上半身表現續作（尚未發布）
 
 新增固定的 torso 旋轉層：傾聽微前傾、思考／pending 側傾、
@@ -47,6 +60,42 @@ loader/WASM 配對及下載門檻檢查通過。2026-10-04 實際大小比較如
 轉頭目標、降低動態效果、實際外觀及手機驗收尚未完成。
 
 ## 此批已實作
+
+### 2026-10-04：調查矛盾的公開姿態投影（尚未部署）
+
+本批亦新增模板「減少角色動作」選項，預設跟隨系統
+prefers-reduced-motion；玩家本頁手動選擇後不再被系統變更覆蓋，
+不儲存帳號或跨裝置設定。Unity 僅接受 0/1，本機停用額外 torso 動作、
+非必要表情手勢與 guest 點頭，保持坐姿、腳底調整和玩家操作，
+不改 PublicPlan／場次資料。模板、C# 與新增 Play 斷言尚未集中執行，
+舊 play/index.html 與已建置的 WASM 沒有此選項，不能單獨發布新模板。
+
+同批追加本機 dialogue activity 層（尚未編譯／測試）：
+開啟對話 listening、送出 message waiting、收到相同 ticket / NPC 的
+新 AI 回覆 speaking 三秒後回 listening；history、fallback、error
+不播放新的 AI 說話動作。等待有 25 秒上限，UI 逾時、關閉、角色撤銷
+與停用都清除。這是本機請求／對話 UX，不修改 PublicPlan 或伺服器
+requestState，不表示供應商真的正在推論，也不決定任何案件事實。
+只在中性坐姿疊加上半身，不改坐姿 clip／根位置；伺服器明確情緒
+優先。新增 Play 斷言待整批集中執行。先前 revision 5f1234cfe7c9464f
+的成功建置不含此新增層，必須重新建置後才可發布。
+
+`src/court-cast.ts` 沿用既有 NPC DTO，不新增 protocol／資料庫欄位。
+僅指定教學案件、調查階段且有效 investigation 已確認 departure-time
+矛盾、尚未追問時，Witness 的 emotion 為 nervous；其他角色仍 neutral。
+完成追問、結束案件或離開調查階段後恢復 neutral。保持 sitting、silent
+及 idle，不假裝 AI 正在說話，不改根位置或分數。緊張只是預設教學表現，
+不得作為說謊、可信度或有罪判斷。模型文字、privateGraph 或未發現矛盾
+都不能觸發；不完整舊狀態維持中性。新事件沿用既有 snapshot/journal
+保存公開投影；不重寫已保存的歷史、不為舊快照製造新事件。
+
+`scripts/test-court-cast.mjs` 驗證正常發現／追問、其他角色隔離、未發現、
+完成、錯階段、其他案件、損壞狀態與輸入不變。搭配 investigation / journal
+回歸共 86 項及 TypeScript 曾通過（本機 SQLite／mock DO，不是正式 workerd
+驗收）。後續新增 client parseSnapshot 相容斷言時，測試假資料的 session ID
+與時間格式不符合 wire contract，已修正 fixture；依使用者「整批做完再測」
+要求，修正後尚未重跑，不能將先前 86 項結果當作最終版本驗收。
+完整 speaking / thinking 生命週期與雲端 WebGL 視覺驗收仍待接續。
 
 `NpcMotionPlan` 把協定允許的 pose / emotion / speakingState / requestState 轉為固定動畫選擇，不接受模型傳入 clip 名稱、Animator 參數、骨架路徑或程式。`NPCInteractable` 只在既有 CourtRuntimeState 驗證、版本控制及合法座位映射之後更新 `NpcActorMotion`；不保存原始 DTO、案件真相、提示詞或角色私有資料。
 

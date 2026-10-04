@@ -51,7 +51,7 @@
   </script>
 </head>
 <body>
-  <header><span>模擬法庭 · 教學原型</span><span id="input-mode" role="status"></span><button id="fullscreen" type="button">全螢幕</button><a href="https://1ch666.github.io/eduai2/">返回學堂</a></header>
+  <header><span>模擬法庭 · 教學原型</span><span id="input-mode" role="status"></span><label><input id="reduce-motion" type="checkbox"> 減少角色動作</label><button id="fullscreen" type="button">全螢幕</button><a href="https://1ch666.github.io/eduai2/">返回學堂</a></header>
   <script data-fullscreen>
     const fullButton=document.getElementById('fullscreen');
     fullButton.onclick=async()=>{
@@ -103,6 +103,19 @@
     let ready = false;
     let entered = false;
     let unityInstance;
+    const motionToggle=document.getElementById('reduce-motion');
+    const motionPreference=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    let motionChosen=false;
+    if(motionToggle){
+      motionToggle.checked=motionPreference?.matches===true;
+      motionToggle.addEventListener('change',()=>{motionChosen=true;applyMotionPreference();});
+      motionPreference?.addEventListener?.('change',event=>{
+        if(!motionChosen){motionToggle.checked=event.matches;applyMotionPreference();}
+      });
+    }
+    function applyMotionPreference(){
+      if(unityInstance&&motionToggle)unityInstance.SendMessage('CourtRuntimeState','SetReducedMotion',motionToggle.checked?'1':'0');
+    }
     const hostedCourt = new URLSearchParams(location.search).get('court') === '1' && window.parent !== window;
     if (hostedCourt) {
       window.addEventListener('message', event => {
@@ -193,6 +206,7 @@
           status.textContent = `正在載入 ${progress.value}%`;
         }).then(instance => {
           unityInstance = instance;
+          applyMotionPreference();
           if (fallbackRequested) unityInstance.SendMessage('Player', 'EnableDragLook');
           ready = true;
           progress.value = 100;

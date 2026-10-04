@@ -1,4 +1,5 @@
 import {CASES, type CourtState, type Procedure} from './court-rules';
+import {parseInvestigation,TABLET_INVESTIGATION} from './court-investigation';
 
 // Presentation identities for the existing five teaching NPCs. These are NOT
 // findings about legally required attendance or private role knowledge.
@@ -24,5 +25,14 @@ export function canConverse(s:CourtState){
 export function publicCourtCast(s:CourtState){
  const procedure=(s.generatedCase||CASES.find(c=>c.id===s.config.caseId))?.procedure;
  if(!procedure)return [];
- return NPC_IDS.map(npcId=>({npcId,...npcIdentity(procedure,npcId),pose:'sitting',emotion:'neutral',speakingState:'silent',visible:true,interactable:canConverse(s),requestState:'idle'}));
+ // Authored performance after a public discovery, never a credibility/guilt cue.
+ // Validate persisted investigation before projecting; no model text or private
+ // fact graph may choose emotions. Old/other cases retain their neutral pose.
+ const investigation=s.config.caseId===TABLET_INVESTIGATION.id?parseInvestigation(s.investigation):null;
+ const contradiction=TABLET_INVESTIGATION.contradiction;
+ const awaitingFollowUp=!s.completed&&s.stage===2&&investigation?.foundContradictionIds.includes(contradiction.contradictionId)&&
+  !investigation.followedContradictionIds.includes(contradiction.contradictionId);
+ return NPC_IDS.map(npcId=>({npcId,...npcIdentity(procedure,npcId),pose:'sitting',
+  emotion:awaitingFollowUp&&npcId===contradiction.relatedNpcId?'nervous':'neutral',
+  speakingState:'silent',visible:true,interactable:canConverse(s),requestState:'idle'}));
 }
