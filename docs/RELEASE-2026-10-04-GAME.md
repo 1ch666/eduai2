@@ -1,6 +1,28 @@
 # Game / Education checkpoint — 2026-10-04
 
-## Latest deadline batch (publication pending)
+## Latest deadline batch (published)
+
+- Release source: `a67ebb89489c6ec18454490e0403d0d37f134bad` on main.
+- Fast checks `37191693262`, Pages `37191693278`, Docker `37191761937`: success.
+- Worker version `e89d31b1-982d-461a-9e8b-cee036b9fc8f` deployed from an isolated
+  git archive after type generation, TypeScript and dry-run passed. Used
+  `--keep-vars`; no new migration, binding, secret, permission or billing change.
+- Worker HTML, all four Unity Build resources, demo-guide.js and
+  statement-comparison.js: HTTP 200 and byte equality to the release archive.
+- Production browser guest game: 100% loaded, entered the rendered court,
+  reduced-motion checkbox usable, no captured console error/warn. Screenshot:
+  `outputs/deadline-batch-production-20261004.png`. No production account/session
+  or research data was created by this smoke check.
+- Pages HTML matches after newline normalization; direct large data download
+  timed out, so complete Pages binary equality is not yet established.
+  A bounded resumed curl download of the revision-qualified WASM subsequently
+  completed and matched SHA256 35470eae0c5ea937093776eb1baf95d3fba08f6d3b53c83e3a51516bd695d0e7.
+  This resolves WASM freshness only, not the incomplete data-file comparison.
+- Docker Actions performed actual build/run and HTTP asset comparisons. Handoff
+  downloaded to `outputs/docker-a67ebb8`; all seven SHA256SUMS entries pass and
+  SOURCE_COMMIT exactly matches a67ebb89489c6ec18454490e0403d0d37f134bad.
+  Docker remains a static preview, not the live login/AI backend.
+- Original collaborator edits remain unstaged and excluded from this release.
 
 Source implementation a887fd7: public-only statement/evidence comparison,
 deterministic authored-witness reaction, bounded local NPC dialogue gestures,
