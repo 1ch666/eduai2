@@ -431,3 +431,13 @@ This reducer is not yet wired to a durable host: transactional persistence,
 request recovery, owner checks, deletion of any exported copies, consent UI and
 retention remain integration work. It does not enable research collection or
 change production storage. Ordinary gameplay must remain available without consent.
+
+Persisted education boundary check (2026-10-04): `parseEducationFlow` validates
+exact stored fields, instrument version, bounded scores, phase/revision agreement
+and the presence/absence of pre/post/survey data. Transitions and public views
+now use this validation instead of trusting a TypeScript cast. Invalid state
+is rejected rather than reset or exposed. Parsed state is detached so later
+transitions cannot mutate earlier score objects. Seven assessment tests and
+TypeScript checking passed, including corrupt JSON shapes, extra fields,
+accessor rejection and detached-state regression. Durable storage and UI
+integration remain pending; no participant data or production schema changed.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newEducationFlow,transitionEducationFlow as move,educationFlowView as view} from '../src/court-education-flow.ts';
+import {newEducationFlow,transitionEducationFlow as move,educationFlowView as view,parseEducationFlow} from '../src/court-education-flow.ts';
 const version=newEducationFlow().version;
 const pre={version,phase:'pre',answers:{'pre-evidence':1,'pre-time':2,'pre-procedure':0}};
 const post={version,phase:'post',answers:{'post-evidence':2,'post-time':0,'post-procedure':1}};
@@ -40,4 +40,16 @@ test('withdrawal erases assessment values at every phase and prevents reenrollme
   assert.equal(move(w,{kind:'consent'},w.revision,'not_started'),null);
   assert.equal(move(w,{kind:'withdraw'},w.revision,'completed'),null);
  }
+});
+test('persisted flow rejects inconsistent phases, revisions, extra fields and hostile accessors',()=>{
+ const initial=newEducationFlow();assert.deepEqual(parseEducationFlow(JSON.parse(JSON.stringify(initial))),initial);
+ for(const bad of [null,[],{...initial,phase:'complete'},{...initial,revision:1},{...initial,privatePrompt:'secret'},{...initial,phase:'withdrawn',revision:7},{...initial,pre:{version,phase:'pre',score:3,total:3}}]){
+  assert.equal(parseEducationFlow(bad),null);assert.throws(()=>view(bad),/Invalid education flow/);
+ }
+ let touched=false;const bad={...initial};Object.defineProperty(bad,'phase',{enumerable:true,get(){touched=true;throw Error();}});
+ assert.equal(parseEducationFlow(bad),null);assert.equal(touched,false);
+ let s=advance(initial,{kind:'consent'},'not_started');s=advance(s,{kind:'pre',submission:pre},'not_started');
+ for(const score of [-1,4,1.5,'3'])assert.equal(parseEducationFlow({...s,pre:{...s.pre,score}}),null);
+ assert.equal(move({...s,phase:'survey'},{kind:'survey',submission:survey},2,'completed'),null);
+ const n=advance(s,{kind:'case_completed'},'completed');n.pre.score=0;assert.equal(s.pre.score,3,'transitions must not alias old persisted objects');
 });
