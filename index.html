@@ -1618,9 +1618,16 @@
         const consume=line=>{
           if(!line.trim())return;
           const item=JSON.parse(line);
+          if(complete||!item||!['meta','delta','done','error'].includes(item.type))throw new Error('回答串流格式錯誤');
           if(item.type==='error')throw new Error(`${item.error} [${item.code}]`);
-          if(item.type==='delta'&&typeof item.text==='string')options.onText?.(item.text);
-          if(item.type==='done'){payload=item;complete=true;}
+          if(item.type==='delta'){
+            if(typeof item.text!=='string')throw new Error('回答串流格式錯誤');
+            options.onText?.(item.text);
+          }
+          if(item.type==='done'){
+            if(typeof item.answer!=='string'||!item.answer.trim()||item.answer.length>5000)throw new Error('回答串流格式錯誤');
+            payload=item;complete=true;
+          }
         };
         try {
           while(true){
