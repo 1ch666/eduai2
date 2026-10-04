@@ -33,7 +33,7 @@ const actionPanel=installActionPanel({window,document,getView:()=>view,getAccoun
  if(view?.id===id&&account?.id===owner&&p.view.version>=view.version){view=p.view;render();scene();}
 }});
 const serverActions=document.createElement('button');serverActions.type='button';serverActions.textContent='伺服器程序操作';serverActions.hidden=onPages;serverActions.addEventListener('click',()=>{if(!busy&&!npcBusy)actionPanel.open();});$('back').after(serverActions);
-const gamePanels=installGamePanels({window,document,getView:()=>view,getAccount:()=>account,onClose:()=>stopVoice(true)});
+const gamePanels=installGamePanels({window,document,getView:()=>view,getAccount:()=>account,onClose:()=>stopVoice(true),canOpen:()=>!busy&&!npcBusy&&!actionPanel.working,openInvestigation:()=>actionPanel.open()});
 const replayPanel=installReplayPanel({window,document,getView:()=>view,getAccount:()=>account,beforeOpen:()=>{pause();stopVoice(true);window.speechSynthesis?.cancel();}});
 const replayButton=document.createElement('button');replayButton.type='button';replayButton.textContent='回看庭審紀錄';replayButton.addEventListener('click',()=>{if(!busy&&!npcBusy)replayPanel.open();});$('back').after(replayButton);
 $('logout').addEventListener('click',()=>replayPanel.clear(),{capture:true});

@@ -149,6 +149,14 @@ Implemented and locally tested:
   blocks stale buttons on version/session changes, hidden targets or pending
   recovery. Future unknown investigation actions retain the generic UI fallback.
   This is web procedure-mode integration, NOT yet a new Unity world interaction.
+- The existing Unity evidence/procedure box bridge now opens that same recoverable
+  action panel for investigation cases. The previous evidence-only box was empty
+  before discovery and could not reach discovery actions. Opening a box remains
+  navigation only: no automatic discovery, AI request or state mutation. Old cases
+  retain their existing panels. Completed investigation cases open read-only board
+  and debrief; the board is hidden until its owner/session/version matches the
+  authenticated action snapshot. No Unity binary modification is needed for this
+  host-side routing, but real WebGL/browser acceptance is still outstanding.
 - Existing completion semantics remain: wrong objective answers invite retry;
   a completed result cannot be changed. This is not a full first-attempt assessment.
 

@@ -1,5 +1,5 @@
 // Reuse the live, server-authorised controls. Opening a box never submits an action.
-export function installGamePanels({window, document, getView, getAccount, onClose}) {
+export function installGamePanels({window, document, getView, getAccount, onClose, openInvestigation, canOpen=()=>true}) {
   let active = null;
   const close = () => { if (active) active.close(); };
   const listener = async event => {
@@ -7,9 +7,12 @@ export function installGamePanels({window, document, getView, getAccount, onClos
     if (event.origin !== window.location.origin || event.source !== frame?.contentWindow ||
         event.data?.type !== 'court-panel' || !['evidence','actions'].includes(event.data.panel)) return;
     const view = getView(), account = getAccount();
-    if (!view || !account || active) return;
+    if (!view || !account || active || !canOpen()) return;
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch { return; }
-    if (getView()?.id !== view.id || getAccount()?.id !== account.id || active) return;
+    if (getView()?.id !== view.id || getAccount()?.id !== account.id || active || !canOpen()) return;
+    // The existing Unity box message is navigation, never a discovery mutation.
+    // Keep one transport/recovery owner rather than creating another action UI.
+    if(getView()?.investigation && openInvestigation){openInvestigation(event.data.panel);return;}
     const dialog = document.createElement('dialog');
     dialog.className = 'game-panel';
     const title = document.createElement('h2');

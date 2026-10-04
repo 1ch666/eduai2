@@ -41,3 +41,19 @@ test('Unity bridge sends only supported panel requests to the same origin',async
  library.CourtHostPanel('evidence');library.CourtHostPanel('actions');library.CourtHostPanel('delete');
  assert.equal(sent.length,2);assert.equal(sent[0][0].panel,'evidence');assert.equal(sent[1][1],'https://local.test');
 });
+
+test('investigation box delegates navigation only, including completed review, with fullscreen race guards',async()=>{
+ let handler,view={id:'case',investigation:{completed:false}},account={id:'owner'},allowed=true,exit;
+ const frame={contentWindow:{}},opened=[];
+ const window={location:{origin:'https://local.test'},addEventListener:(n,f)=>{if(n==='message')handler=f;}};
+ const document={getElementById:id=>id==='scene'?frame:null,createElement:()=>{throw Error('must reuse existing action panel');},fullscreenElement:null,exitFullscreen:()=>new Promise(resolve=>exit=resolve)};
+ installGamePanels({window,document,getView:()=>view,getAccount:()=>account,canOpen:()=>allowed,openInvestigation:panel=>opened.push(panel)});
+ const event={origin:window.location.origin,source:frame.contentWindow,data:{type:'court-panel',panel:'evidence'}};
+ await handler({...event,origin:'https://evil.test'});await handler({...event,source:{}});assert.deepEqual(opened,[]);
+ await handler(event);assert.deepEqual(opened,['evidence']);
+ view.investigation.completed=true;await handler({...event,data:{type:'court-panel',panel:'actions'}});assert.deepEqual(opened,['evidence','actions']);
+ allowed=false;await handler(event);assert.equal(opened.length,2);allowed=true;
+ document.fullscreenElement={};const pending=handler(event);account=null;exit();await pending;assert.equal(opened.length,2);
+ account={id:'owner'};const changed=handler(event);view={...view,id:'other'};exit();await changed;assert.equal(opened.length,2);
+ const busy=handler(event);allowed=false;exit();await busy;assert.equal(opened.length,2);
+});
