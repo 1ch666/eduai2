@@ -10,7 +10,7 @@ export function createEducationHost({document,origin,getContext,csrf,fetchImpl=g
  let key='',epoch=0,working=false,disabled=false;
  const panel=createEducationPanel({document,onAction:(a,r)=>void execute(()=>client.submit(a,r)),onWithdraw:()=>void execute(()=>client.withdraw()),onRefresh:()=>void execute(()=>client.refresh())});
  root.append(notice,refresh,retry,panel.element);
- const messages={accepted:'已取得伺服器狀態。',disabled:'目前未開放前後測，仍可繼續遊戲。',conflict:'場次或測驗狀態已變更，請更新測驗狀態；若已开始庭審，不能補填前測。',forbidden:'請確認登入狀態後再試。','not-found':'此場次不存在或已無存取權限。','rate-limited':'操作較頻繁，請稍後再更新。','login-required':'請重新登入。',withdrawn:'資料已撤回或到期，請更新狀態。',timeout:'連線逾時，結果尚未確認。',unavailable:'暫時無法確認測驗結果，請更新狀態或重送同一筆。',pending:'上一筆送出結果尚未確認，請先更新或重送同一筆。','refresh-required':'請先取得最新測驗狀態。',stale:'收到較舊狀態，請稍後更新。'};
+ const messages={accepted:'已取得伺服器狀態。',disabled:'目前未開放前後測，仍可繼續遊戲。',conflict:'目前場次或測驗階段不允許這次操作，請更新測驗狀態。前測須在開庭前完成，後測須等案件完成。',forbidden:'請確認登入狀態後再試。','not-found':'此場次不存在或已無存取權限。','rate-limited':'操作較頻繁，請稍後再更新。','login-required':'請重新登入。',withdrawn:'資料已撤回或到期，請更新狀態。',timeout:'連線逾時，結果尚未確認。',unavailable:'暫時無法確認測驗結果，請更新狀態或重送同一筆。',pending:'上一筆送出結果尚未確認，請先更新或重送同一筆。','refresh-required':'請先取得最新測驗狀態。',stale:'收到較舊狀態，請稍後更新。'};
  function clear(){epoch++;key='';working=false;disabled=false;client.clear();panel.clear();notice.textContent='';root.hidden=true;root.open=false;retry.hidden=true;refresh.disabled=false;}
  function sync(){
   const c=getContext();const next=c?.owner&&c?.sessionId&&c.supported?`${c.owner}:${c.sessionId}`:'';

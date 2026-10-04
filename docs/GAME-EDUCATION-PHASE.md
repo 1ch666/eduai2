@@ -5,7 +5,7 @@ nonessential backend expansion. Preserve the complete original Backend Goal and
 `docs/BACKEND-GOAL-AUDIT.md`; resume all remaining items after this phase's acceptance.
 Do not mark the Backend Goal complete or discard it. This is a sequencing change.
 
-## Current evidence and boundary
+## Initial baseline and boundary (later verification entries below supersede this baseline)
 
 - Existing Unity WebGL court, NPC bridge, role knowledge projection, evidence
   viewer, authoritative procedure, recovery, idempotency and journal are present.

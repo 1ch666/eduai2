@@ -42,6 +42,11 @@ response retry the SAME ID/body or GET the current view. Never invent success.
 IDs cannot be reused with changed content. Repeated keys, unknown fields,
 invalid Unicode and unsupported action payloads are rejected.
 
+The browser retains the exact pending command after an ambiguous transport
+failure. A received POST 409 instead discards the refused command and clears
+the cached view: a fresh GET is required before any new submission. It does not
+automatically replay an illegal phase transition or claim that it succeeded.
+
 Sequence (independent revision 0 through 5):
 
 1. `consent`, revision 0: only when the court has not started.
@@ -85,3 +90,23 @@ Do not bypass the default-off gate to claim the research phase is complete.
 Automatic anonymous learning-event integration, time metrics and formal human
 testing remain separate unfinished work. Test fixtures are synthetic, never
 participant results or evidence of educational effectiveness.
+
+## Rendered browser check — 2026-10-04
+
+On isolated localhost port 8798 with synthetic credentials and AI disabled,
+the actual browser verified the fixed case's optional assessment entry, default
+unchecked consent, native validation rejecting unchecked consent, three empty
+pre-test answer groups, saving a synthetic pre-test, and recovering that saved
+state after reload. An early post-test request was rejected without changing
+court version 0; refreshing then restored the usable playing-phase panel.
+
+This caught native fetch's incompatible receiver when invoked as a client
+instance method (Node's implementation had allowed it). The client now calls
+the supplied fetch function without binding the client object. A receiver
+regression and definitive-conflict recovery test were added; all 13 focused
+client/host/panel tests pass. Screenshot is a local artifact under
+`outputs/education-browser-20261004.jpg`, not committed research data.
+
+This is partial browser acceptance, not a completed browser/Unity case or a
+human study. Browser post-test/survey/withdrawal, mobile devices, alarm delivery,
+privacy review and production deployment are still unverified.

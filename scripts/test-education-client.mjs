@@ -6,6 +6,11 @@ const off=()=>educationFlowView(newEducationFlow());
 const pre=()=>educationFlowView(transitionEducationFlow(newEducationFlow(),{kind:'consent'},0,'not_started'));
 const response=data=>Response.json({ok:true,apiVersion:2,requestId:crypto.randomUUID(),traceId:'a'.repeat(32),timestamp:new Date().toISOString(),errorCode:null,stateVersion:null,data});
 function client(fetchImpl,timeoutMs=1000){const c=new CourtEducationClient({origin:'https://example.test',csrf:()=> 'csrf',fetchImpl,timeoutMs});c.bind(crypto.randomUUID());return c;}
+
+test('fetch is invoked without the client as a browser WebIDL receiver',async()=>{
+ const c=client(function(){assert.equal(this,undefined,'native fetch rejects a CourtEducationClient receiver');return Promise.resolve(response({view:off()}));});
+ assert.equal(await c.refresh(),'accepted');assert.equal(c.view.phase,'off');
+});
 test('unknown POST stays pending; explicit retry preserves exact ID/body without storing credentials',async()=>{
  const calls=[];let fail=true;
  const c=client(async(url,o)=>{calls.push({url,...o});if(o.method==='GET')return response({view:off()});if(fail)throw Error('lost');return response({code:'ACCEPTED',appliedRevision:1,view:pre()});});
@@ -19,6 +24,16 @@ test('unknown POST stays pending; explicit retry preserves exact ID/body without
 test('clearing/rebinding rejects late replies; timeout does not automatically repeat writes',async()=>{
  let resolve;const c=client(()=>new Promise(r=>resolve=r));const pending=c.refresh();c.bind(crypto.randomUUID());resolve(response({view:pre()}));assert.equal(await pending,'obsolete-context');assert.equal(c.view,null);
  let calls=0;const timeout=client(async()=>{calls++;return new Promise(()=>{});},5);assert.equal(await timeout.refresh(),'timeout');assert.equal(calls,1);assert.equal(timeout.busy,false);
+});
+
+test('definitive POST conflict requires refresh, not endless replay of a refused command',async()=>{
+ const posts=[];
+ const c=client(async(_url,o)=>{if(o.method==='GET')return response({view:off()});posts.push(o.body);return new Response(null,{status:409});});
+ await c.refresh();assert.equal(await c.submit({kind:'consent'},0),'conflict');
+ assert.equal(c.pending,false);assert.equal(c.view,null);assert.equal(await c.retry(),'no-pending');
+ assert.equal(await c.submit({kind:'consent'},0),'refresh-required');assert.equal(posts.length,1);
+ await c.refresh();assert.equal(await c.submit({kind:'consent'},0),'conflict');
+ assert.equal(posts.length,2);assert.notEqual(JSON.parse(posts[0]).requestId,JSON.parse(posts[1]).requestId);
 });
 test('response validation blocks premature scores, unknown private fields and oversized payloads',async()=>{
  assert.equal(validEducationView(off()),true);assert.equal(validEducationView(pre()),true);

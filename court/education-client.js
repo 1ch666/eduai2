@@ -28,7 +28,9 @@ export class CourtEducationClient{
  #origin;#fetch;#csrf;#timeout;#session='';#epoch=0;#controller=null;#view=null;#pending=null;
  constructor({origin,csrf,fetchImpl=globalThis.fetch,timeoutMs=15000}){
   if(new URL(origin).origin!==origin||!/^https?:/.test(origin)||typeof csrf!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw Error('Invalid education client');
-  this.#origin=origin;this.#csrf=csrf;this.#fetch=fetchImpl;this.#timeout=timeoutMs;
+  // Native browser fetch must not receive this client as its WebIDL receiver.
+  // Keep an unbound call; Node fetch/test doubles otherwise hide this failure.
+  this.#origin=origin;this.#csrf=csrf;this.#fetch=(...args)=>fetchImpl(...args);this.#timeout=timeoutMs;
  }
  get view(){return this.#view?structuredClone(this.#view):null;}get pending(){return !!this.#pending;}get busy(){return !!this.#controller;}
  clear(){this.#epoch++;this.#controller?.abort();this.#controller=null;this.#session='';this.#view=null;this.#pending=null;}
@@ -62,7 +64,14 @@ export class CourtEducationClient{
   const aborted=new Promise((_,reject)=>{onAbort=()=>reject(Error('cancelled'));controller.signal.addEventListener('abort',onAbort,{once:true});});
   try{
    const r=await Promise.race([read(),aborted]);if(epoch!==this.#epoch)return 'obsolete-context';
-   if(r.status){if(r.status===401){this.clear();return 'login-required';}return ({403:'forbidden',404:'not-found',409:'conflict',410:'withdrawn',429:'rate-limited'}[r.status])||'unavailable';}
+   if(r.status){
+    if(r.status===401){this.clear();return 'login-required';}
+    // A received 409 is a definitive refusal, not an unknown network outcome.
+    // Discard the refused command and require a fresh server view before any
+    // new submission; never keep retrying an illegal phase transition.
+    if(r.status===409&&method==='POST'){this.#pending=null;this.#view=null;}
+    return ({403:'forbidden',404:'not-found',409:'conflict',410:'withdrawn',429:'rate-limited'}[r.status])||'unavailable';
+   }
    if(this.#view?.phase==='withdrawn'&&r.view.phase!=='withdrawn')return 'stale';
    if(Number.isInteger(this.#view?.revision)&&Number.isInteger(r.view.revision)&&r.view.revision<this.#view.revision)return 'stale';
    this.#view=r.view;
