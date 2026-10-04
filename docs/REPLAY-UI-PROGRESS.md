@@ -17,7 +17,8 @@ workerd 未正確推導 RPC 而造成型別錯誤；以核准的本機執行重�
 types、TypeScript、部署乾跑全部通過，未以忽略型別方式略過。
 Pages 37194134526 與 Docker 37194175116 success。Docker 交接 artifact
 `eduai-court-docker` 實際存在，46,692,078 bytes，保留一天；由 CI 完成
-建置、容器執行與資源比對，未在本機另行下載驗證。它仍為靜態預覽，
+建置、容器執行與資源比對；已下載至本機 outputs/docker-341c475，來源
+commit 與 SHA256SUMS 的七項校驗全部相符。它仍為靜態預覽，
 不包含正式登入／AI 後端。Fast CI 37194134931 最終 success，
 checks 與 local-api 均通過；不將本機合成測試稱為正式使用者實驗。
 Worker 與 Pages 的 action-panel.js、replay-panel.js 都是 HTTP 200，
