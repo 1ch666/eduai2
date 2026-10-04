@@ -807,6 +807,7 @@
           </aside>
           <section class="panel ai-chat-panel">
             <h2 class="serif">問一個公民問題</h2>
+            <p class="muted">問題會傳送至雲端文字模型；啟用法規檢索時，也會由 Cloudflare Workers AI 轉成查詢向量。請勿輸入個資或真實案件隱私。串流內容在完成前僅供暫看。</p>
             <div class="ai-chat-log" id="aiChatLog" aria-live="polite"></div>
             <label class="selector-field" style="display:block">你的問題
               <textarea class="ai-question" id="aiQuestion" maxlength="400" placeholder="例如：為什麼限制基本權還要符合比例原則？"></textarea>
@@ -1610,7 +1611,31 @@
       const sessionRequest = url.startsWith(`${AUTH_API_PATH}/`) || url === PROGRESS_API_PATH;
       const credentials = sessionRequest || authState.user ? "include" : "omit";
       const response = await fetch(url, Object.assign({}, options, { headers, credentials }));
-      const payload = await response.json().catch(() => ({}));
+      let payload;
+      if(response.headers.get('content-type')?.includes('application/x-ndjson')) {
+        const reader=response.body.getReader(), decoder=new TextDecoder('utf-8',{fatal:true});
+        let buffer='', received=0, complete=false;
+        const consume=line=>{
+          if(!line.trim())return;
+          const item=JSON.parse(line);
+          if(item.type==='error')throw new Error(`${item.error} [${item.code}]`);
+          if(item.type==='delta'&&typeof item.text==='string')options.onText?.(item.text);
+          if(item.type==='done'){payload=item;complete=true;}
+        };
+        try {
+          while(true){
+            const part=await reader.read();
+            if(part.done){buffer+=decoder.decode();break;}
+            received+=part.value.byteLength;
+            if(received>131072)throw new Error('回答超過安全長度');
+            buffer+=decoder.decode(part.value,{stream:true});
+            let end;
+            while((end=buffer.indexOf('\n'))>=0){consume(buffer.slice(0,end));buffer=buffer.slice(end+1);}
+          }
+          consume(buffer);
+          if(!complete)throw new Error('連線中斷，回答尚未完成。');
+        } finally {await reader.cancel().catch(()=>{});reader.releaseLock();}
+      } else payload = await response.json().catch(() => ({}));
       return { response, payload };
     }
 
@@ -1925,7 +1950,7 @@
           setAiStatus("error", payload.error || "Ollama 服務尚未完成設定");
           return;
         }
-        setAiStatus("ready", `Ollama 已連線｜${payload.model}`);
+        setAiStatus("ready", `Ollama 已設定｜${payload.model}（實際回覆視連線與額度）`);
       } catch {
         setAiStatus("error", "目前無法連線到 Ollama 服務");
       }
@@ -1937,7 +1962,7 @@
       if (question.length > 400) { showToast("問題不能超過 400 字"); return; }
       const chapterId = $("aiChapter").value;
       const chapter = CURRICULUM.units.find(unit => unit.id === chapterId);
-      const history = aiState.messages.filter(message => message.role === "user" || message.role === "assistant").slice(-6);
+      const history = aiState.messages.filter(message => !message.pending&&!message.failed&&(message.role === "user" || message.role === "assistant")).slice(-6).map(({role,content})=>({role,content:content.slice(0,650)}));
       aiState.messages.push({ role: "user", content: question });
       $("aiQuestion").value = "";
       aiState.busy = true;
@@ -1946,7 +1971,9 @@
       renderAiMessages();
       setAiStatus("loading", "Ollama 正在整理答案…");
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 55_000);
+      const timeout = setTimeout(() => controller.abort(), 65_000);
+      const answerMessage={role:'assistant',content:'',pending:true};
+      aiState.messages.push(answerMessage);
       try {
         const { response, payload } = await apiFetch(`${AI_API_PATH}/ask`, {
           method: "POST",
@@ -1955,17 +1982,24 @@
             clientId: getNoteClientId(),
             requestId: crypto.randomUUID(),
             mode: "civics",
+            stream: true,
             chapter: chapter ? { id: chapter.id, code: chapter.code, title: chapter.title } : null,
             history
           }),
-          signal: controller.signal
+          signal: controller.signal,
+          onText: text=>{answerMessage.content+=text;renderAiMessages();setAiStatus('loading','正在回答，內容尚未完成…');}
         });
         if (!response.ok) throw new Error(payload.error || "Ollama 暫時無法回答");
-        aiState.messages.push({ role: "assistant", content: payload.answer });
-        setAiStatus("ready", `Ollama 已連線｜${payload.model}`);
+        answerMessage.content=payload.answer;
+        if(payload.sources?.length)answerMessage.content+='\n\n參考法規（快照，請核對現行版本）：\n'+payload.sources.map((s,i)=>`[法規${i+1}] ${s.law} ${s.article}（片段 ${s.part}；修正 ${s.amended}；快照 ${s.snapshot.slice(0,10)}）\n${s.url}`).join('\n');
+        else if(payload.retrieval&&payload.retrieval.status!=='matched')answerMessage.content+='\n\n本次未取得法規檢索依據，回答未經法規來源核對。';
+        answerMessage.pending=false;
+        setAiStatus("ready", payload.provider==='MOE dictionary'?'教育部辭典｜精確詞目查詢':`Ollama 已回覆｜${payload.model}`);
       } catch (error) {
         const message = error.name === "AbortError" ? "模型回應逾時，請稍後再試。" : error.message;
-        aiState.messages.push({ role: "assistant", content: message });
+        answerMessage.content=message;
+        answerMessage.failed=true;
+        answerMessage.pending=false;
         setAiStatus("error", message);
       } finally {
         clearTimeout(timeout);

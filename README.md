@@ -4,7 +4,7 @@
 
 本專案結合網頁學習介面、Unity WebGL 法庭、Cloudflare 後端與 Ollama 雲端模型。使用者可以閱讀重點、練習題目、查看概念弱點，也可以在虛構案件中選擇角色、檢視證物及向 NPC 提問。設計重點不是讓 AI 代替法官下判決，而是練習區分事實與推測、理解程序及說明自己的理由。
 
-目前是持續開發中的教育平台，已有可操作的網站與 3D 遊戲；完整多角色程序模擬、手機全流程驗收及部分學習功能仍在完善。以下依 **2026-09-27 倉庫程式與發布紀錄**整理，不將設計目標等同已完成成果。
+目前是教育原型。2026-10-04 已完成一個正式教學場次的 AI 提問、證物矛盾、追問、结案及存檔恢復驗收；手機測試由使用者回報通過。這不代表所有角色、案件及 3D 世界互動全面通過，也沒有教育成效研究結論。最新證據見 [收尾驗收紀錄](docs/RELEASE-CLOSEOUT.md)。
 
 - 完整平台：[Cloudflare Worker 網站](https://civic-law-lab-212.yichengc869.workers.dev/)
 - 法庭入口：[建立或繼續場次](https://civic-law-lab-212.yichengc869.workers.dev/court/)
@@ -12,6 +12,35 @@
 - 原始碼：[1ch666/eduai2](https://github.com/1ch666/eduai2)
 
 ## 一、專案目的與學習流程
+
+### 本輪新增：法律 RAG 與串流助教
+
+- **法律 RAG**：Workers AI `bge-m3` 問題向量化、Vectorize 檢索、法規快照上下文及來源回傳。八部臺灣法規、3,635 筆條文／長條文片段已完成真實向量匯入與三題中文检索檢查；不是整個法規庫，也不保證快照為最新適用法律。
+- **Streaming**：助教可從 Ollama 真實 NDJSON 串流逐段呈現答案；不傳出 thinking、不把中斷文字當完整答案。NPC 結構化輸出維持既有驗證流程，不直接套用助教串流。
+- **基本防刷**：沿用 Durable Object 的每分鐘 client 4 次、網路識別 12 次、登入帳號 8 次限制，以及帳號級 AI admission／請求去重；新增 429 `Retry-After`。不是完整 DDoS 防護或付費保證。
+- **發布狀態**：已確認 Workers Free 並完成向量庫匯入，本機回歸測試通過；正式發布／瀏覽器驗收紀錄與限制見 [RAG／Streaming 操作說明](docs/RAG-STREAMING.md)。
+
+```mermaid
+flowchart TD
+  Browser[瀏覽器：學堂與 Unity WebGL] --> Worker[Cloudflare Worker 同源 API]
+  Worker --> Guards[身分／來源／限流／請求去重]
+  Guards --> Court[法庭：程序規則與角色知識隔離]
+  Court --> State[Durable Objects SQLite 場次與事件]
+  Court --> NPC[Ollama：NPC 發言提案]
+  Guards --> Tutor[公民助教]
+  Tutor --> Dict[教育部辭典：精確詞目查詢]
+  Tutor --> Embed[Workers AI bge-m3：問題向量]
+  Embed --> Index[Vectorize：版本化公開法規索引]
+  Index --> Context[法規片段與官方來源]
+  Context --> LLM[Ollama：有來源上下文的回答]
+  Tutor --> LLM
+  LLM --> Stream[NDJSON 串流：僅答案文字]
+  Stream --> Browser
+  Laws[法務部法規快照] --> Offline[離線整理／分批 embedding／管理者匯入]
+  Offline --> Index
+```
+
+RAG 與 NPC 私有案件資訊分開：索引只存公開法規，不存帳號、對話、案情私密資訊或答案。
 
 法條與公民概念容易流於背誦，因此我們把學習拆成「理解概念 → 情境練習 → 程序體驗 → 回饋與複習」：
 

@@ -6,10 +6,12 @@ export type ProviderErrorCode = 'NOT_CONFIGURED' | 'INVALID_INPUT' | 'CANCELLED'
   'OUTPUT_TRUNCATED' | 'EMPTY_CONTENT' | 'ADMISSION_DENIED' | 'ADMISSION_UNAVAILABLE';
 export type ProviderResult<T> = {ok: true; value: T} | {ok: false; code: ProviderErrorCode};
 export interface ProviderContext {
+  /** Optional final-answer deltas only. Never used for structured court output. */
+  onText?: (text: string) => Promise<void>;
   signal?: AbortSignal;
   /** Includes headers and response-body consumption; no automatic retry. */
   timeoutMs: number;
-  /** Optional stricter envelope cap; adapters must never exceed 64 KiB. */
+  /** Optional stricter cap (<=64 KiB); default JSON 64 KiB, NDJSON 256 KiB. */
   maxResponseBytes?: number;
 }
 export interface TokenUsage {

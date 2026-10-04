@@ -5,6 +5,8 @@
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
+    "LEGAL_RAG_ENABLED": "true",
+    "LEGAL_CORPUS_VERSION": "law-34ca5304c03c655b",
     "OLLAMA_MODEL": "gpt-oss:20b",
     "AI_ADMISSION_ENABLED": "true"
   },
@@ -14,6 +16,9 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/", "/index.html"]
   },
+  // Provision and ingest explicitly before enabling; no automatic paid upgrade.
+  "ai": { "binding": "LEGAL_AI" },
+  "vectorize": [{ "binding": "LEGAL_INDEX", "index_name": "eduai2-law-bge-m3" }],
   "durable_objects": {
     "bindings": [
       {

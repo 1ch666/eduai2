@@ -14,6 +14,28 @@ const {handleAiRequest}=await import('data:text/javascript;base64,'+Buffer.from(
 const env={OLLAMA_API_KEY:'test-secret-not-real',testRoom:{allowAiRequest:async()=>true},
  LEARNER:{getByName:()=>({reserveStudyAi:async()=>({code:'RESERVED',issuedAt:Date.now()})})},AI_ADMISSION:grantedAdmission()};
 const respond=(body,status=200)=>Response.json(body,{status});
+
+test('tutor streams through existing admission and emits a terminal answer',async()=>{
+ const old=globalThis.fetch;
+ globalThis.fetch=async(_url,options)=>{
+   assert.equal(JSON.parse(options.body).stream,true);
+   return new Response('{"done":false,"message":{"content":"公民"}}\n{"done":true,"message":{"content":"教育"}}\n');
+ };
+ try{
+   const result=await handleAiRequest(new Request('https://local.test/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'公民教育是什麼',history:[],clientId:'local-test-client-0001',requestId:crypto.randomUUID(),stream:true})}),env,respond);
+   assert.match(result.headers.get('content-type'),/ndjson/);
+   const events=(await result.text()).trim().split('\n').map(JSON.parse);
+   assert.deepEqual(events.map(e=>e.type),['meta','delta','delta','done']);
+   assert.equal(events.at(-1).answer,'公民教育');
+ }finally{globalThis.fetch=old;}
+});
+
+test('rate rejection occurs before retrieval and provider; retry-after preserved',async()=>{
+ let touched=false;
+ const result=await handleAiRequest(new Request('https://local.test/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'公民',history:[],clientId:'local-test-client-0001',requestId:crypto.randomUUID(),stream:true})}),
+ {...env,testRoom:{allowAiRequest:()=>false},LEGAL_RAG_ENABLED:'true',LEGAL_AI:{run(){touched=true;throw Error('must not call');}}},respond);
+ assert.equal(result.status,429);assert.equal(result.headers.get('retry-after'),'60');assert.equal(touched,false);
+});
 test('HTTP tutor propagates server trace through study admission and provider without logging text',async()=>{
  const old=globalThis.fetch,log=console.log,records=[];
  console.log=value=>records.push(JSON.parse(value));

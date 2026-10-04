@@ -5,7 +5,9 @@ import type { Rankings } from './rankings';
 import type { Groups } from './groups';
 // Worker bindings plus the values that only exist as secrets or vars.
 // Secrets are set with `wrangler secret put` and never committed.
-export type AppEnv = Env & {
+export type AppEnv = Omit<Env,'LEGAL_RAG_ENABLED'|'LEGAL_CORPUS_VERSION'> & {
+  LEGAL_RAG_ENABLED?: string;
+  LEGAL_CORPUS_VERSION?: string;
   PRACTICE: DurableObjectNamespace<Practice>;
   PLANNER: DurableObjectNamespace<Planner>;
   PUSH_STORE: DurableObjectNamespace<PushStore>;

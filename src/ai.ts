@@ -11,6 +11,8 @@ import { lookupDictionary, dictionaryAnswer } from './dictionary';
 import {aiAvailability} from './ai-availability';
 import {aiOutcome} from './ai-outcome';
 import type {TraceContext} from './trace-context';
+import {tutorStream} from './tutor-stream';
+import {retrieveLegal,legalContext} from './legal-rag';
 
 const MAX_BODY_BYTES = 16_384;
 const UPSTREAM_TIMEOUT_MS = 50_000;
@@ -123,7 +125,9 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   const networkKey = await networkKeyFor(request, "civic-law-ai");
   const room = messageRoom(env);
   if (!await room.allowAiRequest(candidate.clientId, networkKey, session?.user.id ?? null)) {
-    return respond({ error: "提問太頻繁，請一分鐘後再試" }, 429);
+    const limited=respond({ error: "提問太頻繁，請一分鐘後再試",code:'RATE_LIMITED' }, 429);
+    limited.headers.set('Retry-After','60');
+    return limited;
   }
 
   const dictionary = await lookupDictionary(env, candidate.question);
@@ -141,7 +145,15 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
   // to evade budgets. No answers are persisted/replayed to a shared-NAT peer.
   const prepared=await studyProvider(env,'tutor',session?.user.id??`guest:${networkKey}`,candidate.requestId,input,undefined,trace);
   if(!prepared.ok)return failed(prepared.code,STUDY_RESERVATION_MESSAGES[prepared.code],prepared.status);
-  const result=await prepared.provider.generate(input,{timeoutMs:UPSTREAM_TIMEOUT_MS,signal:request.signal});
+  if(request.signal.aborted)return failed('CANCELLED','本次提問已取消',503);
+  // Reservation precedes embeddings too: repeated request IDs never re-embed.
+  // Only the public tutor receives statutes; court knowledge projection is untouched.
+  const retrieval=mode==='civics'?await retrieveLegal(env,candidate.question):{status:'disabled' as const,sources:[]};
+  const grounded:ChatInput=mode==='civics'?{...input,messages:[{role:'system',content:systemPrompt+legalContext(retrieval)},...input.messages.slice(1)]}:input;
+  const metadata={provider:'Ollama',model,mode,retrieval,sources:retrieval.sources,aiOutcome:aiOutcome('tutor','model')};
+  if(candidate.stream===true&&mode==='civics')return tutorStream(prepared.provider,grounded,request,
+    new Headers(respond({}).headers),metadata);
+  const result=await prepared.provider.generate(grounded,{timeoutMs:UPSTREAM_TIMEOUT_MS,signal:request.signal});
   if (!result.ok) {
     const messages:Record<ProviderErrorCode,string>={
       NOT_CONFIGURED:'Ollama 服務尚未完成設定',INVALID_INPUT:'助教請求設定錯誤',CANCELLED:'本次提問已取消',
@@ -155,5 +167,5 @@ export async function handleAiRequest(request: Request, env: AppEnv, respond: Re
     return failed(result.code,messages[result.code],result.code==='QUOTA'?429:
       ['CANCELLED','ADMISSION_DENIED','ADMISSION_UNAVAILABLE'].includes(result.code)?503:502);
   }
-  return respond({ answer: result.value.text.slice(0,5000), provider: "Ollama", model, mode, aiOutcome:aiOutcome('tutor','model') });
+  return respond({ answer: result.value.text.slice(0,5000), ...metadata });
 }

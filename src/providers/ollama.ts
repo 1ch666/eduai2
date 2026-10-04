@@ -1,4 +1,5 @@
 import {readTextWithLimit} from '../http';
+import {readOllamaStream} from './ollama-stream';
 import type {ChatInput, LLMProvider, ProviderContext, ProviderErrorCode, ProviderResult, TokenUsage} from './contracts';
 
 type Answer = {text: string; usage: TokenUsage};
@@ -36,7 +37,7 @@ export function createOllamaProvider(
       if (!validInput(input,context)) return fail('INVALID_INPUT');
       if (context.signal?.aborted) return fail('CANCELLED');
       const deadline=AbortSignal.timeout(context.timeoutMs);
-      const maxBytes=context.maxResponseBytes ?? 65536;
+      const maxBytes=context.maxResponseBytes ?? (context.onText&&input.output==='text'?262144:65536);
       const signal=context.signal ? AbortSignal.any([context.signal,deadline]) : deadline;
       const interrupted=(error:unknown): ProviderErrorCode | null => {
         if (context.signal?.aborted) return 'CANCELLED';
@@ -48,7 +49,7 @@ export function createOllamaProvider(
         upstream=await transport('https://ollama.com/api/chat',{
           method:'POST',redirect:'manual',signal,
           headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({model,stream:false,think:thinking,
+          body:JSON.stringify({model,stream:!!context.onText&&input.output==='text',think:thinking,
             messages:input.messages.map(({role,content})=>({role,content})),
             ...(input.output==='json'?{format:'json'}:{}),
             options:{temperature:input.temperature,num_predict:input.maxOutputTokens}})
@@ -64,6 +65,10 @@ export function createOllamaProvider(
         return fail('RESPONSE_TOO_LARGE');
       }
       let result:unknown;
+      if(context.onText&&input.output==='text'){
+        const streamed=await readOllamaStream(upstream.body,{...context,signal});
+        return signal.aborted?fail(interrupted(null)??'TIMEOUT'):streamed;
+      }
       try {
         const raw=await readTextWithLimit(upstream.body,maxBytes);
         if (signal.aborted) return fail(interrupted(null) ?? 'TIMEOUT');
