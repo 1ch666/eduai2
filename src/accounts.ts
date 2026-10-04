@@ -378,12 +378,17 @@ export class AccountStore extends DurableObject<AppEnv> {
     }
     const hash = await derivePasswordHash(input.password, row.password_salt, row.password_iterations);
     if (!timingSafeEqual(hash, row.password_hash)) return { ok: false, error: "BAD_CREDENTIALS" };
-    // Re-read after async crypto to guard concurrent requests.
+    const recoveryCode = randomToken();
+    const codeHash = await sha256Hex(recoveryCode);
+    // Final checks must follow ALL crypto awaits. Do not insert a code based on
+    // credentials or absence observed before a concurrent request completed.
+    const current = this.ctx.storage.sql.exec<UserRow>("SELECT * FROM users WHERE id = ?", input.userId).toArray()[0];
+    if (!current || current.password_hash !== row.password_hash || current.password_salt !== row.password_salt ||
+        current.password_iterations !== row.password_iterations) return { ok: false, error: "BAD_CREDENTIALS" };
     if (this.ctx.storage.sql.exec<{ code_hash: string }>("SELECT code_hash FROM recovery_codes WHERE user_id = ?", input.userId).toArray().length > 0) {
       return { ok: false, error: "ALREADY_EXISTS" };
     }
-    const recoveryCode = randomToken();
-    this.ctx.storage.sql.exec("INSERT INTO recovery_codes VALUES (?, ?)", input.userId, await sha256Hex(recoveryCode));
+    this.ctx.storage.sql.exec("INSERT INTO recovery_codes VALUES (?, ?)", input.userId, codeHash);
     return { ok: true, recoveryCode };
   }
 
