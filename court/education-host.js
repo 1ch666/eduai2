@@ -22,7 +22,11 @@ export function createEducationHost({document,origin,getContext,csrf,fetchImpl=g
   if(!sync()||working)return;const ticket=epoch;working=true;paint();
   let result;try{result=await operation();}catch{result='unavailable';}
   sync();if(ticket!==epoch)return;
-  working=false;if(result==='disabled')disabled=true;
+  working=false;
+  // Refresh can observe collection being re-opened. Only an accepted server
+  // response may release the old UI lock; network failures must not do so.
+  if(result==='disabled')disabled=true;
+  else if(result==='accepted')disabled=false;
   if(result==='login-required'||result==='not-found'){clear();return;}
   notice.textContent=messages[result]||'請更新測驗狀態。';paint();
  }

@@ -123,3 +123,11 @@ ownership/CSRF rejection, result isolation, withdrawal and synthetic cleanup.
 Its exit status gates the existing local-api job. It adds no deployment step,
 new backend architecture or production collection setting. This API gate is
 not a replacement for browser, Unity, device, alarm-delivery or human tests.
+
+Availability recovery regression (2026-10-04): an accepted refresh now releases
+the host's previously latched disabled UI state. A failed refresh does not
+release it. The same-session test covers disabled -> offline -> valid view ->
+disabled again, with zero automatic writes and unchecked consent after recovery.
+Fourteen focused client/host/panel tests passed locally. Server-side admission
+still decides whether a submitted answer is allowed; this is not a client
+override of the collection flag or evidence of production availability.
