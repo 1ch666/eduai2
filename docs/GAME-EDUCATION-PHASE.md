@@ -486,3 +486,15 @@ deletion, injected education-erasure rollback, both deletion paths and pending
 assessment completion after deletion. This integrates cleanup only, not the
 education API or collector. No production data was removed. Background alarm
 delivery and education UI/authenticated endpoint integration remain pending.
+
+Education alarm adapter (2026-10-04): `court-education-scheduler.ts` wraps store
+operations and alarm changes in one asynchronous storage transaction, following
+the existing learning-event scheduler pattern. It requires exclusive ownership
+of the enclosing DO's alarm. Initialization is explicit, not scheduled from a
+constructor before pending alarm delivery. Tests use Node SQLite with a simulated
+transactional alarm to verify fixed expiry after recreation, cleanup without a
+player request, failed scheduling/cancellation rollback, withdrawal and queued
+duplicates. Three scheduler tests and type checking passed. This is NOT proof of
+actual Cloudflare alarm delivery: CourtRoom integration, authenticated routes,
+consent UI and workerd alarm validation remain required. No new binding, migration,
+production alarm or research collector was enabled.
