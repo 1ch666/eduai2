@@ -539,3 +539,17 @@ every accepted assessment phase against the response schema and reject added
 answer-key/private fields. No real participant data was collected. The optional
 flag remains unset; consent/withdrawal UI, actual workerd end-to-end/alarm
 validation, formal user testing and production deployment are still pending.
+
+Education presentation component (2026-10-04): `court/education-panel.js` now
+renders voluntary opt-in, server-projected pre/post forms, four-item survey,
+server scores, disabled/withdrawn states and explicit withdrawal confirmation.
+Consent is unchecked by default and describes account-linked storage (not
+anonymous), the 30-day limit and no ranking/efficacy claims. The component has
+no network, persistence, scoring or automatic enrollment. Generation guards
+reject callbacks from cleared/replaced screens; one dispatch per render prevents
+double submission. All content uses text nodes, labelled controls and fieldsets.
+Four Node presentation tests passed, including the complete sequence driven by
+the actual deterministic flow module. This is an unmounted component, NOT a
+released user flow: authenticated HTTP client/recovery, court host wiring,
+rendered browser/mobile verification and consent review remain pending. No
+Cloudflare flag was enabled and no user experiment was conducted.
