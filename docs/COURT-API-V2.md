@@ -62,8 +62,19 @@ Local evidence: `test-court-journal.mjs` covers all 12 ordered pairs across the
 four interfaces, unchanged state/event counts on rejection, exact original
 retry recovery, and pending legacy/versioned NPC versus legacy action without
 timing sleeps. The journal, creation and v2 suites passed 73 tests plus TypeScript
-checking. This entry does not claim production deployment or authenticated
-production verification of this hardening.
+checking. Full local fast CI and GitHub CI `37169007578` (checks and disposable
+workerd local-api jobs) passed for source `e24426095f6cc655b290dee0f572ebe931df7c2b`.
+
+Released with `deploy --keep-vars --strict`: Worker
+`39be10c6-e93c-475c-8004-313fcd6ac882`, upload 487.29 KiB / gzip 111.33 KiB,
+startup 2 ms. No static assets changed. The only uncommitted runtime-file
+difference at deployment was existing user-owned Ollama comments/whitespace;
+the functional provider code matches the commit. Previous rollback version:
+`954c7d93-ae6f-4c57-b405-2e760ae4d190` (no data conversion required).
+Post-deployment capabilities and legacy case reads returned 200; an anonymous
+v2 session read returned 401 / HTTP_401 with null data and matching request-ID
+header. No authenticated production mutation or model call was performed:
+production cross-interface rejection itself is not claimed as directly tested.
 
 The adapter forwards raw request bytes/headers to the existing handler, preserving
 duplicate-key, encoding, length, CSRF, Origin, login, rate, owner, stale-version
