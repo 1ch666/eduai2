@@ -1,6 +1,27 @@
 # Replay foundation — 2026-09-27
 
-## Implemented, not deployed
+## Current status — 2026-10-04 (supersedes historical limits below)
+
+The event journal and web replay are deployed. `court/replay.js` keeps playback
+state separate from the live court; `replay-loader.js` fetches owner-authorized
+paged history; `replay-panel.js` provides play/pause, step, first/last-loaded,
+scrubbing, event search and role/stage/evidence/type filters. The panel shows
+saved public snapshots and discovered evidence. NPC public cast projection is
+no longer empty. Completed-court questions/replies are shown separately because
+legacy question history lacks event timestamps; this is not a full transcript.
+
+See `docs/REPLAY-UI-PROGRESS.md` for exact release/rollback IDs and verification,
+and `docs/GAME-EDUCATION-PHASE.md` for the six-role API and defense browser pass.
+Unauthorized history responses clear displayed private context. Replay does not
+submit actions, regenerate replies or alter the saved result. The demo's completed
+court shortcut now focuses read-only analysis without treating completion as a
+pending mutation.
+
+**Still incomplete:** Unity 3D timeline playback/presenter, complete transcript
+coverage of legacy/non-event dialogue, all-browser and physical-device acceptance.
+Web playback and synthetic/API tests do not prove those requirements.
+
+## Historical foundation (2026-09-27; not current deployment status)
 
 Each CourtRoom now has an additive `court_events(version PRIMARY KEY,event_id UNIQUE,body)` table. New session creation, successful actions and NPC reply commits append a public snapshot/event inside the same transaction as state and result-cache writes. Repeated requests return the existing result without another event. A failed event write rolls the transaction back.
 
