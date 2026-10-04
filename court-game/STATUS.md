@@ -1,5 +1,5 @@
-【2026-10-04 NPC 上半身表現：原始碼／Play 通過，尚未發布】
-新增受公開狀態控制的傾聽、思考、緊張、自信、驚訝與坐姿說話 torso 旋轉層，不移动角色根位置、不推論案件結果。官方 Unity 6000.6.2f1 編譯／Scene／Play exit 0，新增實際骨架、旋轉不累積、坐姿根位置不變及狀態恢復測試；既有 SearchDatabase 例外仍在。日誌 outputs/npc-expression-play-20261004.log。後端事件表現接線、外觀、WebGL build、瀏覽器／真機及發布尚待完成；線上仍是原成品，詳見 docs/UNITY-NPC-MOTION.md。
+【2026-10-04 NPC 上半身表現：原始碼／Play／靜態渲染通過，尚未發布】
+新增受公開狀態控制的傾聽、思考、緊張、自信、驚訝與坐姿說話 torso 旋轉層，不移动角色根位置、不推論案件結果。官方 Unity 6000.6.2f1 編譯／Scene／Play exit 0，新增實際骨架、旋轉不累積、坐姿根位置不變及狀態恢復測試；既有 SearchDatabase 例外仍在。日誌 outputs/npc-expression-play-20261004.log。三款穿袍人物四種情緒已完成離線靜態渲染檢視，19 項模板／觸控／NPC 橋接 Node 測試通過；不能替代連續動畫或真機驗收。Release WebGL 建置接續於 outputs/npc-expression-build-20261004.log。後端事件表現接線、動態外觀、WebGL 成品驗證、瀏覽器／真機及發布尚待完成；線上仍是原成品，詳見 docs/UNITY-NPC-MOTION.md。教育成效實驗依使用者要求延後，不刪除原有目標。
 
 【2026-09-28 使用者回報懸空：撤銷整體上移，配合模型調整家具】
 接地修復來源 494dddb 已推 main，Worker 50e0b2d3-7d26-4593-8ddd-b54e895cdbb5 已部署；Pages 36333926651、Docker 36333927358 均成功。Worker／Pages HTML 均為 revision 8f0b2c59f3368fdd，該 revision 的四檔下載逐位元組吻合。瀏覽器側面與 E 對話已驗證，Docker 交接包保存於 outputs/docker-grounded-494dddb；未宣稱完整專案重構或手機真機已完成。

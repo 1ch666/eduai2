@@ -14,6 +14,11 @@ namespace EduAI.Court.Editor
         { RenderPose("sit"); }
         public static void RenderCourtSeated()
         { RenderCourtPose("sit"); }
+        public static void RenderExpressions()
+        {
+            foreach(var emotion in new[]{"neutral","nervous","confident","surprised"})
+                RenderPose("sit",emotion,true);
+        }
         public static void InspectChairClip()
         {
             // Inspect the licensed seated alternative before adopting it. This
@@ -73,7 +78,7 @@ namespace EduAI.Court.Editor
             camera.transform.LookAt(new Vector3(3,.7f,3.5f));
             Capture(camera,"Logs/wardrobe-seat-contact-side.png");
         }
-        private static void RenderPose(string pose)
+        private static void RenderPose(string pose,string emotion="neutral",bool includeEmotionInFilename=false)
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
             RenderSettings.ambientLight=new Color(.7f,.7f,.7f);
@@ -97,14 +102,15 @@ namespace EduAI.Court.Editor
                 if(pose=="sit")
                 {
                     var motion=model.AddComponent<NpcActorMotion>();
-                    motion.ApplyPublicState("sitting","neutral","silent","idle",true);
+                    motion.ApplyPublicState("sitting",emotion,"silent","idle",true);
+                    motion.ApplyPoseAdjustments();
                 }
                 Debug.Log("ROBE_POSE "+models[i]+" "+pose+" headBefore="+before.ToString("F4")+" after="+head.position.ToString("F4"));
             }
             var camera=new GameObject("PreviewCamera").AddComponent<Camera>();
             camera.transform.position=new Vector3(0,1.2f,7);camera.transform.LookAt(new Vector3(0,.9f,0));
             camera.fieldOfView=32;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.85f,.88f,.9f);
-            Capture(camera,"Logs/wardrobe-"+pose+".png");
+            Capture(camera,"Logs/wardrobe-"+pose+(includeEmotionInFilename?"-"+emotion:"")+".png");
         }
         private static void Capture(Camera camera,string path)
         {

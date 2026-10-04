@@ -15,7 +15,14 @@ CourtPlayTests 新增實際 torso 存在、四情緒、重复套用不累積、
 日誌 `outputs/npc-expression-play-20261004.log` 含
 `COURT_SCENE_VALIDATION_PASSED` 和 `COURT_PLAY_TESTS_PASSED`。
 既有 Editor SearchDatabase 例外仍出現，不能宣稱零 Editor 例外。
-尚未建置／發布新 WebGL，亦未完成本批動態畫面的視覺驗收。
+`CourtWardrobePreview.RenderExpressions` 使用官方 Editor 離線渲染三款
+穿袍人物的 neutral / nervous / confident / surprised 坐姿，四張 PNG
+已逐張檢視，姿態差異可見；這是靜態姿態檢查，不是法庭內連續動畫驗收。
+日誌 `outputs/npc-expression-render-20261004.log` 有四次
+`COURT_WARDROBE_PREVIEW_RENDERED` 並正常結束；圖片位於
+`court-game/Logs/wardrobe-sit-{emotion}.png`。預覽不保存／覆寫正式場景，
+原有 Render / RenderSeated 的檔名保持相容。
+新 WebGL 建置進行中，尚未發布，亦未完成本批動態畫面的視覺驗收。
 後端 publicCourtCast 仍主要輸出 sitting / neutral；事件表現接線、
 轉頭目標、降低動態效果、實際外觀及手機驗收尚未完成。
 
