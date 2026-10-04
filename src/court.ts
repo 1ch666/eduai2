@@ -179,6 +179,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(done.length)return done.length===1&&done[0].payload===payload?JSON.parse(done[0].event) as JournalEvent:{error:'請求識別已用於不同內容',status:409};
     const pending=this.ctx.storage.sql.exec<{payload:string}>('SELECT payload FROM court_v1_npc_pending WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
     if(pending.length)return pending.length===1&&pending[0].payload===payload?this.outcomeV1(owner,m.requestId):{error:'請求識別已用於不同內容',status:409};
+    if(this.ctx.storage.sql.exec('SELECT id FROM requests WHERE id=?',m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(s.version!==m.expectedStateVersion||s.version>=100||!canConverse(s))return {error:'目前版本或階段不允許交談',status:409};
     if(this.ctx.storage.sql.exec('SELECT id FROM npc_requests WHERE id=?',m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
@@ -217,6 +218,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(this.ctx.storage.sql.exec('SELECT request_id FROM court_v1_npc_pending WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray().length)return {error:'請求識別已使用',status:409};
     const previous=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
     if(previous.length)return previous.length===1&&previous[0].payload===payload?JSON.parse(previous[0].event) as JournalEvent:{error:'請求識別已用於不同內容',status:409};
+    if(this.ctx.storage.sql.exec('SELECT id FROM requests WHERE id=? UNION ALL SELECT id FROM npc_requests WHERE id=?',m.requestId,m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(s.version!==m.expectedStateVersion||s.version>=100)return {error:'場次版本已變更或操作上限已達',status:409};
     const descriptor=publicCourtSnapshot(s,m.requestId,crypto.randomUUID(),new Date().toISOString()).state.allowedActions.find(a=>a.actionId===m.actionId);
     if(!descriptor||!descriptor.enabled)return {error:'目前階段不允許此動作',status:409};
@@ -250,6 +252,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
       // Persisted reservation survives a crash. Never repeat the paid/provider call.
       if(Date.now()-previous.created<20000)return {error:'回覆處理中，請稍後用相同請求重試',status:409};
     }
+    if(this.ctx.storage.sql.exec('SELECT id FROM requests WHERE id=? UNION ALL SELECT request_id FROM court_v1_requests WHERE request_id=?',a.requestId,a.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(s.version!==a.version||!canConverse(s))return {error:'目前場次版本／角色／階段不允許交談',status:409};
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
     if(!previous&&count>=40)return {error:'此場次已達40次對話上限，進度仍保留',status:429};
@@ -313,6 +316,9 @@ export class CourtRoom extends DurableObject<AppEnv> {
     const payload=JSON.stringify(a);
     const previous=this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM requests WHERE id=?',a.requestId).toArray()[0];
     if(previous)return previous.payload===payload?{view:JSON.parse(previous.result)}:{error:'相同請求識別不能用於不同內容',status:409};
+    // Recover this route's exact retry first; new commands cannot reuse an ID
+    // reserved or committed by another interface in the same court session.
+    if(this.ctx.storage.sql.exec('SELECT id FROM npc_requests WHERE id=? UNION ALL SELECT request_id FROM court_v1_requests WHERE request_id=? UNION ALL SELECT request_id FROM court_v1_npc_pending WHERE request_id=?',a.requestId,a.requestId,a.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(state.version>=100)return {error:'此場次操作上限已達，請開始新案件',status:409};
     try{
       const next=transition(state,a), view=courtView(next);

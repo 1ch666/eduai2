@@ -933,6 +933,39 @@ test('state change or deletion while NPC awaits never applies an obsolete reply'
   }finally{db.close();}
  }
 });
+test('request IDs cannot be repurposed across legacy/v1 action and NPC namespaces',async()=>{
+ const kinds=['legacy-action','v1-action','legacy-npc','v1-npc'];
+ for(const firstKind of kinds)for(const secondKind of kinds.filter(k=>k!==firstKind)){
+  const {room,db,id}=setup();try{
+   const requestId=crypto.randomUUID(),key=crypto.randomUUID();
+   const invoke=(kind,version,stage)=>{
+    const action=stage===0?'acknowledge':'speak',text=stage===0?'':'請核對本案證據';
+    if(kind==='legacy-action')return room.action('owner',{requestId,version,type:action,...(text?{text}:{})});
+    if(kind==='v1-action')return room.actionV1('owner',{...mutation(id,version,action),requestId,idempotencyKey:key,text});
+    if(kind==='legacy-npc')return room.npc('owner','Witness',{requestId,version,text:'你好'},false);
+    return room.npcV1('owner',{...mutation(id,version,'npc.ask'),requestId,idempotencyKey:key,targetId:'Witness',text:'你好'},false);
+   };
+   const first=await invoke(firstKind,0,0);assert.equal(first.status,undefined);
+   const before=room.get('owner').view.version,events=room.events('owner',-1).events.length;
+   const reused=await invoke(secondKind,before,firstKind.endsWith('action')?1:0);
+   assert.equal(reused.status,409,`${firstKind} -> ${secondKind}`);
+   assert.equal(room.get('owner').view.version,before);assert.equal(room.events('owner',-1).events.length,events);
+   assert.deepEqual(await invoke(firstKind,0,0),first,'original route retry remains recoverable');
+  }finally{db.close();}
+ }
+});
+test('pending NPC IDs fence legacy actions before provider completion',async()=>{
+ for(const versioned of [false,true]){
+  const {room,db,id}=setup();try{
+   const requestId=crypto.randomUUID();
+   const pending=versioned?room.npcV1('owner',{...mutation(id,0,'npc.ask'),requestId,targetId:'Witness',text:'你好'},false):
+    room.npc('owner','Witness',{requestId,version:0,text:'你好'},false);
+   const action=room.action('owner',{requestId,version:0,type:'acknowledge'});
+   const result=await pending;
+   assert.equal(action.status,409);assert.equal(result.status,undefined);assert.equal(room.get('owner').view.version,1);
+  }finally{db.close();}
+ }
+});
 test('v1 NPC has owner, input, ID collision and legacy bypass guards',async()=>{
  const {room,db,id}=setup();try{
   const m={...mutation(id,0,'npc.ask'),targetId:'Witness',text:'你好'};

@@ -43,6 +43,28 @@ Successful CORS OPTIONS is bodyless 204, as required by HTTP.
 
 ## Preservation, migration and rollback
 
+### Cross-interface command identity hardening (2026-10-04)
+
+A command request ID is reserved across legacy actions, legacy NPC requests,
+versioned actions and versioned NPC requests within one court session. Reusing
+that ID for a new operation on another interface returns 409, even when the
+caller supplies the latest state version. Pending NPC reservations also fence
+actions before provider completion. This is not an account-global ID registry;
+request IDs and idempotency keys remain distinct namespaces.
+
+Exact retries on the original interface still recover their persisted result.
+The legacy NPC route retains its existing ability to read an identical completed
+NPC result; it cannot use that record to execute a new operation. Historical
+records are not rewritten or removed. No schema, binding or secret changes.
+Rollback is code-only, but would reintroduce cross-interface ID reuse.
+
+Local evidence: `test-court-journal.mjs` covers all 12 ordered pairs across the
+four interfaces, unchanged state/event counts on rejection, exact original
+retry recovery, and pending legacy/versioned NPC versus legacy action without
+timing sleeps. The journal, creation and v2 suites passed 73 tests plus TypeScript
+checking. This entry does not claim production deployment or authenticated
+production verification of this hardening.
+
 The adapter forwards raw request bytes/headers to the existing handler, preserving
 duplicate-key, encoding, length, CSRF, Origin, login, rate, owner, stale-version
 and idempotency checks. It performs no provider retry and has no state store.
