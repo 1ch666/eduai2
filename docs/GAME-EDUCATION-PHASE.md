@@ -251,3 +251,17 @@ browser removed the inner scrollbar while Unity remained visible. No binary,
 resolution or input logic changed. This is NOT evidence-box/E interaction,
 physical-mobile, complete gameplay, live AI or production acceptance. Docker
 rebuild remains required when publishing the changed shell.
+
+Docker handoff checkpoint (2026-10-04): the above rebuild is now completed for
+source `c41ad630e61d3c17a2e4cb25c30a94cc31a9fb9d`. GitHub Actions
+https://github.com/1ch666/eduai2/actions/runs/37175438713 succeeded on the existing
+public-repository standard Ubuntu runner: real Docker build/run, nginx config,
+both game URLs, selected court-module and all Build resource byte comparisons,
+API 501, missing-route 404, non-root user and read-only filesystem checks.
+Fast CI 37175362296 and Pages 37175362045 also succeeded for that source.
+The downloaded `outputs/docker-c41ad63/` handoff has all six SHA256SUMS entries
+verified locally. Image archive SHA256:
+`da1e32a9daca1cf9a5dd990f9eca97ba1ec3b7035098a2b53e7d8daad8105673`.
+GitHub artifact retention is one day; the local copy is retained outside Git.
+This is a static Linux amd64 game image, not the Worker/DO/session/AI backend;
+Cloudflare publication and full game/education acceptance are still pending.
