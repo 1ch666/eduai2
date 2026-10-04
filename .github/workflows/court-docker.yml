@@ -19,7 +19,7 @@ jobs:
           set -euo pipefail
           node --test court-game/tools/test-build-budget.mjs court-game/tools/test-build-revision.mjs
           node --test court-game/tools/test-template.mjs court-game/tools/test-touch.mjs court-game/tools/test-game-panels.mjs scripts/test-court-protocol.mjs scripts/test-court-transport.mjs scripts/test-npc-action.mjs scripts/test-pending-recovery.mjs scripts/test-recovery-notice.mjs scripts/test-action-panel-recovery.mjs
-          node --test scripts/test-guidance-presentation.mjs scripts/test-investigation-controls.mjs scripts/test-demo-guide.mjs scripts/test-court-replay.mjs scripts/test-court-replay-panel.mjs
+          node --test scripts/test-guidance-presentation.mjs scripts/test-investigation-controls.mjs scripts/test-demo-guide.mjs scripts/test-court-replay.mjs scripts/test-court-replay-panel.mjs scripts/test-question-review.mjs
           docker compose -f court-game/compose.yaml config --quiet
           docker compose -f court-game/docker/compose.image.yaml config --quiet
           docker build -f court-game/Dockerfile --build-arg SOURCE_REVISION="$GITHUB_SHA" -t eduai-court:preview .

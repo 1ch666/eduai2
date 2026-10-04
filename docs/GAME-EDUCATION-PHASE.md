@@ -13,6 +13,16 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- Completed-court question review now displays existing owner-authorized saved
+  questions alongside replies with honest AI/dictionary/scripted labels. It is
+  separate from event replay because legacy question times/stages were not saved.
+  Search, NPC filters, bounded pagination and account/session clearing are tested.
+  Replay gains first/last-loaded navigation, position text and event-kind filters.
+  Twenty concentrated tests pass; local Chromium restored the existing completed
+  version-13 synthetic case, filtered its 14 events and searched the saved witness
+  follow-up without changing the result. No new AI call or research collection.
+  See REPLAY-UI-PROGRESS.md for limits; this is not complete 3D replay/mobile proof.
+
 - In-game action-panel integration regression now proves the new comparison is
   mounted inside the procedure/evidence panel, only renders the same-version
   public board, clears before a changed session/account response, and issues

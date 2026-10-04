@@ -1,7 +1,8 @@
 import {CourtReplayLoader} from './replay-loader.js';
 import {createEvidenceViewer} from './evidence-viewer.js';
+import {createQuestionReview} from './question-review.js';
 
-const eventLabels={session_started:'建立場次',session_completed:'庭審完成',statement:'陳述',ruling:'程序裁定',stage_changed:'程序推進',checkpoint:'保存點',npc_utterance:'角色發言',evidence_presented:'出示證物'};
+const eventLabels={session_started:'建立場次',session_completed:'庭審完成',statement:'陳述',objection:'異議',ruling:'程序裁定',stage_changed:'程序推進',checkpoint:'保存點',npc_utterance:'角色發言',evidence_presented:'出示證物'};
 const roleLabels={judge:'法官',plaintiff:'原告',defendant:'被告',prosecutor:'檢察官',defense:'辯護人',lawyer:'律師',witness:'證人',observer:'旁觀者'};
 const label=(labels,value)=>Object.hasOwn(labels,value)?labels[value]:value;
 
@@ -13,13 +14,16 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
  const bar=make('div');bar.className='bar';
  const button=(text,fn)=>{const b=make('button',text);b.type='button';b.addEventListener('click',fn);return b;};
  const close=button('關閉',()=>dialog.close());
+ const first=button('第一筆',()=>{loader.replay.seek(0);render();});
+ const last=button('已讀最後一筆',()=>{loader.replay.seek(loader.replay.length-1);render();});
  const back=button('上一筆',()=>{loader.replay.step(-1);render();});
  const forward=button('下一筆',()=>{loader.replay.step();render();});
  const play=button('播放',()=>{loader.replay.playing?loader.replay.pause():loader.replay.play();render();});
- const more=button('讀取紀錄',()=>void load());bar.append(back,play,forward,more);
+ const more=button('讀取紀錄',()=>void load());bar.append(first,back,play,forward,last,more);
+ const position=make('p');position.setAttribute('aria-live','polite');
  const slider=make('input');slider.type='range';slider.min='0';slider.step='1';slider.setAttribute('aria-label','重播事件位置');slider.addEventListener('input',()=>{loader.replay.seek(Number(slider.value));render();});
  const filters=make('div');filters.className='grid';
- const fields={};for(const [key,label] of [['query','搜尋發言'],['roleId','發言角色'],['stageId','程序階段'],['evidenceId','關聯證物']]){
+ const fields={};for(const [key,label] of [['query','搜尋發言'],['roleId','發言角色'],['stageId','程序階段'],['evidenceId','關聯證物'],['kind','事件類型']]){
   const wrapper=make('label',label),input=make(key==='query'?'input':'select');input.maxLength=400;input.addEventListener(key==='query'?'input':'change',render);wrapper.append(input);filters.append(wrapper);fields[key]=input;
  }
  const current=make('section'),transcript=make('ol');transcript.className='replay-transcript';transcript.tabIndex=-1;transcript.setAttribute('aria-label','符合篩選的庭審紀錄');
@@ -28,21 +32,28 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   for(const field of Object.values(fields))field.value='';fields.evidenceId.value=id;
   render();transcript.focus();
  }});
- dialog.append(close,title,description,notice,bar,slider,current,evidenceViewer.element,filters,clearFilters,transcript);document.body.append(dialog);
+ const questionReview=createQuestionReview(document,()=>valid());
+ dialog.append(close,title,description,notice,bar,position,slider,current,evidenceViewer.element,filters,clearFilters,transcript,questionReview.element);document.body.append(dialog);
  let context=null,loading=false,generation=0,lastTime=0,raf=0;
  function valid(){return context&&getAccount()?.id===context.owner&&getView()?.id===context.id;}
  function render(){
+  if(context&&!valid()){reset();return;}
   const replay=loader.replay,event=replay.current;
+  questionReview.setView(valid()?getView():null);
+  position.textContent=event?`第 ${replay.index+1} / 已讀 ${replay.length} 筆${loader.caughtUp?'（目前全部紀錄）':'（尚有紀錄待讀取）'}`:'尚未讀取事件。';
+  slider.setAttribute('aria-valuetext',position.textContent);
+  first.disabled=!event||replay.index<=0;last.disabled=!event||replay.index>=replay.length-1;
   evidenceViewer.setSnapshot(event?.snapshot);
   slider.max=String(Math.max(0,replay.length-1));slider.value=String(Math.max(0,replay.index));slider.disabled=!event;
   back.disabled=replay.index<=0;forward.disabled=replay.index>=replay.length-1;play.disabled=!event||replay.index>=replay.length-1;play.textContent=replay.playing?'暫停':'播放';more.disabled=loading;
   more.textContent=loader.caughtUp?'檢查新紀錄':'讀取下一頁';current.replaceChildren();transcript.replaceChildren();
   // Selectors use the unfiltered, already-played prefix only, never future
   // records or hidden case data. Reset options when rewinding or logging out.
-  const prefix=replay.transcript(),choices={roleId:new Map(),stageId:new Map(),evidenceId:new Map()};
+  const prefix=replay.transcript(),choices={roleId:new Map(),stageId:new Map(),evidenceId:new Map(),kind:new Map()};
   for(const row of prefix){
    choices.roleId.set(row.roleId,label(roleLabels,row.roleId));
    choices.stageId.set(row.stageId,row.stageLabel);
+   choices.kind.set(row.kind,label(eventLabels,row.kind));
    for(const id of row.evidenceIds)choices.evidenceId.set(id,id);
   }
   if(event){
