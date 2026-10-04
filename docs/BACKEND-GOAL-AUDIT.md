@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-6ca74cf / Worker 41233f8b-5385-4d01-92c7-c207667ab246 (versioned deletion).
-CI 37166684020 and deploy/dry-run passed; release evidence in COURT-API-V2.md.
+d148853 / Worker b5c06fde-401f-46d8-a96e-c0ee76e89e95 (deletion outcome recovery).
+CI 37167526814 and deploy/dry-run passed; release evidence in COURT-API-V2.md.
 Anonymous production probes passed; authenticated private-history acceptance remains
 open. Original unrelated README changes remain uncommitted.
 
@@ -45,14 +45,17 @@ open. Original unrelated README changes remain uncommitted.
 
 ## Latest verified increment — 2026-10-04
 
-Candidate, not deployed: v2 requests/:requestId now reads the owner-only terminal
+Released d148853: v2 requests/:requestId now reads the owner-only terminal
 deletion receipt after a lost response. Deleted-room recovery is SELECT-only;
 unknown commands, foreign owners and legacy deletion return 404, malformed IDs
 400, corrupt receipts generic 500. Existing action/NPC recovery is retained.
 GET confirms room deletion, not cross-DO index cleanup; exact DELETE retry still
 finishes cleanup. No schema/config change. 64 focused journal/handler tests,
 TypeScript, full local fast gate and actual local workerd HTTP suite passed.
-Remote CI/production verification still pending; whole goal remains incomplete.
+Remote CI 37167526814 passed. Worker b5c06fde-401f-46d8-a96e-c0ee76e89e95
+deployed with no changed assets. Anonymous production outcome query returned 401
+and public capabilities/cases 200. Authenticated production recovery remains
+unverified; no production case was deleted for testing. Whole goal is incomplete.
 
 2026-10-04 release 6ca74cf / Worker 41233f8b-5385-4d01-92c7-c207667ab246:
 v2 DELETE with strict v1 command identity, version fencing,

@@ -95,7 +95,7 @@ The receipt survives restart and old-route deletion retries. Different command
 after deletion returns 409, foreign owner 404. A scene deleted by the old route
 has no v2 receipt: return 409 rather than inventing one.
 
-Candidate extension (not yet deployed): GET
+Released extension (2026-10-04, source `d148853`): GET
 `/api/v2/court/sessions/:sessionId/requests/:requestId` also recovers the original
 deletion receipt for its authenticated owner. Unknown commands, foreign owners
 and legacy deletions return 404; malformed IDs return 400. Persisted receipt
@@ -110,6 +110,19 @@ actual isolated workerd HTTP tests passed on 2026-10-04. The HTTP test checks
 unauthenticated/foreign-owner denial and recovers the exact deletion DTO; the
 SQLite test forbids writes while querying after object reconstruction. Remote
 CI and authenticated production acceptance are not inferred from these checks.
+
+Release evidence: Fast regression CI `37167526814` passed both checks and local-api;
+Pages workflow `37167526344` also passed. Wrangler 4.136.3 dry-run and
+`deploy --keep-vars --strict` exited 0. Worker version
+`b5c06fde-401f-46d8-a96e-c0ee76e89e95`, bundle 481.19 KiB (gzip 110.44 KiB),
+startup 2 ms; no static asset changes. Functional source is committed `d148853`;
+the existing uncommitted Ollama file differs only by user comments/blank lines.
+No schema, binding, secret or account changes. Prior rollback reference:
+`41233f8b-5385-4d01-92c7-c207667ab246`; retain all deletion guards.
+Production anonymous capabilities/cases probes returned 200 and a synthetic UUID
+outcome query returned v2 401 with null data and request/trace IDs. No production
+account was created or case deleted for this check. Authenticated production
+receipt recovery and cross-DO cleanup remain unverified.
 
 The room commits first, then Learner removes its index/generated/random copies.
 These two DOs are not a distributed transaction. If index cleanup fails, return
