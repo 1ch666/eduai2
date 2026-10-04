@@ -19,8 +19,8 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
  const more=button('讀取紀錄',()=>void load());bar.append(back,play,forward,more);
  const slider=make('input');slider.type='range';slider.min='0';slider.step='1';slider.setAttribute('aria-label','重播事件位置');slider.addEventListener('input',()=>{loader.replay.seek(Number(slider.value));render();});
  const filters=make('div');filters.className='grid';
- const fields={};for(const [key,label] of [['query','搜尋發言'],['roleId','角色 ID'],['stageId','階段 ID'],['evidenceId','證物 ID']]){
-  const wrapper=make('label',label),input=make('input');input.maxLength=400;input.addEventListener('input',render);wrapper.append(input);filters.append(wrapper);fields[key]=input;
+ const fields={};for(const [key,label] of [['query','搜尋發言'],['roleId','發言角色'],['stageId','程序階段'],['evidenceId','關聯證物']]){
+  const wrapper=make('label',label),input=make(key==='query'?'input':'select');input.maxLength=400;input.addEventListener(key==='query'?'input':'change',render);wrapper.append(input);filters.append(wrapper);fields[key]=input;
  }
  const current=make('section'),transcript=make('ol');transcript.className='replay-transcript';transcript.tabIndex=-1;transcript.setAttribute('aria-label','符合篩選的庭審紀錄');
  const clearFilters=button('清除篩選',()=>{for(const field of Object.values(fields))field.value='';render();});
@@ -37,12 +37,30 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   slider.max=String(Math.max(0,replay.length-1));slider.value=String(Math.max(0,replay.index));slider.disabled=!event;
   back.disabled=replay.index<=0;forward.disabled=replay.index>=replay.length-1;play.disabled=!event||replay.index>=replay.length-1;play.textContent=replay.playing?'暫停':'播放';more.disabled=loading;
   more.textContent=loader.caughtUp?'檢查新紀錄':'讀取下一頁';current.replaceChildren();transcript.replaceChildren();
+  // Selectors use the unfiltered, already-played prefix only, never future
+  // records or hidden case data. Reset options when rewinding or logging out.
+  const prefix=replay.transcript(),choices={roleId:new Map(),stageId:new Map(),evidenceId:new Map()};
+  for(const row of prefix){
+   choices.roleId.set(row.roleId,label(roleLabels,row.roleId));
+   choices.stageId.set(row.stageId,row.stageLabel);
+   for(const id of row.evidenceIds)choices.evidenceId.set(id,id);
+  }
+  if(event){
+   if(choices.stageId.has(event.stageId))choices.stageId.set(event.stageId,event.snapshot.state.stageLabel);
+   for(const e of event.snapshot.state.evidence)if(choices.evidenceId.has(e.evidenceId))choices.evidenceId.set(e.evidenceId,e.title);
+  }
+  for(const [key,options] of Object.entries(choices)){
+   const input=fields[key],selected=input.value;input.replaceChildren();
+   const all=make('option','全部');all.value='';input.append(all);
+   for(const [id,name] of options){const o=make('option',name);o.value=id;input.append(o);}
+   input.value=options.has(selected)?selected:'';input.disabled=!options.size;
+  }
   if(!event)return;
   current.append(make('h3',`${event.snapshot.state.stageLabel} · 版本 ${event.stateVersion}`),make('p',`${event.speaker} · ${event.timestamp}`),make('p',event.text));
   const rows=replay.transcript(Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])));
   if(!rows.length)transcript.append(make('li','目前播放位置之前，沒有符合篩選的紀錄。'));
   for(const row of rows){
-   const li=make('li');li.append(make('p',`${row.speaker} · ${label(roleLabels,row.roleId)} · ${row.stageId} · ${label(eventLabels,row.kind)}`),make('p',row.timestamp),make('p',row.text));
+   const li=make('li');li.append(make('p',`${row.speaker} · ${label(roleLabels,row.roleId)} · ${row.stageLabel} · ${label(eventLabels,row.kind)}`),make('p',row.timestamp),make('p',row.text));
    if(row.evidenceIds.length)li.append(make('p',`關聯證物：${row.evidenceIds.join('、')}`));
    if(row.citationIds.length)li.append(make('p',`法源標記：${row.citationIds.join('、')}（以場次法律來源為準）`));
    li.append(button(`回看第 ${row.eventSequence+1} 筆`,()=>{replay.jump(row.eventId);render();}));transcript.append(li);

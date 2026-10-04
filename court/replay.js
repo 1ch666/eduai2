@@ -67,6 +67,6 @@ export class CourtReplay {
   // Return only records up to the playhead, so later evidence/statements do not
   // leak into an earlier moment. Plain strings; callers must use text rendering.
   return this.#events.slice(0,this.#index+1).filter(e=>(!roleId||e.roleId===roleId)&&(!stageId||e.stageId===stageId)&&(!kind||e.kind===kind)&&(!evidenceId||e.evidenceIds.includes(evidenceId))&&(!needle||(e.speaker+' '+e.text).toLocaleLowerCase('zh-TW').includes(needle)))
-   .map(e=>({eventId:e.eventId,eventSequence:e.eventSequence,stateVersion:e.stateVersion,speaker:e.speaker,roleId:e.roleId,timestamp:e.timestamp,stageId:e.stageId,kind:e.kind,text:e.text,evidenceIds:[...e.evidenceIds],citationIds:[...e.citationIds]}));
+   .map(e=>({eventId:e.eventId,eventSequence:e.eventSequence,stateVersion:e.stateVersion,speaker:e.speaker,roleId:e.roleId,timestamp:e.timestamp,stageId:e.stageId,stageLabel:e.snapshot.state.stageLabel,kind:e.kind,text:e.text,evidenceIds:[...e.evidenceIds],citationIds:[...e.citationIds]}));
  }
 }

@@ -265,3 +265,12 @@ verified locally. Image archive SHA256:
 GitHub artifact retention is one day; the local copy is retained outside Git.
 This is a static Linux amd64 game image, not the Worker/DO/session/AI backend;
 Cloudflare publication and full game/education acceptance are still pending.
+
+Replay usability increment (2026-10-04): role, stage and linked-evidence filters
+in `court/replay-panel.js` now use selectors derived solely from the played event
+prefix; keyword search is preserved. Stage labels come from historical public
+snapshots, and current evidence titles replace raw IDs when available. Rewinding
+removes future options and clears invalid selections; close/logout removes the
+options. Tests verify forward/back navigation, no future-role/evidence disclosure,
+text-only rendering and GET-only replay. No server mutations or protocol change.
+Browser/physical-mobile verification of these new selectors remains pending.
