@@ -1,3 +1,23 @@
+【2026-10-04 案件 AI 降級原因修正】
+使用者回報「AI 暫不可用，已改用題庫隨機案件並保存場次」，要求查因並修改。
+正式重現：20:03（臺北）Ollama case-generation 在約14秒回 OUTPUT_TRUNCATED，
+不是本次重現的額度不足；舊1600輸出token限制不足以容納完整案件與模型思考。
+修正：3200 token上限、40秒逾時、精簡案件篇幅、明確JSON欄位範例；gpt-oss使用low思考。
+中間正式測試取得模型回覆但未通過案件格式檢查；補強格式要求後20:17正式生成成功。
+不接收被截斷JSON、不自動重試；原每日10次／失敗5分鐘冷卻、admission與安全驗證保留。
+隨機案件介面區分截斷、格式不符、供應商限流、每日額度、冷卻、未設定與相似案件。
+原因沿用generation_attempts.error保存，SKIP與SKIP:*都不計入每日AI嘗試或冷卻；無schema migration。
+重送同一requestId沿用原案件與原原因，不額外呼叫模型。
+新增court.generation.rejected診斷只記固定原因、欄位長度／結構，不記案情、Prompt或Secret。
+來源提交506be1c、6de88dd；乾淨發布目錄完整回歸568項通過。
+正式Worker版本44ed8e96-9595-42f9-9407-d022623fd259，來源6de88dd。
+已在正式登入帳號建立[AI虛構]案件，顯示事實與證物；本機截圖outputs/case-generation-fixed-1004.jpg。
+驗收僅證明生成、格式驗證與存檔鏈路恢復，不是整體AI品質或法律正確率保證。
+待辦：正式範例的交易敘事與成人刑事程序契合度仍需加強；現有gate驗證結構及可完成程序，
+不代表案情語意與案件類型完全相符。後續補案件類型明確敘事约束與語意品質驗收，不能放寬安全gate。
+本次未重建Unity／Docker、未更改Secret、權限、付費方案或清除正式資料。
+協作者README、groups、provider相關未提交變更原樣保留，未混入提交或發布。
+
 【2026-10-04 法律 RAG／Streaming／README 已發布】
 使用者要求這三項後端必要工作，僅在此範圍取代下方 freeze，不恢復所有 Backend Audit。
 先讀 docs/RAG-STREAMING.md：法律語料3,635筆／8部法規，版本law-34ca5304c03c655b。
