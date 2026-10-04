@@ -67,3 +67,28 @@ Resumed at the user's explicit request later on 2026-10-04. Pages direct HTTP
 checks now return 200 and exact source equality for `court/court.js` and
 `play/index.html` against released commit d1cbe5e. The earlier connection/freshness
 uncertainty for those two files is resolved; no Pages settings were changed.
+
+## Follow-up release: preserve walking position
+
+- Source `ada6f148f008be72fe7330a2e29bf60d790f95de`: prevent routine server
+  snapshot refreshes from repositioning the player; explicit view selection and
+  iframe initialization remain supported. Local WebGL evidence-box interaction
+  and eight targeted regressions passed (see GAME-EDUCATION-PHASE.md).
+- Fast checks `37188759647`, Pages deployment `37188759445`, and Docker handoff
+  `37188839044` all completed successfully.
+- Worker version `a6cc4b4d-cc9f-4370-8763-8bfc331bf900` deployed from an isolated
+  archive of the source commit. Type generation, TypeScript and dry-run passed
+  after allowing the build subprocesses; the initial restricted run produced
+  incomplete DO types and was not used for publication.
+- Rollback version: `3750726a-8d39-4b1e-81e4-f5be7102f69b`.
+- Worker `court/court.js` and `court/scene-view.js`: HTTP 200 and byte equality
+  to the release archive. Pages equivalents: HTTP 200 and source equality after
+  CRLF/LF normalization (the initial byte comparison differed only by newlines).
+- Docker downloaded to `outputs/docker-ada6f14`; SOURCE_COMMIT matches and all
+  seven SHA256SUMS entries verified. The image remains a static preview, not a
+  bundled production login/AI backend.
+- No backend source, secrets, database migration configuration, bindings,
+  payment settings or research collection setting changed. Existing unrelated
+  worktree edits were excluded. No C# or Unity binary rebuild was necessary.
+- Educational-effect evidence collection is deferred at the user's request;
+  remaining game acceptance and Backend Goal Audit requirements remain open.
