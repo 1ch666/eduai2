@@ -418,3 +418,16 @@ Focused tests cover answer-key omission, detached public data, phase/version
 validation, bounded scores/ratings and rejection of extra fields/accessors.
 尚未進行正式使用者實驗。The full Game/Education acceptance remains open;
 the original `docs/BACKEND-GOAL-AUDIT.md` goals are retained, not cancelled.
+
+Education progression increment (2026-10-04): `court-education-flow.ts` now
+implements the pure server-side sequence off -> consent/pre -> playing -> post
+-> survey -> complete. Trusted case progression gates enrollment and post-test;
+expected revision rejects stale transitions and each submission is accepted only
+once. Withdrawal clears all assessment scores/ratings and prevents reenrollment
+in that flow. Public projection reveals only the eligible form and delays scores
+until post-test submission. Unit tests cover the complete sequence, skipping,
+late enrollment, stale/repeated writes, wrong forms and withdrawal at every phase.
+This reducer is not yet wired to a durable host: transactional persistence,
+request recovery, owner checks, deletion of any exported copies, consent UI and
+retention remain integration work. It does not enable research collection or
+change production storage. Ordinary gameplay must remain available without consent.
