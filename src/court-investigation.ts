@@ -30,6 +30,9 @@ export const INVESTIGATION_LINES:Readonly<Record<string,string>>={
  Prosecutor:'本案仍須核對離場時間與資料，不能只因有人在場就認定取走平板。',
  Lawyer:'請區分時間紀錄與取走平板這兩件事；一項證詞有疑問，不代表已查明全部經過。'
 };
+export const FOLLOW_UP_ACTION='investigate.followUp.Witness';
+// Server-authored question, not a new fact, verdict or instruction from the client.
+export const FOLLOW_UP_QUESTION='你先前說 20:00 已離開，但我出示的時間紀錄顯示 20:17 仍在現場。請回應這項差異；不知道原因就明說，不要補出新的經過。';
 export type InvestigationState={
  caseId:typeof TABLET_INVESTIGATION.id;questionedNpcIds:string[];heardFactIds:string[];
  viewedEvidenceIds:string[];presentations:string[];foundContradictionIds:string[];
@@ -64,7 +67,7 @@ export function parseInvestigation(value:unknown):InvestigationState|null{
 export function investigationActionIds(s:InvestigationState):string[]{
  return [...TABLET_INVESTIGATION.npcs.map(id=>'investigate.question.'+id),'investigate.discover',
   ...(s.viewedEvidenceIds.length?TABLET_INVESTIGATION.npcs.map(id=>'investigate.present.'+id):[]),
-  ...(s.foundContradictionIds.length?['investigate.followUp.Witness']:[]),'investigate.hint'];
+  ...(s.foundContradictionIds.length&&!s.followedContradictionIds.length?[FOLLOW_UP_ACTION]:[]),'investigate.hint'];
 }
 export function investigationActionLabel(id:string):string{
  const name:Record<string,string>={Witness:'證人',Prosecutor:'檢察官',Lawyer:'辯護人'};

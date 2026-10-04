@@ -21,7 +21,7 @@ import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 import {parseRandomCaseRequest,randomCourtConfig,RandomConfigError} from './court-random';
 import {initializeDeletion,eraseCourtContent,deleteCourt,deletionOutcome} from './court-deletion';
 import {parseCreation,type CourtCreation} from './court-creation';
-import {TABLET_INVESTIGATION} from './court-investigation';
+import {TABLET_INVESTIGATION,FOLLOW_UP_ACTION,FOLLOW_UP_QUESTION} from './court-investigation';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -173,7 +173,9 @@ export class CourtRoom extends DurableObject<AppEnv> {
   async npcV1(owner:string,input:CourtMutation,allowAI:boolean,trace?:TraceContext){
     trace=copyTrace(trace);
     const m=parseMutation(JSON.stringify(input));
-    if(!m||m.actionId!=='npc.ask'||!isNpcId(m.targetId)||!m.text.trim()||m.text.length>400)return {error:'角色或提問格式錯誤',status:400};
+    if(!m)return {error:'角色或提問格式錯誤',status:400};
+    const followUp=m.actionId===FOLLOW_UP_ACTION,npcId=followUp?'Witness':m.targetId;
+    if(!isNpcId(npcId)||(followUp?m.targetId!==''||m.text!=='':m.actionId!=='npc.ask'||!m.text.trim()||m.text.length>400))return {error:'角色或提問格式錯誤',status:400};
     const s=this.read();if(!s||s.owner!==owner||s.id!==m.sessionId)return {error:'場次不存在',status:404};
     if(s.config.caseId!==m.caseId)return {error:'案件不符',status:409};
     const payload=canonical(m);
@@ -183,29 +185,44 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(pending.length)return pending.length===1&&pending[0].payload===payload?this.outcomeV1(owner,m.requestId):{error:'請求識別已用於不同內容',status:409};
     if(this.ctx.storage.sql.exec('SELECT id FROM requests WHERE id=?',m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(s.version!==m.expectedStateVersion||s.version>=100||!canConverse(s))return {error:'目前版本或階段不允許交談',status:409};
+    // Validate the complete deterministic transition BEFORE reserving/calling AI.
+    // Do not commit it until the reply and exact receipt commit atomically.
+    let prepared:CourtState|undefined;
+    if(followUp){
+      try{prepared=transition(s,{requestId:m.requestId,version:m.expectedStateVersion,type:FOLLOW_UP_ACTION});}
+      catch{return {error:'尚未解鎖追問，或此階段不允許追問',status:409};}
+    }
     if(this.ctx.storage.sql.exec('SELECT id FROM npc_requests WHERE id=?',m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     const count=this.ctx.storage.sql.exec<{n:number}>('SELECT count(*) AS n FROM npc_requests').one().n;
-    if(count>=40)return {error:'此場次對話上限已達',status:409};
-    const a={requestId:m.requestId,version:m.expectedStateVersion,text:m.text};
+    if(count>=40&&!followUp)return {error:'此場次對話上限已達',status:409};
+    // One unlocked follow-up may still deliver its authored fallback at the chat
+    // limit. It cannot spend model quota or be repeated as a new action afterward.
+    const a={requestId:m.requestId,version:m.expectedStateVersion,text:followUp?FOLLOW_UP_QUESTION:m.text};
     const issuedAt=Date.now();
     this.ctx.storage.transactionSync(()=>{
       this.ctx.storage.sql.exec('INSERT INTO court_v1_npc_pending VALUES(?,?,?,?,NULL)',m.requestId,m.idempotencyKey,payload,issuedAt);
-      this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',m.requestId,JSON.stringify({npcId:m.targetId,...a}),issuedAt);
+      this.ctx.storage.sql.exec('INSERT INTO npc_requests VALUES(?,?,?,NULL)',m.requestId,JSON.stringify({npcId,...a}),issuedAt);
     });
-    const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),m.targetId);
-    const reply=await npcResponse(this.env,s,m.targetId,a,allowAI&&count<12,history,undefined,issuedAt,trace);
+    const history=npcHistory(this.ctx.storage.sql.exec<{payload:string;result:string}>('SELECT payload,result FROM npc_requests WHERE result IS NOT NULL ORDER BY created,id').toArray(),npcId);
+    const reply=await npcResponse(this.env,s,npcId,a,allowAI&&count<12,history,undefined,issuedAt,trace);
+    if(prepared&&reply.mode!=='ai'){
+      reply.text=prepared.feedback;reply.knowledgeIds=[];reply.aiOutcome=aiOutcome('npc','scripted');
+    }
     const current=this.read();if(!current||current.owner!==owner)return {error:'場次不存在',status:404};
     const reservation=this.ctx.storage.sql.exec<{result:string|null;created:number}>('SELECT result,created FROM court_v1_npc_pending WHERE request_id=?',m.requestId).toArray()[0];
     if(!reservation)return {error:'請求紀錄不存在',status:409};
     if(reservation.result)return JSON.parse(reservation.result) as NpcNotApplied;
     if(Date.now()-reservation.created>=25000)return this.cancelNpcV1(m,'expired');
     if(current.version!==m.expectedStateVersion)return this.cancelNpcV1(m,'state-changed');
-    const next=structuredClone(current);next.version++;next.updatedAt=new Date().toISOString();reply.version=next.version;
+    const next=prepared||structuredClone(current);if(!prepared)next.version++;
+    next.updatedAt=new Date().toISOString();reply.version=next.version;
+    if(followUp)next.feedback=reply.text;
     return this.ctx.storage.transactionSync(()=>{
       checkpointJournal(this.ctx.storage.sql,current);
       this.ctx.storage.sql.exec('UPDATE state SET body=? WHERE id=1',JSON.stringify(next));
       this.ctx.storage.sql.exec('UPDATE npc_requests SET result=? WHERE id=?',JSON.stringify(reply),m.requestId);
-      const event=appendJournal(this.ctx.storage.sql,next,{kind:'npc_utterance',requestId:m.requestId,speaker:npcKnowledge(next,m.targetId as NpcId).name,roleId:m.targetId.toLowerCase(),text:reply.text});
+      const event=appendJournal(this.ctx.storage.sql,next,{kind:'npc_utterance',requestId:m.requestId,speaker:npcKnowledge(next,npcId).name,roleId:npcId.toLowerCase(),text:reply.text,
+        evidenceIds:followUp?[TABLET_INVESTIGATION.evidence.id]:[]});
       this.ctx.storage.sql.exec('INSERT INTO court_v1_requests VALUES(?,?,?,?)',m.requestId,m.idempotencyKey,payload,JSON.stringify(event));
       this.ctx.storage.sql.exec('DELETE FROM court_v1_npc_pending WHERE request_id=?',m.requestId);
       return event;
@@ -221,6 +238,7 @@ export class CourtRoom extends DurableObject<AppEnv> {
     if(this.ctx.storage.sql.exec('SELECT request_id FROM court_v1_npc_pending WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray().length)return {error:'請求識別已使用',status:409};
     const previous=this.ctx.storage.sql.exec<{payload:string;event:string}>('SELECT payload,event FROM court_v1_requests WHERE request_id=? OR idempotency_key=?',m.requestId,m.idempotencyKey).toArray();
     if(previous.length)return previous.length===1&&previous[0].payload===payload?JSON.parse(previous[0].event) as JournalEvent:{error:'請求識別已用於不同內容',status:409};
+    if(m.actionId===FOLLOW_UP_ACTION)return {error:'請透過角色對話處理此追問',status:409};
     if(this.ctx.storage.sql.exec('SELECT id FROM requests WHERE id=? UNION ALL SELECT id FROM npc_requests WHERE id=?',m.requestId,m.requestId).toArray().length)return {error:'請求識別已使用',status:409};
     if(s.version!==m.expectedStateVersion||s.version>=100)return {error:'場次版本已變更或操作上限已達',status:409};
     const descriptor=publicCourtSnapshot(s,m.requestId,crypto.randomUUID(),new Date().toISOString()).state.allowedActions.find(a=>a.actionId===m.actionId);
@@ -457,7 +475,7 @@ export async function handleCourt(request:Request,env:AppEnv,respond:Responder,t
     const input=raw.tooLarge||raw.invalidEncoding?null:parseMutation(raw.text);
     if(!input||input.sessionId!==v1[1])return respond({error:'動作格式或場次錯誤'},400);
     // Strict parser uses null-prototype records; DO RPC serializes plain objects.
-    const result=input.actionId==='npc.ask'?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4),trace):await room.actionV1(session.user.id,{...input},trace);return respond(result,'status' in result?result.status:200);
+    const result=input.actionId==='npc.ask'||input.actionId===FOLLOW_UP_ACTION?await room.npcV1(session.user.id,{...input},await learner.allow('npc-ai',4),trace):await room.actionV1(session.user.id,{...input},trace);return respond(result,'status' in result?result.status:200);
   }
   if(request.method==='GET'){
     if(path==='/api/court/sessions')return respond({sessions:await learner.list()});

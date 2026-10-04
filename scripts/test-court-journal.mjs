@@ -11,7 +11,7 @@ import {readFile} from 'node:fs/promises';
 import Ajv from 'ajv';
 const privateRowsSchema=new Ajv({strict:true}).compile(JSON.parse(await readFile('contracts/court-private-journal-v1.schema.json','utf8')));
 const bundle=await build({entryPoints:['src/court.ts'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'do-lifecycle',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'do',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export class DurableObject { constructor(ctx,env){this.ctx=ctx;this.env=env;} }'}));}}]});
-const {CourtRoom,Learner}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const {CourtRoom,Learner,handleCourt}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const privateBundle=await build({entryPoints:['src/court-private-journal.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {reconstructPrivateState}=await import('data:text/javascript;base64,'+Buffer.from(privateBundle.outputFiles[0].text).toString('base64'));
 const backupBundle=await build({entryPoints:['src/backup-envelope.ts'],bundle:true,platform:'node',format:'esm',write:false});
@@ -446,6 +446,112 @@ test('future private state and nested metadata never escape legacy view or v1 jo
   assert.ok(db.prepare('SELECT body FROM state').get().body.includes('PRIVATE_GRAPH_CANARY'));
  }finally{db.close();}
 });
+function investigationReady(env={}){
+ const caseId='tablet-time-discrepancy-v1',fixture=setup({...config,caseId},env);
+ const {room,id}=fixture;
+ const command=(actionId,extra={})=>({...mutation(id,room.get('owner').view.version,actionId),caseId,...extra});
+ for(const [actionId,extra] of [['acknowledge',{}],['speak',{text:'確認離場時間'}],
+  ['investigate.question.Witness',{}],['investigate.discover',{}],['investigate.present.Witness',{}]]){
+  assert.ok(room.actionV1('owner',command(actionId,extra)).snapshot);
+ }
+ return {...fixture,command};
+}
+test('HTTP follow-up dispatch preserves login, CSRF and limits before the durable NPC path',async()=>{
+ const {room,db,id,command}=investigationReady();let npcCalls=0;const allowances=[];
+ const origin='https://court.test',m=command('investigate.followUp.Witness');
+ const env={ACCOUNT_STORE:{getByName:()=>({session:async()=>({user:{id:'owner'},csrfToken:'csrf'})})},
+  LEARNER:{getByName:()=>({allow:async(kind)=>{allowances.push(kind);return kind!=='npc-ai';}})},
+  COURT_ROOM:{getByName:()=>({npcV1:async(owner,input,allow)=>{npcCalls++;assert.equal(allow,false);return room.npcV1(owner,input,allow);},actionV1:()=>{throw Error('wrong route');}})}};
+ const headers={Cookie:'__Host-civic_session='+'a'.repeat(64),'X-CSRF-Token':'csrf','Content-Type':'application/json'};
+ const call=h=>handleCourt(new Request(origin+'/api/court/v1/sessions/'+id+'/actions',{method:'POST',headers:h,body:JSON.stringify(m)}),env,(b,status=200)=>Response.json(b,{status}),origin);
+ try{
+  assert.equal((await call({})).status,401);
+  assert.equal((await call({...headers,'X-CSRF-Token':'wrong'})).status,403);assert.equal(npcCalls,0);
+  const result=await call(headers);assert.equal(result.status,200);assert.match((await result.json()).text,/預寫教學回應/);
+  assert.deepEqual(allowances,['court','npc-ai']);assert.equal(npcCalls,1);
+ }finally{db.close();}
+});
+
+test('AI follow-up uses projected facts once, saves its real answer and recovers identical receipts',async()=>{
+ const {room,db,ctx,id,command}=investigationReady(stageEnv),original=globalThis.fetch,entered=gate();
+ let calls=0,resolveProvider;
+ globalThis.fetch=(_url,options)=>{
+  calls++;const body=JSON.parse(options.body),input=JSON.parse(body.messages.at(-1).content);
+  assert(input.question.includes('20:17'));assert.equal(input.facts.length,2);
+  assert(input.facts.some(f=>f.text.includes('20:00')));assert(input.facts.some(f=>f.text.includes('20:17')));
+  for(const secret of ['contradictionId','answer-key','correct','explanation','owner'])assert(!JSON.stringify(input).includes(secret));
+  return new Promise(resolve=>{resolveProvider=resolve;entered.resolve();});
+ };
+ try{
+  const m=command('investigate.followUp.Witness'),pending=room.npcV1('owner',m,true);await entered.promise;
+  assert.equal((await room.npcV1('owner',m,true)).status,202);
+  assert.equal(room.get('owner').view.investigation.contradictions[0].followed,false);
+  resolveProvider(Response.json({message:{content:JSON.stringify({reply:'我的離場說法與你出示的時間紀錄不一致，目前還不能解釋原因，需要重新核對。',factIds:['k0','k1'],uncertain:false})}}));
+  const event=await pending;assert.ok(parseEvent(JSON.stringify(event)));assert(!event.text.includes('預寫'));
+  assert.equal(calls,1);assert.equal(room.get('owner').view.investigation.contradictions[0].followed,true);
+  assert.deepEqual(await new CourtRoom(ctx,stageEnv).npcV1('owner',m,true),event);assert.equal(calls,1);
+  const saved=room.get('owner').view.npcHistory.at(-1);assert.equal(saved.mode,'ai');assert.equal(saved.aiOutcome.modelUsed,true);
+  assert.equal((await room.npcV1('owner',command('investigate.followUp.Witness'),true)).status,409);
+  const state=JSON.parse(db.prepare('SELECT body FROM state').get().body);
+  assert.deepEqual(reconstructPrivateState(ctx.storage.sql,state.version,{sessionId:id,owner:'owner'}),state);
+ }finally{globalThis.fetch=original;db.close();}
+});
+for(const failure of ['quota','malformed'])test('follow-up persists explicit authored fallback after '+failure+', without model retry',async()=>{
+ const {room,db,ctx,command}=investigationReady(stageEnv),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;return failure==='quota'?new Response('quota',{status:429}):Response.json({message:{content:'not valid structured dialogue'}});};
+ try{
+  const m=command('investigate.followUp.Witness'),event=await room.npcV1('owner',m,true);
+  assert.ok(parseEvent(JSON.stringify(event)));assert.match(event.text,/預寫教學回應/);
+  assert.equal(calls,1);assert.equal(room.get('owner').view.investigation.contradictions[0].followed,true);
+  const saved=room.get('owner').view.npcHistory.at(-1);assert.equal(saved.mode,'scripted');assert.equal(saved.aiOutcome.modelUsed,false);
+  assert.deepEqual(await new CourtRoom(ctx,stageEnv).npcV1('owner',m,true),event);assert.equal(calls,1);
+ }finally{globalThis.fetch=original;db.close();}
+});
+
+test('follow-up rejects wrong owner, altered target, custom text and locked contradiction before AI or reservation',async()=>{
+ const {room,db,id}=setup({...config,caseId:'tablet-time-discrepancy-v1'},stageEnv);
+ const m={...mutation(id,0,'investigate.followUp.Witness'),caseId:'tablet-time-discrepancy-v1'};
+ try{
+  assert.equal((await room.npcV1('other',m,true)).status,404);
+  assert.equal((await room.npcV1('owner',{...m,targetId:'Lawyer'},true)).status,400);
+  assert.equal((await room.npcV1('owner',{...m,text:'invent contradiction'},true)).status,400);
+  assert.equal((await room.npcV1('owner',m,true)).status,409);
+  assert.equal(db.prepare('SELECT count(*) n FROM npc_requests').get().n,0);
+  assert.equal(room.get('owner').view.version,0);
+ }finally{db.close();}
+});
+for(const failure of ['state-changed','expired','deleted','write-failure'])test('AI follow-up fences '+failure+' without committing discoveries',async()=>{
+ const {room,db,ctx,command,setFail}=investigationReady(stageEnv),original=globalThis.fetch,entered=gate();let resolveProvider,calls=0;
+ globalThis.fetch=()=>{calls++;return new Promise(resolve=>{resolveProvider=resolve;entered.resolve();});};
+ try{
+  const m=command('investigate.followUp.Witness'),pending=room.npcV1('owner',m,true);await entered.promise;
+  if(failure==='state-changed')assert.ok(room.actionV1('owner',command('investigate.hint')).snapshot);
+  if(failure==='expired'){
+   db.prepare('UPDATE court_v1_npc_pending SET created=?').run(Date.now()-26000);
+   assert.equal(new CourtRoom(ctx,{}).outcomeV1('owner',m.requestId).reason,'expired');
+  }
+  if(failure==='deleted')room.remove('owner');
+  if(failure==='write-failure')setFail(true);
+  resolveProvider(Response.json({message:{content:JSON.stringify({reply:'兩項時間記錄不一致，需要核對。',factIds:['k0','k1'],uncertain:false})}}));
+  if(failure==='write-failure'){await assert.rejects(pending,/journal write failure/);setFail(false);assert.equal(room.outcomeV1('owner',m.requestId).status,202);}
+  else{const result=await pending;if(failure==='deleted')assert.equal(result.status,404);else assert.equal(result.reason,failure);}
+  assert.equal(calls,1);
+  if(failure!=='deleted')assert.equal(room.get('owner').view.investigation.contradictions[0].followed,false);
+ }finally{globalThis.fetch=original;db.close();}
+});
+test('chat allowance exhaustion still completes the single authored follow-up without calling provider',async()=>{
+ const {room,db,command}=investigationReady(stageEnv),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=()=>{calls++;throw Error('must not call');};
+ try{
+  for(let i=0;i<40;i++)assert.ok((await room.npcV1('owner',command('npc.ask',{targetId:'Witness',text:'你好'}),false)).snapshot);
+  const m=command('investigate.followUp.Witness'),event=await room.npcV1('owner',m,true);
+  assert.ok(parseEvent(JSON.stringify(event)));assert.match(event.text,/預寫教學回應/);assert.equal(calls,0);
+  assert.equal(room.get('owner').view.npcHistory.at(-1).aiOutcome.modelUsed,false);
+  assert.deepEqual(await room.npcV1('owner',m,true),event);
+  assert.equal((await room.npcV1('owner',command('investigate.followUp.Witness'),true)).status,409);
+ }finally{globalThis.fetch=original;db.close();}
+});
+
 function setup(selectedConfig=config,env={},initialize=true){
  const db=new DatabaseSync(':memory:');let fail=false;
  const sql={exec(query,...args){
@@ -458,7 +564,7 @@ function setup(selectedConfig=config,env={},initialize=true){
  return {room,db,ctx,id,setFail:value=>fail=value};
 }
 
-test('authored investigation commits through real receipts, survives restart and locks reviewed results',()=>{
+test('authored investigation commits through real receipts, survives restart and locks reviewed results',async()=>{
  const caseId='tablet-time-discrepancy-v1';
  const {room,db,ctx,id,setFail}=setup({...config,caseId});
  try{
@@ -488,7 +594,9 @@ test('authored investigation commits through real receipts, survives restart and
   const found=act('investigate.present.Witness');assert.equal(found.kind,'evidence_presented');
   assert.equal(room.get('owner').view.investigation.contradictions.length,1);
   const reopened=new CourtRoom(ctx,{});assert.deepEqual(reopened.get('owner'),room.get('owner'));
-  const follow=act('investigate.followUp.Witness');assert.match(follow.text,/預寫教學回應/);
+  const followCommand=command('investigate.followUp.Witness');
+  const follow=await room.npcV1('owner',followCommand,false);assert.ok(parseEvent(JSON.stringify(follow)));assert.match(follow.text,/預寫教學回應/);
+  assert.deepEqual(await room.npcV1('owner',followCommand,false),follow);
   act('rule.heard.allow');act('rule.shortcut.deny');act('closeEvidence');act('speak',{text:'時間矛盾不代表已查明取走平板的人'});
   act('answer.2');const before=room.get('owner');
   assert.equal(before.view.investigation.debrief.hintsUsed,1);
@@ -1067,6 +1175,23 @@ test('v1 concurrent retries and outcome reads call configured provider once',asy
   assert.deepEqual(await room.npcV1('owner',m,true),event);assert.equal(calls,1);
  }finally{globalThis.fetch=original;db.close();}
 });
+test('transport recovers follow-up after lost response without resending the action',async()=>{
+ const {room,db,id}=investigationReady();let posts=0;
+ try{
+  const transport=new CourtTransport({origin:'https://court.test',csrf:()=> 'test',fetchImpl:async(url,o)=>{
+   const u=new URL(url);
+   if(o.method==='POST'){posts++;await room.npcV1('owner',JSON.parse(o.body),false);throw Error('lost response');}
+   const result=u.pathname.includes('/requests/')?room.outcomeV1('owner',u.pathname.split('/').at(-1)):room.snapshotV1('owner',u.searchParams.get('requestId'));
+   return Response.json(result,{status:result.status||200});
+  }});
+  transport.bind(id,'tablet-time-discrepancy-v1');await transport.refresh();
+  assert.equal(await transport.act('investigate.followUp.Witness'),'network');
+  assert.equal(await transport.recoverPending(),'accepted');assert.equal(posts,1);
+  assert.match(transport.lastDialogue.text,/預寫教學回應/);assert.equal(transport.pending,null);
+  assert.equal(room.get('owner').view.investigation.contradictions[0].followed,true);
+ }finally{db.close();}
+});
+
 test('transport recovers committed NPC text after lost response, without another model request',async()=>{
  const {room,db,id}=setup();let posts=0;
  try{

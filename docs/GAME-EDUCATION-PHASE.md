@@ -124,8 +124,18 @@ Implemented and locally tested:
 - Viewing evidence does NOT give it to NPCs. Only the specifically targeted NPC
   gets it through Knowledge Projection after presentation. AI output never marks
   a statement heard or unlocks a contradiction.
-- Original-statement and follow-up actions deliver explicitly labelled authored
-  text, not fake AI. Existing free-text AI dialogue uses the new projection.
+- Original-statement actions deliver explicitly labelled authored text. Versioned
+  follow-up actions now automatically attempt governed AI through the existing
+  durable NPC request path. Only the witness's statement and presented evidence
+  reach its Knowledge Projection; AI cannot unlock or decide contradictions.
+- Follow-up has a server-authored question, one durable receipt and one committed
+  state transition. Concurrent duplicates recover pending/committed outcomes;
+  retries never invoke AI again. A new request cannot repeat a completed follow-up.
+  Expiry, deletion or intervening state changes fence late provider results.
+- Disabled/unavailable AI, quota exhaustion or invalid replies use explicitly
+  labelled authored teaching dialogue, not fake AI. The legacy unversioned action
+  endpoint retains authored follow-up for compatibility; current web/versioned
+  clients use the automatic AI path. No additional provider/model configuration.
 - New case catalogue and initial snapshots omit hidden evidence names/text.
 - Web `court/investigation-board.js` shows discoveries, server-derived objectives,
   read-only completed review and basic coverage/hints/contradiction/concept analysis.
@@ -153,8 +163,9 @@ step; verify the old WebGL bridge still renders the same server snapshot.
 NOT completed / next work:
 1. Dedicated Unity evidence/NPC presentation interaction and real browser acceptance;
    no new Unity build or production deployment was done for this checkpoint.
-2. Follow-up automatically invoking governed AI with durable recovery (currently
-   explicit authored follow-up text; ordinary NPC AI remains a separate question).
+2. Verify automatic AI follow-up on the deployed Worker with a real signed-in
+   browser. Local provider responses are synthetic test fixtures, not live AI
+   acceptance; test lost responses, provider failure and receipt recovery as well.
 3. NPC animation/states, richer evidence UI/cameras, difficulty and honest Demo Mode.
 4. Complete error-category measurement, first-attempt judgment tracking and links.
 5. Pre/post tests, survey and consented gameplay event integration.
