@@ -27,7 +27,8 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const evidenceViewer=createEvidenceViewer({document});
  const investigation=createInvestigationControls({document,onAction:actionId=>void execute(()=>transport.act(actionId),true)});
  const board=createInvestigationBoard(document);
- dialog.append(close,heading,notice,dialogue,investigation.element,board.element,evidenceViewer.element,body,recovery);document.body.append(dialog);
+ // Keep actionable controls before the growing notebook on small screens.
+ dialog.append(close,heading,notice,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
  const recoveryNotice=createRecoveryNotice({document,onOpen:open});
  document.getElementById('notice')?.after(recoveryNotice.element);
@@ -37,7 +38,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   const snapshot=transport.snapshot,pending=transport.pending;
   recoveryNotice.update({pending:!!pending,blocked:transport.recoveryBlocked,working});
   const reply=transport.lastDialogue,feedback=snapshot?.state.feedback||'';
-  dialogue.hidden=!reply&&!feedback;dialogue.textContent=[reply?`${reply.speaker}：${reply.text}`:'',feedback].filter(Boolean).join('\n\n');
+  dialogue.hidden=!reply&&!feedback;dialogue.textContent=[reply?`${reply.speaker}：${reply.text}`:'',feedback!==reply?.text?feedback:''].filter(Boolean).join('\n\n');
   evidenceViewer.setSnapshot(snapshot);
   investigation.setSnapshot(snapshot,working||!transport.canAct);
   // The board comes from the authenticated public view, not private truth. Do not
@@ -74,7 +75,7 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
    if(!availability.enabled)row.append(make('p',availability.reason));
    actions.append(row);
   }
-  if(snapshot?.state.completed)actions.append(make('p',snapshot.state.feedback||'此場次已完成。'));
+  if(snapshot?.state.completed)actions.append(make('p','此場次已完成，以下為唯讀回顧。'));
  }
  async function execute(operation,mutation=false){
   if(working||!valid())return;

@@ -8,7 +8,7 @@ const fixture=JSON.parse(await readFile(new URL('../court-game/Assets/Editor/Fix
 class Element{
  constructor(tag){this.tag=tag;this.children=[];this.listeners={};this.style={};this.value='';this.open=false;}
  get options(){return this.children;}
- setAttribute(){} append(...nodes){this.children.push(...nodes);} after(node){this.afterNode=node;}
+ setAttribute(k,v){(this.attributes??={})[k]=v;} append(...nodes){this.children.push(...nodes);} after(node){this.afterNode=node;}
  replaceChildren(...nodes){this.children=nodes;} addEventListener(k,f){(this.listeners[k]??=[]).push(f);}
  fire(k){for(const f of this.listeners[k]||[])f();}
  showModal(){this.open=true;} close(){this.open=false;this.fire('close');}
@@ -22,6 +22,7 @@ test('restored pending marker shows recovery outside closed dialog and resolves 
  const requestId=crypto.randomUUID(),scope={sessionId:fixture.sessionId,caseId:fixture.caseId};
  createPendingJournal({getStorage:()=>storage,getOwner:()=> 'owner'})(scope).save(requestId);
  const snapshot={...structuredClone(fixture),requestId,stateVersion:1,eventSequence:1,eventId:crypto.randomUUID()};
+ snapshot.state.feedback='測試系統提示';
  const {state,...envelope}=snapshot,event={...envelope,kind:'npc_utterance',speaker:'證人',roleId:'witness',stageId:state.stageId,text:'測試系統提示',evidenceIds:[],citationIds:[],snapshot};
  const old=globalThis.fetch,calls=[];let updated=0,before=0;
  globalThis.fetch=async(url,o)=>{calls.push([url,o.method]);return Response.json(event);};
@@ -33,6 +34,11 @@ test('restored pending marker shows recovery outside closed dialog and resolves 
   const recover=elements.find(e=>e.textContent==='查詢上次送出結果');recover.onclick();
   for(let i=0;i<50&&panel.working;i++)await new Promise(r=>setTimeout(r,2));
   assert.equal(panel.working,false);assert.equal(panel.pending,false);assert.equal(banner.hidden,true);assert.equal(updated,1);assert.equal(values.size,0);
+  const dialogue=elements.find(e=>e.style.whiteSpace==='pre-wrap');
+  assert.equal(dialogue.textContent,'證人：測試系統提示','same NPC reply and feedback must appear once');
+  const body=elements.find(e=>e.children.some(child=>child.tag==='label'&&child.textContent==='陳述或提問（角色提問最多 400 字）'));
+  const board=dialog.children.find(e=>e.attributes?.['aria-label']==='案件筆記');
+  assert.ok(dialog.children.indexOf(body)<dialog.children.lastIndexOf(board),'procedure controls precede the notebook');
   assert.deepEqual(calls,[[`https://court.test/api/court/v1/sessions/${scope.sessionId}/requests/${requestId}`,'GET']]);
   panel.clear();assert.equal(dialog.open,false);assert.equal(banner.hidden,true);
  }finally{globalThis.fetch=old;}

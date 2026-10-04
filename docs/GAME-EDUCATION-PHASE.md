@@ -188,7 +188,18 @@ Fast regression CI now includes this scenario with a separate disposable storage
 directory so auth quotas from other scenarios do not interfere. This is not a
 browser/WebGL run, live model success or educational effectiveness evidence.
 
-Manual verification next: choose `平板失蹤：十七分鐘的落差`, create a fixed cloud
+Desktop browser checkpoint (2026-10-04): the real local workerd at 8794,
+with synthetic account and AI disabled, passed UI clicks for three original NPC
+statements, discovery, presentation to Witness, contradiction unlock, labelled
+authored follow-up, both correct rulings, closing investigation, statement and
+final judgment. Version 13 showed all six objectives complete, evidence/NPC
+coverage 100%, one contradiction, zero hints and procedure completion 100%.
+Reload and resume preserved the completed read-only board. These are QA fixture
+results, NOT participant research results or live-model acceptance. Browser
+inspection found duplicate reply/feedback and controls buried below the notebook;
+the panel now deduplicates identical feedback and puts controls before notes.
+
+Manual verification next (Unity bridge, real AI and physical mobile): choose `平板失蹤：十七分鐘的落差`, create a fixed cloud
 session, acknowledge → statement → investigation panel → original statements →
 discover → present to Witness → follow-up → required procedural rulings → close
 investigation → response → final answer → read-only analysis. Reload at each
