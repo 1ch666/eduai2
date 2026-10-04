@@ -15,8 +15,10 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
  const dialog=make('dialog');dialog.className='game-panel';dialog.setAttribute('aria-label','伺服器程序操作');
  const close=make('button','關閉');close.type='button';close.onclick=()=>dialog.close();
+ const toolbar=make('div'),navigation=make('nav');toolbar.className='game-panel-toolbar';navigation.className='game-panel-navigation';navigation.setAttribute('aria-label','法庭面板快速切換');toolbar.append(close,navigation);
  const heading=make('h2','程序操作'),notice=make('p');notice.setAttribute('role','status');
  const body=make('div'),recovery=make('div');recovery.className='bar';
+ body.setAttribute('aria-label','程序操作區');
  const textLabel=make('label','陳述或提問（角色提問最多 400 字）'),text=make('textarea');text.maxLength=600;text.rows=4;textLabel.append(text);
  const dialogue=make('p');dialogue.setAttribute('role','status');dialogue.style.whiteSpace='pre-wrap';
  const targetLabel=make('label','選擇證物'),target=make('select');targetLabel.append(target);
@@ -28,39 +30,54 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const evidenceViewer=createEvidenceViewer({document});
  const investigation=createInvestigationControls({document,onAction:actionId=>void execute(()=>transport.act(actionId),true)});
  const board=createInvestigationBoard(document);
- const demo=createDemoGuide(document,section=>{
+ function navigate(section){
   if(!valid()||working||!transport.canAct&&!transport.snapshot?.state.completed)return;
-  const destination={investigation:investigation.element,procedure:actions,statement:text,review:board.element}[section];
+  if(transport.pending||transport.recoveryBlocked)return;
+  const destination={investigation:investigation.element,procedure:body,statement:text,evidence:evidenceViewer.element,review:board.element}[section];
   if(!destination||destination.hidden)return;
+  if(section==='evidence')destination.open=true;
   // Navigation only: never selects a role/answer or invokes a server action.
   destination.setAttribute('tabindex','-1');
   destination.scrollIntoView({block:'start',behavior:'auto'});destination.focus({preventScroll:true});
- });
+ }
+ const demo=createDemoGuide(document,navigate);
  const difficultyLabel=make('label','提示難度'),difficultySelect=make('select');
  for(const [value,name] of [['tutorial','教學'],['normal','一般'],['challenge','挑戰']]){const option=make('option',name);option.value=value;difficultySelect.append(option);}
  difficultySelect.value='normal';difficultyLabel.append(difficultySelect);
  const difficultyNote=make('p','只調整本次頁面的提示，不改答案、判分或雲端場次；重新開啟頁面恢復一般模式。');
  // Keep actionable controls before the growing notebook on small screens.
- dialog.append(close,heading,notice,difficultyLabel,difficultyNote,demo.element,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
- let context=null,generation=0,working=false,returnFocus=null;
+ dialog.append(toolbar,heading,notice,difficultyLabel,difficultyNote,demo.element,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
+ let context=null,generation=0,renderRevision=0,working=false,returnFocus=null;
  const recoveryNotice=createRecoveryNotice({document,onOpen:open});
  document.getElementById('notice')?.after(recoveryNotice.element);
  const valid=()=>context&&getView()?.id===context.session&&getAccount()?.id===context.owner;
  const messages={accepted:'已同步伺服器紀錄。',duplicate:'這筆操作已保存，未重複執行。',stale:'已保留較新的狀態。',conflict:'狀態已改變，請更新後重新確認。','login-required':'登入已失效，請重新登入。',forbidden:'沒有執行權限，請更新登入狀態。','rate-limited':'操作頻繁，請稍候再試。',timeout:'等待逾時；操作可能已保存，請先查詢結果。',network:'連線中斷；操作結果尚未確認。','outcome-unknown':'尚未取得結果，可稍後查詢；不要建立另一筆相同操作。','retry-exhausted':'已達重送上限，請繼續查詢結果。',malformed:'回覆格式不符，未套用資料。','not-allowed':'目前不能執行這個動作。','needs-snapshot':'請先更新伺服器狀態。'};
  function render(){
+  const revision=++renderRevision;
   const snapshot=transport.snapshot,pending=transport.pending;
   recoveryNotice.update({pending:!!pending,blocked:transport.recoveryBlocked,working});
   const reply=transport.lastDialogue,feedback=snapshot?.state.feedback||'';
   dialogue.hidden=!reply&&!feedback;dialogue.textContent=[reply?`${reply.speaker}：${reply.text}`:'',feedback!==reply?.text?feedback:''].filter(Boolean).join('\n\n');
   evidenceViewer.setSnapshot(snapshot);
-  investigation.setSnapshot(snapshot,working||!transport.canAct,difficultySelect.value);
   // The board comes from the authenticated public view, not private truth. Do not
   // display old-session or old-version discoveries beside a newer action state.
   const currentView=getView();
-  const currentBoard=snapshot&&valid()&&currentView.version===snapshot.stateVersion?currentView.investigation:null;
+  const currentBoard=snapshot&&valid()&&currentView.config?.caseId===snapshot.caseId&&currentView.version===snapshot.stateVersion?currentView.investigation:null;
+  investigation.setSnapshot(snapshot,working||!transport.canAct,difficultySelect.value,valid()?currentView:null);
   difficultyLabel.hidden=difficultyNote.hidden=!currentBoard;
   difficultySelect.disabled=working||!!pending||transport.recoveryBlocked;
   board.render(currentBoard,difficultySelect.value);
+  navigation.replaceChildren();
+  if(snapshot&&valid()){
+   const entries=[...(!investigation.element.hidden?[['investigation','角色調查']]:[]),
+    ...(snapshot.state.evidence.length?[['evidence','證物對照']]:[]),
+    ...(!snapshot.state.completed?[['procedure','程序操作']]:[]),
+    ...(currentBoard?[['review',snapshot.state.completed?'庭後分析':'案件筆記']]:[])];
+   for(const [section,label] of entries){
+    const button=make('button',label);button.type='button';button.disabled=working||!!pending||transport.recoveryBlocked||(!snapshot.state.completed&&!transport.canAct);
+    button.onclick=()=>{if(revision===renderRevision)navigate(section);};navigation.append(button);
+   }
+  }
   // A settled completed court is read-only, not waiting for recovery. Keep the
   // review shortcut available, but never during an unresolved request.
   demo.setState(difficultySelect.value==='challenge'?null:snapshot,currentBoard,working||!!pending||transport.recoveryBlocked||(!snapshot?.state.completed&&!transport.canAct));

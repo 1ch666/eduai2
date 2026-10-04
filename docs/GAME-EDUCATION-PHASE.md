@@ -13,6 +13,27 @@ or enable production collection while that work is deferred.
 
 ### Resumed gameplay verification — 2026-10-04
 
+- Deadline workflow: batch gameplay implementation before consolidated testing;
+  educational-effect evidence remains deferred, not deleted or marked complete.
+  Investigation controls now mark heard/unheard original statements from the
+  same-owner/session/case/version public board and offer a non-mutating shortcut
+  to another available unqueried NPC. Already-heard public key statements can be
+  reread; this is not a claim that every NPC transcript is present in the board.
+  Challenge mode suppresses the shortcut. A sticky keyboard-accessible panel
+  toolbar jumps to investigation, evidence comparison, procedure or notebook;
+  completed courts expose read-only analysis, not procedure actions. Obsolete,
+  pending and mismatched-context shortcuts cannot act. No new backend architecture,
+  AI invocation, migration, research collection or Unity binary change.
+  Consolidated controls/panel/demo/board/comparison tests: 25 passed; frontend
+  checks passed. Local Chromium used the existing synthetic judge court: explicit
+  original-statement action advanced version 3 to 4 and showed heard status;
+  next-NPC selection and evidence shortcut kept version 4. The latter expanded
+  and focused visible evidence; investigation navigation restored focus. The
+  original 127.0.0.1 browser origin retained older modules after reload; verified
+  this batch via localhost on the same isolated backend with the synthetic login.
+  This is a host-panel browser check, not physical mobile, full Unity-world or
+  live AI acceptance. Screenshot: outputs/investigation-navigation-1004.png (local).
+
 - Demo guidance now derives each next-step suggestion from enabled public server
   descriptors as well as recorded objectives. Non-judge investigation paths no
   longer instruct players to make judicial rulings; a missing/disabled follow-up

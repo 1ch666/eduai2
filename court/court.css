@@ -3,7 +3,7 @@
 .game-panel::backdrop{background:rgba(20,28,30,.65)}
 .investigation-controls{border-block:1px solid var(--line);padding:12px 0;overflow-wrap:anywhere}.investigation-controls>div{display:grid;gap:8px;margin:12px 0}.investigation-controls button{width:100%;text-align:left;white-space:normal}.investigation-controls p{margin:4px 0;white-space:pre-wrap}.investigation-controls label{margin-top:16px}
 .session-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line)}#sessions .session-row>button:first-child{flex:1;min-width:0;overflow-wrap:anywhere}#sessions .delete-session{width:auto;flex:none;color:#773c30}
-.game-panel>button:first-of-type{position:sticky;top:0;z-index:1;background:#344b50;color:white;margin-bottom:16px}
+.game-panel-toolbar{display:flex;align-items:start;gap:8px;position:sticky;top:-20px;z-index:2;background:#f5f5f1;padding:8px 0;border-bottom:1px solid var(--line);margin-bottom:16px}.game-panel-toolbar>button{flex:none;background:var(--ink);color:#fff}.game-panel-navigation{display:flex;flex-wrap:wrap;gap:6px}.game-panel-navigation button{padding:8px;white-space:normal}.game-panel [tabindex="-1"]{scroll-margin-top:150px}.game-panel blockquote{margin:8px 0;padding:10px 14px;border-left:3px solid var(--ink);background:#e4ebe5;white-space:pre-wrap;overflow-wrap:anywhere}
 .game-panel h2{margin-top:8px}.game-panel #evidence:empty::before{content:'本場次尚未提供可查看的證物。'}
 .evidence-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:12px 0}.evidence-comparison>*{min-width:0;overflow-wrap:anywhere}.evidence-card{border:1px solid var(--line);padding:12px}.evidence-card dt{font-weight:600}.evidence-card dd{margin:0 0 8px}.evidence-text{white-space:pre-wrap}.evidence-viewer summary{min-height:44px;padding:8px 0;cursor:pointer}.evidence-viewer mark{color:#000;background:#ffe08a;text-decoration:underline;text-decoration-thickness:2px}@media(max-width:600px){.evidence-comparison{grid-template-columns:1fr}}
 .skip-link{position:fixed;left:12px;top:12px;transform:translateY(-200%);z-index:100;background:white;color:black;padding:12px;border:2px solid black}.skip-link:focus{transform:none}
@@ -19,9 +19,11 @@ html[data-court-contrast="high"] :is(header,.panel,#account,.law,.game-panel,inp
 html[data-court-contrast="high"] :is(.eyebrow,footer,.law p.warn,#sessions .delete-session){color:#000}
 html[data-court-contrast="high"] :is(button.primary,#create,#random-case,.game-panel>button){background:#000;color:#fff}
 html[data-court-contrast="high"] button:disabled{opacity:1;color:#555;border-style:dashed}
+html[data-court-contrast="high"] .game-panel-toolbar{background:#fff}html[data-court-contrast="high"] .game-panel-toolbar>button{background:#000;color:#fff}html[data-court-contrast="high"] .game-panel blockquote{background:#fff;color:#000}
 html[data-court-contrast="high"] :focus-visible{outline:3px solid #000;outline-offset:4px}
 html[data-court-motion="reduce"] *,html[data-court-motion="reduce"] *::before,html[data-court-motion="reduce"] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(max-width:720px){main{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));padding-bottom:max(14px,env(safe-area-inset-bottom))}.session-row{flex-wrap:wrap}.session-row>button:first-child{flex-basis:70%}.game-panel{padding:14px}}
+@media(max-width:720px){.game-panel-toolbar{top:-14px}.game-panel-navigation{flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.game-panel [tabindex="-1"]{scroll-margin-top:190px}}
 .random-entry{border:1px solid var(--line);background:#fff;padding:14px 16px;margin:18px 0}.random-entry p{margin:8px 0 0}
 header>a{min-width:0;max-width:760px;overflow-wrap:anywhere;line-height:1.5}header>button{flex-shrink:0}header>span{flex-shrink:0}@media(max-width:720px){header{flex-wrap:wrap}header>a{flex-basis:100%}}

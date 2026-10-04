@@ -33,7 +33,40 @@ test('completed court demo can navigate to read-only analysis without a mutation
   const review=walk(demo).find(e=>e.tag==='button'&&e.textContent==='查看庭後分析');assert(review);
   review.onclick();const notebook=elements.find(e=>e.attributes?.['aria-label']==='案件筆記');
   assert.equal(notebook.focused,true);assert.equal(notebook.scrolled,true);assert.deepEqual(calls,['GET']);
+  const nav=elements.find(e=>e.attributes?.['aria-label']==='法庭面板快速切換');
+  assert(!walk(nav).some(e=>e.textContent==='程序操作'));
+  const analysis=walk(nav).find(e=>e.textContent==='庭後分析');assert(analysis);assert.equal(analysis.disabled,false);analysis.onclick();
+  assert.deepEqual(calls,['GET']);
   panel.clear();assert.equal(demo.hidden,true);review.onclick();assert.deepEqual(calls,['GET']);
+  notebook.focused=false;analysis.onclick();assert.equal(notebook.focused,false);
+ }finally{globalThis.fetch=old;}
+});
+
+test('panel shortcuts navigate current visible sections only and never submit gameplay',async()=>{
+ const elements=[],document=new Element('document');document.body=new Element('body');document.getElementById=()=>null;
+ document.createElement=tag=>{const e=new Element(tag);elements.push(e);return e;};
+ const window=new Element('window');Object.assign(window,{location:{origin:'https://court.test'},sessionStorage:{getItem:()=>null,setItem(){},removeItem(){}}});
+ const snapshot=structuredClone(fixture);snapshot.state.allowedActions=[{actionId:'investigate.question.Witness',label:'聽取陳述',category:'procedure',requiredTarget:'none',enabled:true,reasonDisabled:''}];
+ const board={completed:false,objectives:[],questionedNpcIds:[],evidence:[],statements:[],contradictions:[]};
+ let view={id:snapshot.sessionId,version:snapshot.stateVersion,config:{caseId:snapshot.caseId},investigation:board};
+ const old=globalThis.fetch,calls=[];globalThis.fetch=async(url,options)=>{calls.push(options.method);return Response.json({...snapshot,requestId:new URL(url).searchParams.get('requestId')});};
+ const walk=e=>[e,...e.children.flatMap(walk)];
+ const settle=async panel=>{for(let i=0;i<100&&panel.working;i++)await new Promise(r=>setTimeout(r,2));assert.equal(panel.working,false);};
+ try{
+  const panel=installActionPanel({document,window,getView:()=>view,getAccount:()=>({id:'owner'}),csrf:()=>'',beforeOpen(){},onUpdated:async()=>{}});
+  panel.open();await settle(panel);
+  const nav=elements.find(e=>e.attributes?.['aria-label']==='法庭面板快速切換');
+  const control=label=>walk(nav).find(e=>e.tag==='button'&&e.textContent===label);
+  control('角色調查').onclick();assert.equal(elements.find(e=>e.attributes?.['aria-label']==='證物與角色調查').focused,true);
+  control('程序操作').onclick();assert.equal(elements.find(e=>e.attributes?.['aria-label']==='程序操作區').focused,true);
+  control('案件筆記').onclick();const notebook=elements.find(e=>e.attributes?.['aria-label']==='案件筆記');assert.equal(notebook.focused,true);
+  if(snapshot.state.evidence.length){control('證物對照').onclick();const viewer=elements.find(e=>e.className==='evidence-viewer');assert.equal(viewer.open,true);assert.equal(viewer.focused,true);}
+  assert.deepEqual(calls,['GET']);
+  const stale=control('案件筆記');notebook.focused=false;
+  view={...view,config:{caseId:'different-case'}};elements.find(e=>e.textContent==='更新狀態').onclick();
+  stale.onclick();assert.equal(notebook.focused,false);await settle(panel);
+  assert.equal(control('案件筆記'),undefined);assert.equal(notebook.hidden,true);
+  panel.clear();stale.onclick();assert.equal(notebook.focused,false);assert(calls.every(method=>method==='GET'));
  }finally{globalThis.fetch=old;}
 });
 test('restored pending marker shows recovery outside closed dialog and resolves with GET only',async()=>{

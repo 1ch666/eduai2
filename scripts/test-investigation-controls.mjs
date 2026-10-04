@@ -4,6 +4,7 @@ import {createInvestigationControls,isInvestigationControlAction} from '../court
 class Element{
  constructor(tag){this.tag=tag;this.children=[];this.textContent='';}
  append(...nodes){this.children.push(...nodes);}replaceChildren(...nodes){this.children=nodes;}setAttribute(){}
+ focus(){this.focused=true;}
 }
 const walk=e=>[e,...e.children.flatMap(walk)];
 const action=id=>({actionId:id,label:id,enabled:true,requiredTarget:'none'});
@@ -18,6 +19,55 @@ test('investigation presents only visible evidence and server-authorized selecte
  s.state.evidence=[{title:'<img onerror=alert(1)>',text:'時間紀錄'}];s.state.allowedActions.push(action('investigate.present.Lawyer'));
  ui.setSnapshot(s);assert(buttons().some(b=>b.textContent==='investigate.present.Lawyer'));
  assert(walk(ui.element).some(e=>e.textContent.includes('<img onerror')));assert(walk(ui.element).every(e=>!Object.hasOwn(e,'innerHTML')));
+});
+
+const publicView=(s,heard=[],statements=[])=>({id:s.sessionId,version:s.stateVersion,config:{caseId:s.caseId},investigation:{questionedNpcIds:heard,statements}});
+test('same-version server records show heard status; next role shortcut never submits a question',()=>{
+ const {ui,calls,buttons}=setup(),s=fixture();s.stateVersion=4;
+ const view=publicView(s,['Witness'],[{npcId:'Witness',text:'已聽取的時間陳述'}]),before=structuredClone({s,view});
+ ui.setSnapshot(s,false,'normal',view);
+ const text=()=>walk(ui.element).map(e=>e.textContent).join('\n');
+ assert.match(text(),/證人 · 已聽取原始陳述/);assert.match(text(),/律師 · 尚未聽取原始陳述/);
+ assert.match(text(),/已聽取的時間陳述/);
+ buttons().find(b=>b.textContent==='切換尚未詢問角色：律師').onclick();
+ const select=walk(ui.element).find(e=>e.tag==='select');assert.equal(select.value,'Lawyer');assert.equal(select.focused,true);
+ assert.deepEqual(calls,[]);assert(!text().includes('已聽取的時間陳述'));
+ assert.match(text(),/自由提問不等於完成/);assert.deepEqual({s,view},before);
+ buttons().find(b=>b.textContent==='investigate.question.Lawyer').onclick();assert.deepEqual(calls,['investigate.question.Lawyer']);
+});
+
+test('mismatched notebook never supplies progress or testimony; hidden roles remain hidden',()=>{
+ const {ui}=setup(),s=fixture();s.stateVersion=2;
+ const view=publicView(s,['Witness'],[{npcId:'Witness',text:'HEARD-ONLY'},{npcId:'Hidden',text:'HIDDEN-TEXT'}]);
+ const text=()=>walk(ui.element).map(e=>e.textContent).join('\n');
+ for(const other of [{...view,id:'other'},{...view,version:3},{...view,config:{caseId:'other'}},null]){
+  ui.setSnapshot(s,false,'normal',other);assert(!text().includes('HEARD-ONLY'));assert(!text().includes('已聽取原始陳述'));
+ }
+ ui.setSnapshot(s,false,'normal',view);assert(text().includes('HEARD-ONLY'));assert(!text().includes('HIDDEN-TEXT'));
+ s.state.npcs[0].visible=false;ui.setSnapshot(s,false,'normal',view);assert(!text().includes('HEARD-ONLY'));
+ ui.setSnapshot(null);assert(!text().includes('HEARD-ONLY'));
+});
+
+test('role shortcuts are blocked on pending, rerender, challenge, completion and context changes',()=>{
+ const {ui,calls,buttons}=setup(),s=fixture();s.stateVersion=1;const view=publicView(s,['Witness']);
+ const getShortcut=()=>buttons().find(b=>b.textContent.startsWith('切換尚未詢問角色'));
+ for(const change of [()=>ui.setSnapshot(s,true,'normal',view),()=>ui.setSnapshot(s,false,'challenge',view),()=>ui.setSnapshot({...s,sessionId:'other'},false,'normal',view),()=>ui.setSnapshot({...s,state:{...s.state,completed:true}},false,'normal',view),()=>ui.setSnapshot(s,false,'normal',view)]){
+  ui.setSnapshot(null);ui.setSnapshot(s,false,'normal',view);const old=getShortcut();assert(old);change();old.onclick();
+  const select=walk(ui.element).find(e=>e.tag==='select');assert.notEqual(select.value,'Lawyer');assert.deepEqual(calls,[]);
+ }
+ ui.setSnapshot(s,false,'challenge',view);assert.equal(getShortcut(),undefined);
+});
+
+test('heard evidence strings remain literal and progress does not invent missing records',()=>{
+ const {ui}=setup(),s=fixture();s.stateVersion=1;
+ const view=publicView(s,[],[{npcId:'Witness',text:'<img onerror=alert(1)>'}]);
+ ui.setSnapshot(s,false,'normal',view);
+ assert(walk(ui.element).every(e=>!Object.hasOwn(e,'innerHTML')));
+ assert(walk(ui.element).some(e=>e.textContent==='證人 · 尚未聽取原始陳述'));
+ assert(!walk(ui.element).some(e=>e.textContent==='<img onerror=alert(1)>'));
+ view.investigation.questionedNpcIds=['Witness'];ui.setSnapshot(s,false,'normal',view);
+ assert(walk(ui.element).some(e=>e.textContent==='<img onerror=alert(1)>'));
+ assert(walk(ui.element).every(e=>!Object.hasOwn(e,'innerHTML')));
 });
 test('pending, revoked actions, completed review and cleared sessions cannot send stale operations',()=>{
  const {ui,calls,buttons}=setup(),s=fixture();ui.setSnapshot(s);
