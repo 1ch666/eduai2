@@ -341,3 +341,20 @@ procedure-panel path, not Unity movement/E-box/touch interactions, live AI,
 physical phones, cloud publication or formal participant research. No formal
 user experiment has been performed. The broader Game/Education phase and all
 original Backend Goal Audit obligations remain open.
+
+Debrief classification increment (2026-10-04): completed investigation views add
+`debrief.errorAnalysis`, an array of `{code,label,status,basis}`. Status is
+`observed`, `not_observed`, or `not_assessed`; absence of an observed error is not
+proof of competence. Existing discovery/question/contradiction state supports
+recorded omissions. The existing final-attempt count supports judgment retries,
+not the semantic reason for a wrong answer. Fact-vs-inference, procedure errors,
+single-testimony reliance and legal-concept errors remain explicitly unassessed
+until suitable recorded evidence is integrated. No LLM/text keyword scoring.
+Observer mode is unassessed and no longer labels the template answer as a player
+judgment. Existing persisted state, API version, scores and migrations remain
+unchanged. The additive legacy public-view field is not part of the strict Unity
+v1 snapshot. Old frontends ignore it; new frontends tolerate its absence, allowing
+rollback without data conversion. Court/board/debrief tests verify all roles,
+retry propagation, invalid/missing attempt counts and unchanged source state.
+Production deployment and real-browser rendering of the new classification are
+still pending; this does not complete the full error-analysis/research requirement.

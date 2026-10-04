@@ -240,7 +240,7 @@ export function courtView(s:CourtState) {
     ...(s.investigation?{investigation:{...investigationBoard(s.investigation),completed:s.completed,
       objectives:[...investigationBoard(s.investigation).objectives,{id:'procedure',label:'完成法庭程序',done:s.stage>=4},
         {id:'judgment',label:'完成最終判讀',done:s.completed}],
-      debrief:s.completed?investigationDebrief(s.investigation,t.answers[t.correct]):null}}:{}),
+      debrief:s.completed?investigationDebrief(s.investigation,s.config.role==='observer'?'旁觀模式，未提交玩家判讀':t.answers[t.correct],{attempts:s.attempts,observer:s.config.role==='observer'}):null}}:{}),
     question:t.question,answers:t.answers,actions:allowedActions(s),stageLabel:STAGES[s.stage],turn:scriptedTurn(s),
     proceduralRequests:s.config.role==='judge'?PROCEDURAL_REQUESTS.map(({id,text})=>({id,text,done:s.rulings?.includes(id)||false})):[],
     sources:LEGAL_SOURCES.filter(r=>r.applies===t.procedure),

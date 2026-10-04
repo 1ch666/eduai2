@@ -20,6 +20,11 @@ test('Every supported role completes every case without skipping evidence',()=>{
    act('answer',{answer:(t.correct+1)%4});assert.equal(s.completed,false);act('answer',{answer:t.correct});
   }
   assert.equal(s.completed,true);assert.equal(courtView(s).assessment.ranked,false);assert(!('owner' in courtView(s)));
+  if(s.investigation){
+   const d=courtView(s).investigation.debrief;
+   assert.equal(d.errorAnalysis.find(e=>e.code==='judgment_retry').status,role==='observer'?'not_assessed':'observed');
+   if(role==='observer'){assert.match(d.finalJudgment,/未提交玩家判讀/);assert(d.errorAnalysis.every(e=>e.status==='not_assessed'));}
+  }
  }
 });
 test('Age and counsel constraints are hard rules, not model suggestions',()=>{

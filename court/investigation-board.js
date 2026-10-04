@@ -21,6 +21,10 @@ export function createInvestigationBoard(document){
    ...(difficulty==='challenge'?[]:[`發現矛盾 ${d.contradictionsFound} 項`]),`程序完成度 ${d.procedureCompletion}%`,`提示 ${d.hintsUsed} 次`,
    '最終判讀：'+d.finalJudgment]);
   section('法律概念',d.concepts);section('需要加強',d.improvements.length?d.improvements:['本次已記錄的調查目標皆完成；不代表法律能力已通過評鑑。']);
+  if(Array.isArray(d.errorAnalysis)){
+   const labels={observed:'有紀錄',not_observed:'本次未記錄',not_assessed:'資料不足／不評估'};
+   section('錯誤分類',d.errorAnalysis.map(e=>`${e.label} · ${labels[e.status]||'資料不足／不評估'}：${e.basis}`));
+  }
   section('推理回顧',d.reasoning);root.append(make('p',d.limitation));
   const link=make('a','前往弱點練習');link.href='../practice/';root.append(link);
  }};

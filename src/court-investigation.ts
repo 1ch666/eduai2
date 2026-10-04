@@ -130,14 +130,28 @@ export function investigationBoard(s:InvestigationState){
    {id:'reasoning',label:'找出陳述與證物的矛盾',done:s.foundContradictionIds.includes(c.contradictionId)},
    {id:'follow-up',label:'完成矛盾追問',done:s.followedContradictionIds.includes(c.contradictionId)}]};
 }
-export function investigationDebrief(s:InvestigationState,finalJudgment:string){
+export function investigationDebrief(s:InvestigationState,finalJudgment:string,context:{attempts?:number;observer?:boolean}={}){
  const d=TABLET_INVESTIGATION;
+ const category=(code:string,label:string,observed:boolean|null,basis:string)=>({code,label,
+  status:context.observer||observed===null?'not_assessed':observed?'observed':'not_observed',
+  basis:context.observer?'旁觀模式沒有玩家作答，不評估此項。':basis});
+ const validAttempts=Number.isSafeInteger(context.attempts)&&context.attempts!>0;
  return {
   evidenceCoverage:s.viewedEvidenceIds.includes(d.evidence.id)?100:0,
   npcCoverage:Math.round(d.npcs.filter(id=>s.questionedNpcIds.includes(id)).length/d.npcs.length*100),
   contradictionsFound:s.foundContradictionIds.length,hintsUsed:s.hintCount,procedureCompletion:100,finalJudgment,
   concepts:['事實與推論','證詞與時間紀錄的核對','矛盾不等於證明犯罪'],
-  improvements:[...(!s.viewedEvidenceIds.length?['忽略關鍵證物']:[]),
+  errorAnalysis:[
+   category('missed_evidence','忽略關鍵證物',!s.viewedEvidenceIds.length,'依本場次已保存的關鍵證物查看紀錄。'),
+   category('incomplete_questioning','未完整詢問',s.questionedNpcIds.length<d.npcs.length,'依三名角色原始陳述的詢問紀錄；不評估自由提問品質。'),
+   category('missed_contradiction','未發現矛盾',!s.foundContradictionIds.length,'依伺服器確認的矛盾發現紀錄。'),
+   category('fact_inference','混淆事實與推論',null,'未保存首次錯選類型，不能只憑最終答對或自由文字判定。'),
+   category('procedure_error','程序理解錯誤',null,'完成程序不代表未曾犯錯；目前未由歷史紀錄統計錯誤裁定。'),
+   category('single_statement','過度依賴單一證詞',null,'詢問數量不能證明玩家如何衡量證詞，尚無足夠紀錄。'),
+   category('legal_concept','法律概念錯誤',null,'需要概念對應的首次作答資料，不能由完成狀態推定。'),
+   category('judgment_retry','最終判讀曾需修正',validAttempts?context.attempts!>1:null,
+    validAttempts?`本場次記錄 ${context.attempts} 次最終作答；不據此推定特定錯誤概念。`:'沒有可判讀的玩家作答次數。')],
+  improvements:context.observer?['旁觀模式未收集玩家調查行為，不據此判定弱點。']:[...(!s.viewedEvidenceIds.length?['忽略關鍵證物']:[]),
    ...(s.questionedNpcIds.length<d.npcs.length?['未完整詢問']:[]),
    ...(!s.foundContradictionIds.length?['未發現矛盾']:[]),
    ...(!s.followedContradictionIds.length?['尚未追問矛盾']:[])],
