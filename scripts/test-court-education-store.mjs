@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {CourtEducationStore,EDUCATION_RETENTION_MS as ttl} from '../src/court-education-store.ts';
+import {courtEducationResponse} from './court-schema-check.mjs';
 function fixture(){
  const db=new DatabaseSync(':memory:');let fail='';
  const storage={sql:{exec(q,...args){if(fail&&q.startsWith(fail))throw Error('injected');let rows;if(q.startsWith('CREATE')){db.exec(q);rows=[];}else rows=db.prepare(q).all(...args);return {toArray:()=>rows,one(){assert.equal(rows.length,1);return rows[0];}};}},transactionSync(fn){db.exec('BEGIN');try{const r=fn();db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}};
@@ -49,6 +50,9 @@ test('full persisted assessment keeps scores hidden until post-test and erases r
   for(let i=0;i<actions.length;i++){
    const body=cmd(actions[i],i);if(i===1)preBody=body;
    const r=await f.store.apply(body,()=>i<2?'not_started':'completed',true);assert.equal(r.code,'ACCEPTED');
+   assert.equal(courtEducationResponse(r),true,JSON.stringify(courtEducationResponse.errors));
+   assert.equal(courtEducationResponse({...r,privateFacts:['forbidden']}),false);
+   assert.equal(courtEducationResponse({...r,view:{...r.view,answerKey:[1,2,0]}}),false);
    if(i<3)assert.equal(r.view.results,null);
    const restarted=new CourtEducationStore(f.storage,f.scope);restarted.initialize();assert.deepEqual(restarted.view(),r.view);
   }
@@ -88,5 +92,14 @@ test('rejects malformed input and wrong storage scope; corrupted assessment can 
   for(const body of ['{}','x',' '.repeat(4097),cmd({kind:'withdraw'}),cmd({kind:'consent',privateText:'x'}),cmd({kind:'post',submission:{}})])assert.equal((await f.store.apply(body,()=> 'not_started',true)).code,'INVALID');
   assert.throws(()=>new CourtEducationStore(f.storage,crypto.randomUUID()).initialize(),/Invalid education/);
   f.db.exec("UPDATE education_state SET body='corrupt'");assert.throws(()=>f.store.view(),/Invalid education/);f.store.withdraw();assert.deepEqual(f.store.view(),{phase:'withdrawn'});
+ }finally{f.db.close();}
+});
+test('assessment wire rejects repeated keys, unknown fields and invalid Unicode without storing receipts',async()=>{
+ const f=fixture();try{
+  const body=cmd({kind:'consent'});
+  for(const raw of [body.replace('"kind":"consent"','"kind":"consent","kind":"consent"'),body.replace('"expectedRevision":0','"expectedRevision":0,"expectedRevision":0'),body.replace('"consent"','"\\ud800"'),JSON.stringify({...JSON.parse(body),owner:'other'})]){
+   assert.equal((await f.store.apply(raw,()=> 'not_started',true)).code,'INVALID');
+  }
+  assert.equal(f.store.view().phase,'off');assert.equal(f.db.prepare('SELECT count(*) n FROM education_receipts').get().n,0);
  }finally{f.db.close();}
 });

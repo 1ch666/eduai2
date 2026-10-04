@@ -521,3 +521,21 @@ validation and formal user testing remain pending. No production deployment,
 research enrollment or participant results are claimed. No production data,
 credentials, bindings or migrations were changed. The original Backend Goal
 Audit remains deferred until Game/Education acceptance, not removed.
+
+Authenticated education transport (2026-10-04): the existing v2 router now serves
+GET/POST/DELETE `/api/v2/court/sessions/{id}/education`, with existing session
+resolution, write CSRF/origin checks, bounded UTF-8 input and per-learner court
+rate limiting. Owner identity comes only from the authenticated session. Added
+a machine-readable response schema and `docs/COURT-EDUCATION-API.md` describing
+commands, recovery, withdrawal and privacy. Assessment wire parsing now rejects
+duplicate keys rather than silently accepting JSON.parse's last value.
+
+Verification: 509 local tests passed (root scripts and court-game tools,
+excluding the separate dictionary corpus test), plus TypeScript checking.
+This working-tree run includes the user's preserved uncommitted Ollama and
+groups fixes; those files are NOT part of this change's commit. Route fixtures
+cover auth/CSRF/rate/body/encoding/status mapping; SQLite fixtures validate
+every accepted assessment phase against the response schema and reject added
+answer-key/private fields. No real participant data was collected. The optional
+flag remains unset; consent/withdrawal UI, actual workerd end-to-end/alarm
+validation, formal user testing and production deployment are still pending.

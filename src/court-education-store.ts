@@ -1,4 +1,4 @@
-import {canonical} from '../court/protocol.js';
+import {canonical,parseCourtWire} from '../court/protocol.js';
 import {newEducationFlow,parseEducationFlow,transitionEducationFlow,educationFlowView,type EducationAction} from './court-education-flow.ts';
 import {scoreEducationTest,parseEducationSurvey} from './court-education-instrument.ts';
 type Storage=Pick<DurableObjectStorage,'sql'|'transactionSync'>;
@@ -9,14 +9,14 @@ export const EDUCATION_RETENTION_MS=30*86400000;
 function command(body:string){
  try{
   if(typeof body!=='string'||new TextEncoder().encode(body).length>4096)return null;
-  const v=JSON.parse(body);
-  const exact=(x:unknown,keys:string[])=>!!x&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).sort().join(',')===keys.sort().join(',');
-  if(!exact(v,['requestId','expectedRevision','action'])||typeof v.requestId!=='string'||!uuid.test(v.requestId)||!Number.isSafeInteger(v.expectedRevision)||v.expectedRevision<0||v.expectedRevision>5)return null;
-  const a=v.action;if(!a||typeof a!=='object')return null;
+  const v=parseCourtWire(body);
+  const exact=(x:unknown,keys:string[]):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).sort().join(',')===keys.sort().join(',');
+  if(!exact(v,['requestId','expectedRevision','action'])||typeof v.requestId!=='string'||!uuid.test(v.requestId)||typeof v.expectedRevision!=='number'||!Number.isSafeInteger(v.expectedRevision)||v.expectedRevision<0||v.expectedRevision>5)return null;
+  const a=v.action;if(!a||typeof a!=='object'||!('kind' in a)||typeof a.kind!=='string')return null;
   if(['consent','case_completed'].includes(a.kind)){if(!exact(a,['kind']))return null;}
   else if(['pre','post','survey'].includes(a.kind)){
-   if(!exact(a,['kind','submission']))return null;
-   if(a.kind==='survey'?!parseEducationSurvey(a.submission):!scoreEducationTest(a.submission,a.kind))return null;
+   if(!exact(a,['kind','submission'])||!('submission' in a))return null;
+   if(a.kind==='survey'?!parseEducationSurvey(a.submission):!scoreEducationTest(a.submission,a.kind as 'pre'|'post'))return null;
   }else return null;
   return {requestId:v.requestId as string,expectedRevision:v.expectedRevision as number,action:a as EducationAction};
  }catch{return null;}

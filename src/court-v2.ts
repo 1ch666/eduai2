@@ -6,6 +6,7 @@ import {resolveSession,csrfTokenMatches} from './session';
 import {parseDeletion} from './court-deletion';
 import {parseCreation} from './court-creation';
 import {CASES} from './court-rules';
+import {handleCourtEducation} from './court-education-http';
 
 /** Additive transport version, not a second court engine. Raw action POST bytes
  * reach the v1 parser unchanged; creation has a separate strict v2 contract.
@@ -25,9 +26,10 @@ export async function handleCourtV2(request:Request,env:AppEnv,send:Responder,
   try{
     const url=new URL(request.url);
     const creation=url.pathname==='/api/v2/court/sessions';
-    if(!creation&&!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:actions|events|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
+    if(!creation&&!/^\/api\/v2\/court\/sessions\/[0-9a-f-]{36}(?:\/(?:education|actions|events|requests\/[0-9a-f-]{36}))?$/i.test(url.pathname))return respond(null,404);
     if(request.method==='OPTIONS')return trustedOrigin?
       new Response(null,{status:204,headers:responseHeaders(trustedOrigin)}):respond(null,403);
+    if(url.pathname.endsWith('/education'))return await handleCourtEducation(request,env,respond,url.pathname.split('/').at(-2)!,trustedOrigin);
     if(creation){
       if(request.method!=='POST')return respond(null,405);
       const session=await resolveSession(request,env);if(!session)return respond(null,401);

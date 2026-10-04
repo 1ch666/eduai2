@@ -1,0 +1,26 @@
+{
+ "$schema":"http://json-schema.org/draft-07/schema#",
+ "$id":"urn:eduai:court:education:response",
+ "$comment":"Assessment data within the existing v2 envelope. Revision is independent of court stateVersion. No answer keys, ratings or private court state are exposed.",
+ "oneOf":[
+  {"type":"object","additionalProperties":false,"required":["code"],"properties":{"code":{"enum":["DISABLED","WITHDRAWN"]}}},
+  {"type":"object","additionalProperties":false,"required":["view"],"properties":{"view":{"$ref":"#/definitions/view"}}},
+  {"type":"object","additionalProperties":false,"required":["code","appliedRevision","view"],"properties":{"code":{"enum":["ACCEPTED","DUPLICATE"]},"appliedRevision":{"type":"integer","minimum":1,"maximum":5},"view":{"$ref":"#/definitions/view"}}}
+ ],
+ "definitions":{
+  "score":{"type":"object","additionalProperties":false,"required":["score","total"],"properties":{"score":{"type":"integer","minimum":0,"maximum":3},"total":{"const":3}}},
+  "question":{"type":"object","additionalProperties":false,"required":["id","conceptId","text","choices"],"properties":{"id":{"type":"string","maxLength":80},"conceptId":{"type":"string","maxLength":80},"text":{"type":"string","maxLength":500},"choices":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"string","maxLength":300}}}},
+  "view":{"oneOf":[
+   {"type":"object","additionalProperties":false,"required":["phase"],"properties":{"phase":{"const":"withdrawn"}}},
+   {"type":"object","additionalProperties":false,"required":["version","revision","phase","limitation","questions","survey","scale","results"],"properties":{
+    "version":{"const":"court-reasoning-draft-1"},"revision":{"type":"integer","minimum":0,"maximum":6},
+    "phase":{"enum":["off","pre","playing","post","survey","complete","withdrawn"]},
+    "limitation":{"type":"string","maxLength":500},
+    "questions":{"type":"array","maxItems":3,"items":{"$ref":"#/definitions/question"}},
+    "survey":{"type":"array","maxItems":4,"items":{"type":"object","additionalProperties":false,"required":["id","text"],"properties":{"id":{"enum":["clarity","evidence","followup","usability"]},"text":{"type":"string","maxLength":500}}}},
+    "scale":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["min","max","labels"],"properties":{"min":{"const":1},"max":{"const":5},"labels":{"type":"array","minItems":5,"maxItems":5,"items":{"type":"string","maxLength":80}}}}]},
+    "results":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["pre","post"],"properties":{"pre":{"$ref":"#/definitions/score"},"post":{"$ref":"#/definitions/score"}}}]}
+   }}
+  ]}
+ }
+}

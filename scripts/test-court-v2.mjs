@@ -97,3 +97,29 @@ test('v2 deletion checks session, CSRF, rate and strict command before RPC, and 
  assert.deepEqual(body.data,deleted);assert.equal(courtV2Response(body),true);assert.equal(body.stateVersion,1);
  assert.equal(cleanups,2);assert.equal(deletes,2);
 });
+test('education route enforces authentication, CSRF, limits and owner-derived RPC arguments',async()=>{
+ let calls=0,allowed=true,result={code:'DISABLED'};
+ const env={ACCOUNT_STORE:{getByName:()=>({session:async()=>({user:{id:'owner'},csrfToken:'csrf'})})},
+  LEARNER:{getByName:owner=>({allow:async(bucket,limit)=>{assert.equal(owner,'owner');assert.equal(bucket,'court');assert.equal(limit,40);return allowed;}})},
+  COURT_ROOM:{getByName:sid=>({education:async(owner,operation,body)=>{calls++;assert.equal(sid,id);assert.equal(owner,'owner');assert(['view','apply','withdraw'].includes(operation));if(operation==='apply')assert.equal(body,'{}');else assert.equal(body,'');return result;}})}};
+ const headers={'Content-Type':'application/json',Cookie:'__Host-civic_session='+'a'.repeat(64),'X-CSRF-Token':'csrf'};
+ const call=(method='GET',h=headers,body,trust=origin,suffix=id)=>handleCourtV2(new Request(origin+'/api/v2/court/sessions/'+suffix+'/education',{method,headers:h,...(body!==undefined?{body}:{})}),env,send,trace,trust);
+ assert.equal((await call('GET',{})).status,401);
+ assert.equal((await call('POST',{...headers,'X-CSRF-Token':'bad'},'{}')).status,403);
+ assert.equal((await call('DELETE',headers,undefined,'')).status,403);
+ assert.equal((await call('PUT')).status,405);
+ assert.equal((await call('GET',headers,undefined,origin,'0'.repeat(36))).status,400);
+ allowed=false;assert.equal((await call()).status,429);allowed=true;
+ assert.equal((await call('POST',{...headers,'Content-Type':'text/plain'},'{}')).status,415);
+ assert.equal((await call('POST',headers,' '.repeat(4097))).status,413);
+ assert.equal((await call('POST',headers,new Uint8Array([255]))).status,400);
+ assert.equal((await call('DELETE',headers,'{}')).status,400);assert.equal(calls,0);
+ for(const method of ['GET','POST','DELETE']){
+  const response=await call(method,headers,method==='POST'?'{}':undefined);
+  assert.equal(response.status,200);const b=await response.json();assert.equal(courtV2Response(b),true,JSON.stringify(courtV2Response.errors));assert.equal(b.stateVersion,null);assert.equal(b.data.code,'DISABLED');
+ }
+ for(const [r,status] of [[{status:404},404],[{code:'INVALID'},400],[{code:'CONFLICT'},409],[{code:'WITHDRAWN'},410]]){
+  result=r;const response=await call('POST',headers,'{}');assert.equal(response.status,status);assert.equal((await response.json()).data,null);
+ }
+ result={code:'WITHDRAWN'};assert.equal((await call('DELETE')).status,200);
+});
