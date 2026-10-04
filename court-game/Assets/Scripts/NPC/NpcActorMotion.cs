@@ -12,6 +12,9 @@ namespace EduAI.Court
         private Vector3 standingLocalPosition;
         private Transform[] seatedLegs;
         private Quaternion[] seatedLegRotations;
+        private Transform torso;
+        private Quaternion torsoBefore,torsoAfter;
+        private bool torsoAdjusted;
         public bool HasPublicState { get; private set; }
         public NpcMotionPlan PublicPlan { get; private set; }
         public string ActiveClip { get; private set; }
@@ -24,6 +27,7 @@ namespace EduAI.Court
             {
                 if(skin.name!="body-mesh" || !skin.sharedMesh)continue;
                 var bones=skin.bones;var bind=skin.sharedMesh.bindposes;
+                torso=System.Array.Find(bones,b=>b&&b.name=="torso");
                 int left=System.Array.FindIndex(bones,b=>b&&b.name=="leg-left");
                 int right=System.Array.FindIndex(bones,b=>b&&b.name=="leg-right");
                 if(left<0||right<0||bind.Length!=bones.Length)break;
@@ -38,6 +42,7 @@ namespace EduAI.Court
         public void ApplyPublicState(string pose, string emotion, string speaking, string request, bool visible)
         {
             Initialize();
+            RestoreTorso();
             serverControlled=true; until=0;
             if (!visible || !NpcMotionPlan.TryCreate(pose,emotion,speaking,request,out var plan))
             {
@@ -61,10 +66,26 @@ namespace EduAI.Court
             if (serverControlled || CourtPresentation.IsHosted) return;
             until=Time.unscaledTime+2; Play("emote-yes",false);
         }
-        private void Update() { if (until > 0 && Time.unscaledTime >= until) { until = 0; Play("idle",true); } }
+        private void Update() { RestoreTorso(); if (until > 0 && Time.unscaledTime >= until) { until = 0; Play("idle",true); } }
+        private void OnDisable() { RestoreTorso(); }
+        private void RestoreTorso()
+        {
+            // Undo only our own last output. If Animation has already sampled
+            // the bone this frame, its fresh value is the new baseline.
+            if(torsoAdjusted&&torso&&Quaternion.Angle(torso.localRotation,torsoAfter)<.001f)
+                torso.localRotation=torsoBefore;
+            torsoAdjusted=false;
+        }
         private void LateUpdate() { ApplyPoseAdjustments(); }
         public void ApplyPoseAdjustments()
         {
+            RestoreTorso();
+            if(HasPublicState&&torso)
+            {
+                torsoBefore=torso.localRotation;
+                torsoAfter=torsoBefore*Quaternion.Euler(PublicPlan.TorsoOffset(Time.unscaledTime));
+                torso.localRotation=torsoAfter;torsoAdjusted=true;
+            }
             // This miniature rig has one bone per leg, not articulated knees.
             // The licensed floor-sit clips point both soles at the audience.
             // Keep the legs hanging below the desk using the rig's bind pose;

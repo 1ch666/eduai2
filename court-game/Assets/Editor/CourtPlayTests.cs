@@ -261,6 +261,25 @@ namespace EduAI.Court.Editor
                     Require(motion.HasPublicState && motion.ActiveClip==clips[i] && motion.PublicPlan.Emotion==emotion, "Runtime consumes public visual state");
                 }
             motion.ApplyPublicState("objecting","neutral","silent","idle",true);
+            var torso=Array.Find(motion.GetComponentsInChildren<Transform>(true),t=>t.name=="torso");
+            Require(torso!=null,"Imported NPC has a torso for presentation layers");
+            foreach(var emotion in new[]{"neutral","nervous","confident","surprised"})
+            {
+                motion.ApplyPublicState("sitting",emotion,"silent","idle",true);
+                var root=motion.transform.localPosition;var baseline=torso.localRotation;
+                motion.ApplyPoseAdjustments();var first=torso.localRotation;
+                motion.ApplyPoseAdjustments();
+                Require(Quaternion.Angle(first,torso.localRotation)<.001f,"Torso overlay never accumulates");
+                Require(root==motion.transform.localPosition,"Emotion does not move the seated actor root");
+                if(emotion!="neutral")Require(Quaternion.Angle(first,baseline)>1,"Emotion visibly changes the actual rig: "+emotion);
+                motion.ApplyPublicState("sitting","neutral","silent","idle",true);
+                Require(Quaternion.Angle(torso.localRotation,baseline)<.001f,"Changing state removes previous overlay");
+            }
+            NpcMotionPlan.TryCreate("listening","neutral","silent","idle",out var listening);
+            NpcMotionPlan.TryCreate("thinking","neutral","silent","idle",out var thinking);
+            Require(listening.TorsoOffset(0)!=thinking.TorsoOffset(0),"Listening and thinking have distinct postures");
+            Require(thinking.TorsoOffset(float.NaN)==Vector3.zero,"Invalid presentation time cannot corrupt bones");
+            motion.ApplyPublicState("objecting","neutral","silent","idle",true);
             animation["emote-no"].time=.25f;
             motion.ApplyPublicState("objecting","neutral","silent","idle",true);
             Require(Mathf.Abs(animation["emote-no"].time-.25f)<.001f, "Duplicate projection does not restart motion");

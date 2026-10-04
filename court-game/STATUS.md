@@ -1,3 +1,6 @@
+【2026-10-04 NPC 上半身表現：原始碼／Play 通過，尚未發布】
+新增受公開狀態控制的傾聽、思考、緊張、自信、驚訝與坐姿說話 torso 旋轉層，不移动角色根位置、不推論案件結果。官方 Unity 6000.6.2f1 編譯／Scene／Play exit 0，新增實際骨架、旋轉不累積、坐姿根位置不變及狀態恢復測試；既有 SearchDatabase 例外仍在。日誌 outputs/npc-expression-play-20261004.log。後端事件表現接線、外觀、WebGL build、瀏覽器／真機及發布尚待完成；線上仍是原成品，詳見 docs/UNITY-NPC-MOTION.md。
+
 【2026-09-28 使用者回報懸空：撤銷整體上移，配合模型調整家具】
 接地修復來源 494dddb 已推 main，Worker 50e0b2d3-7d26-4593-8ddd-b54e895cdbb5 已部署；Pages 36333926651、Docker 36333927358 均成功。Worker／Pages HTML 均為 revision 8f0b2c59f3368fdd，該 revision 的四檔下載逐位元組吻合。瀏覽器側面與 E 對話已驗證，Docker 交接包保存於 outputs/docker-grounded-494dddb；未宣稱完整專案重構或手機真機已完成。
 5c95a37 已上線，但 .65m 高度補償讓腳底懸空；不算完整外觀驗收。新修正版移除 .65m 上移，將 hosted 桌面配合人物改為 .68m、補五把 .36m 座面椅子，盒子隨桌面移動。實際蒙皮腳底世界座標約 0～.003m；Scene／Play 已通過腳底接地、桌面可視、五椅與盒子射線測試。Release／真實瀏覽器／發布接續記錄；細節見 docs/UNITY-ROLE-WARDROBE.md。不得再只驗頭高於桌面而忽略腳底。

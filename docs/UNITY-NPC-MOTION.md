@@ -1,5 +1,24 @@
 # NPC 公開狀態與動畫接線（2026-09-27）
 
+## 2026-10-04 上半身表現續作（尚未發布）
+
+新增固定的 torso 旋轉層：傾聽微前傾、思考／pending 側傾、
+緊張小幅擺動、自信挺身、驚訝後傾，以及坐姿說話的輕微點動。
+只使用已驗證公開狀態，不從台詞猜情緒，不修改案件或模型根位置。
+異議／出示證物保留原 clip；failed 不產生說話表現。
+每次套用前撤銷自身上一個旋轉，狀態變更、隱藏、停用時恢復，
+避免逐幀累積扭曲；既有坐姿垂腿與高度補償保留。
+
+CourtPlayTests 新增實際 torso 存在、四情緒、重复套用不累積、
+座位根位置不變、切回中性恢復、傾聽與思考有別與非法時間值拒絕。
+官方 Unity 6000.6.2f1 真實編譯、Scene 驗證與 Play 測試已 exit 0，
+日誌 `outputs/npc-expression-play-20261004.log` 含
+`COURT_SCENE_VALIDATION_PASSED` 和 `COURT_PLAY_TESTS_PASSED`。
+既有 Editor SearchDatabase 例外仍出現，不能宣稱零 Editor 例外。
+尚未建置／發布新 WebGL，亦未完成本批動態畫面的視覺驗收。
+後端 publicCourtCast 仍主要輸出 sitting / neutral；事件表現接線、
+轉頭目標、降低動態效果、實際外觀及手機驗收尚未完成。
+
 ## 此批已實作
 
 `NpcMotionPlan` 把協定允許的 pose / emotion / speakingState / requestState 轉為固定動畫選擇，不接受模型傳入 clip 名稱、Animator 參數、骨架路徑或程式。`NPCInteractable` 只在既有 CourtRuntimeState 驗證、版本控制及合法座位映射之後更新 `NpcActorMotion`；不保存原始 DTO、案件真相、提示詞或角色私有資料。

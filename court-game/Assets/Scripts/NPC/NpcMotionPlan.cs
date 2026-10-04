@@ -9,6 +9,26 @@ namespace EduAI.Court
         public NpcMotionPlan(string pose, string emotion, string speaking, string request, string clip, bool loop)
         { Pose=pose; Emotion=emotion; SpeakingState=speaking; RequestState=request; Clip=clip; Loop=loop; }
 
+        // Small local torso rotations layered over the licensed body clip.
+        // Presentation only: no facts, verdict inference or root translation.
+        public UnityEngine.Vector3 TorsoOffset(float seconds)
+        {
+            if(float.IsNaN(seconds)||float.IsInfinity(seconds)||RequestState=="failed") return UnityEngine.Vector3.zero;
+            if(RequestState=="pending"||Pose=="thinking") return new UnityEngine.Vector3(4,0,3);
+            // Preserve the authored objection/evidence gesture silhouette.
+            if(Pose=="objecting"||Pose=="presentingEvidence") return UnityEngine.Vector3.zero;
+            float wave=UnityEngine.Mathf.Sin(seconds*2);
+            switch(Emotion)
+            {
+                case "nervous": return new UnityEngine.Vector3(5,0,wave*2);
+                case "confident": return new UnityEngine.Vector3(-3,0,0);
+                case "surprised": return new UnityEngine.Vector3(-6,0,2);
+            }
+            if(SpeakingState=="speaking") return new UnityEngine.Vector3(wave*2,0,0);
+            if(Pose=="listening") return new UnityEngine.Vector3(3,0,0);
+            return UnityEngine.Vector3.zero;
+        }
+
         public static bool TryCreate(string pose, string emotion, string speaking, string request, out NpcMotionPlan plan)
         {
             plan=default;
