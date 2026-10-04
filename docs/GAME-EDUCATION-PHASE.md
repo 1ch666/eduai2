@@ -319,3 +319,25 @@ created through the real browser; switching to challenge and closing the panel
 hid all outer guidance controls while preserving opening actions and version 0.
 Live provider latency, full active-case completion under every mode and mobile
 acceptance remain unverified. No production data or deployed Worker changed.
+
+Challenge end-to-end browser checkpoint (2026-10-04, source 9b3451b): the synthetic
+local case created at 04:17:55.475Z was completed through visible browser controls,
+using challenge presentation from opening through final judgment. Observed
+versions: 0 opening; 1 acknowledgement; 2 statement; 3 prosecutor original;
+4 witness original; 5 defense original; 6 scene evidence; 7 presentation to
+witness; 8 unlocked follow-up; 9/10 procedure rulings; 11 close investigation;
+12 final statement; 13 final judgment/completed. Before discovery no evidence
+title/presentation action appeared. Follow-up appeared after presentation and
+disappeared after its committed response. Hint controls stayed absent while
+normal legal operations remained usable. The fallback was visibly labelled
+prewritten, not represented as live AI. Debrief showed 100% evidence/NPC/procedure
+coverage, zero recorded hints, actual selected judgment and the authored reasoning
+review; numeric contradiction summary stayed hidden in challenge mode. These
+are synthetic QA results, NOT education-effectiveness measurements.
+
+Read-only replay opened at version 0 and reached version 13; after closing it the
+live case still displayed completed version 13. This verifies the browser
+procedure-panel path, not Unity movement/E-box/touch interactions, live AI,
+physical phones, cloud publication or formal participant research. No formal
+user experiment has been performed. The broader Game/Education phase and all
+original Backend Goal Audit obligations remain open.
