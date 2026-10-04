@@ -23,7 +23,7 @@ function createPage(pointerLock, rejectLoad = false, hosted = false) {
   let reportProgress;
   const loading = new Promise((resolve, fail) => { resolveLoad = resolve; reject = fail; });
   const nodes = Object.fromEntries(['game', 'start', 'status', 'progress', 'error', 'cover', 'input-mode', 'touch-ui'].map(id =>
-    [id, { value: 0, hidden: false, listeners: {}, addEventListener(type, callback) { this.listeners[type] = callback; }, focus() {} }]));
+    [id, { value: 0, hidden: false, listeners: {}, focusCalls: [], addEventListener(type, callback) { this.listeners[type] = callback; }, focus(options) {this.focusCalls.push(options);} }]));
   nodes.game.requestPointerLock = pointerLock;
   const documentEvents = {};
   const windowEvents = {}, posts = [];
@@ -76,6 +76,22 @@ test('Hosted bridge accepts only trusted parent and whitelisted presentation mes
   assert.equal(p.sent.length,1);
   send(); assert.equal(p.sent[1][0],'CourtPresentation'); assert.equal(p.sent[1][1],'SetView');
   assert.deepEqual(JSON.parse(p.sent[1][2]),{mode:'seat',role:'judge',procedure:'civil'});
+});
+test('Only explicit trusted camera intent restores canvas focus; background updates do not', async () => {
+  const p=createPage(()=>{throw Error('Camera button must not lock pointer');},false,true);
+  const data={type:'court-view',mode:'overview',role:'judge',procedure:'criminal',focus:true};
+  const send=(override={})=>p.windowEvents.message({origin:'http://localhost',source:p.parent,data,...override});
+  send(); assert.equal(p.nodes.game.focusCalls.length,0);
+  p.finish(); await tick(); p.nodes.start.listeners.click();
+  const initial=p.nodes.game.focusCalls.length;
+  send({origin:'https://untrusted.example'});send({source:{}});
+  send({data:{...data,mode:'execute'}});send({data:{...data,role:'admin'}});
+  send({data:{...data,procedure:'other'}});
+  for(const focus of [undefined,false,'true',1])send({data:{...data,focus}});
+  assert.equal(p.nodes.game.focusCalls.length,initial);
+  send(); assert.equal(p.nodes.game.focusCalls.length,initial+1);
+  assert.equal(p.nodes.game.focusCalls.at(-1).preventScroll,true);
+  assert.deepEqual(JSON.parse(p.sent.at(-1)[2]),{mode:'overview',role:'judge',procedure:'criminal'});
 });
 test('Load failure never enables the start button', async () => {
   const page = createPage(undefined);

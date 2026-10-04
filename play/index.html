@@ -117,6 +117,8 @@
         const { mode, role, procedure } = event.data;
         if (!['seat','overview','walk'].includes(mode) || !['judge','claimant','respondent','claimantCounsel','respondentCounsel','observer','juvenile','assistant'].includes(role) || !['civil','criminal','juvenile'].includes(procedure)) return;
         unityInstance.SendMessage('CourtPresentation','SetView',JSON.stringify({ mode, role, procedure }));
+        // Resume rendering after a host camera button, without requesting Pointer Lock.
+        if(event.data.focus===true)canvas.focus({preventScroll:true});
         document.getElementById('touch-ui').hidden = mode !== 'walk' || !touch.enabled;
       });
     }
