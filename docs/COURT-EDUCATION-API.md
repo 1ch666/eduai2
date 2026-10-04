@@ -131,3 +131,29 @@ disabled again, with zero automatic writes and unchecked consent after recovery.
 Fourteen focused client/host/panel tests passed locally. Server-side admission
 still decides whether a submitted answer is allowed; this is not a client
 override of the collection flag or evidence of production availability.
+
+## Completed browser procedure + assessment sequence — 2026-10-04
+
+The existing synthetic local browser session on port 8798 continued from its
+saved pre-test (court version 0). All actions below used visible browser controls,
+not direct API calls or injected state:
+
+- Confirm rights and submit an opening statement (versions 1–2).
+- Ask Prosecutor, Lawyer and Witness for their original statements (3–5).
+- Discover the camera record, present it to Witness and use the unlocked time
+  discrepancy follow-up (6–8). The reply explicitly said it was prewritten.
+- Make both procedural rulings, close investigation, submit the final statement
+  and choose the evidence-limited judgment (9–13).
+- Observe all six objectives complete and the readonly debrief: evidence and
+  role coverage 100%, one contradiction, procedure 100%, zero requested hints.
+- Request post-test only after completion, answer three questions, then submit
+  all four survey ratings. The completed assessment displayed server scores
+  and its educational-effectiveness disclaimer. A fresh status lookup retained
+  completion and the visible court version remained 13.
+
+The local screenshot `outputs/education-complete-browser-20261004.jpg` captures
+completed court and assessment status together. Scores and survey values are
+synthetic QA data, NOT participant findings. This proves the rendered web
+procedure/assessment sequence with AI disabled, not Unity movement, live AI,
+mobile hardware, browser withdrawal, reload-after-completion, retention alarm
+delivery or production deployment. Those acceptance gates remain open.
