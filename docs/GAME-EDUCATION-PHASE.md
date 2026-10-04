@@ -371,3 +371,18 @@ including the four explicit insufficient-data explanations, at unchanged version
 13. No migration was required. This replaces the pending local classification
 rendering check above; live AI, production publication and human research remain
 unverified.
+
+Docker refresh (2026-10-04): source
+`70237021f01f37b7d8be87e479824b15e470eab0`, workflow
+https://github.com/1ch666/eduai2/actions/runs/37177242113 succeeded. The workflow
+now compares every court JS/CSS/HTML asset to the running image, includes new
+hint/replay tests, and bundles this phase guide. Existing WebGL resource byte
+checks, nginx config, API 501, missing-route 404, non-root and read-only checks
+passed. Downloaded to `outputs/docker-7023702/` (not committed); all seven
+SHA256SUMS entries verified. Image archive is 46,601,103 bytes; SHA256:
+`501eda4f7b0fa9a53cd892c19edbab4962064b96b9dd200aa3d74964784b1a03`.
+This supersedes c41ad63 as the newest verified static container, not as a Worker
+deployment. Authentication, session, AI and DO storage are not in this image.
+Artifact retention remains one day; the local copy is retained for handoff.
+CI also reported upcoming Node-action/runtime and Ubuntu-label migration
+warnings; these were not build failures and have not been represented as fixed.
