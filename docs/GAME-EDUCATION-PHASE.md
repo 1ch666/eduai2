@@ -568,3 +568,16 @@ oversized responses, withdrawal and login loss. The transport is not yet wired
 into the court page. Pending commands currently live only in memory; host wiring,
 reload recovery review, rendered browser testing and actual workerd verification
 remain unfinished. No production deployment or research collection was enabled.
+
+Court page education wiring (2026-10-04): the authored tablet non-observer
+session now contains a collapsed optional assessment section backed by
+`education-host.js`. Rendering/opening a court does not send a research request;
+the user explicitly checks availability and separately opts in. Host wiring
+exposes GET refresh, exact pending-command retry and withdrawal, clears on
+navigation/logout/account-form submission/pagehide, and rejects late results
+after a changed account/session context. The normal court workflow is not gated
+by participation. Eleven host/client/presentation tests and frontend checks
+passed; these are synthetic DOM/HTTP tests, not real-browser acceptance.
+Actual rendered/browser/workerd/reload-recovery validation, consent review and
+formal participant testing remain unfinished. Collection remains default off;
+this commit was not deployed to Cloudflare and does not claim study completion.

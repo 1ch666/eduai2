@@ -1,4 +1,5 @@
 import '../auth-sync.js';
+import {createEducationHost} from './education-host.js';
 import {createInvestigationBoard} from './investigation-board.js';
 import {createGuidancePresentation} from './guidance-presentation.js';
 import { installGamePanels } from './game-panels.js';
@@ -24,6 +25,11 @@ void fetch(base+'/api/capabilities').then(r=>{if(!r.ok)throw Error();return r.js
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
 let npcBusy=false;
+const educationHost=createEducationHost({document,origin:location.origin,csrf:()=>csrf,getContext:()=>({owner:account?.id,sessionId:view?.id,supported:!onPages&&view?.config?.caseId==='tablet-time-discrepancy-v1'&&view?.config?.role!=='observer'})});
+$('notice').after(educationHost.element);
+for(const id of ['logout','back','new-session'])$(id).addEventListener('click',()=>educationHost.clear(),{capture:true});
+$('auth-form').addEventListener('submit',()=>educationHost.clear(),{capture:true});
+window.addEventListener('pagehide',()=>educationHost.clear());
 const npcTickets=createNpcTicketGate();
 window.addEventListener('pagehide',()=>npcTickets.clear());
 $('logout').addEventListener('click',()=>npcTickets.clear(),{capture:true});
@@ -134,6 +140,7 @@ $('evidence').replaceChildren(...v.evidence.map(e=>{const box=node('div');box.cl
 $('actions').replaceChildren();$('speech-form').hidden=!v.actions.includes('speak');$('observer').hidden=!v.actions.includes('step');$('turn-title').textContent=v.config.role==='judge'?'主持程序':v.config.role==='observer'?'觀察程序':'代表你的角色發言';
 $('turn-help').textContent=v.stage===0?'先確認身分、程序與表達權利。':v.stage===1?'依固定事實說明爭點；法官請整理雙方爭點。':v.stage===2?'逐一核對證據能證明什麼，不能證明什麼。':v.stage===3?'回應證據與不同觀點；法官請整理尚待釐清事項。':v.stage===4?v.question:'本輪結束，可回到案件設定。';
 investigationBoard.render(v.investigation,actionPanel.difficulty);
+educationHost.sync();
 guidancePresentation.update(v,actionPanel.difficulty,account?.id);
 if(v.actions.some(id=>id.startsWith('investigate.')))$('actions').append(button('調查、出示證物與追問',()=>actionPanel.open()));
 if(v.actions.includes('acknowledge'))$('actions').append(button('確認程序權利，開始陳述',()=>act('acknowledge')));

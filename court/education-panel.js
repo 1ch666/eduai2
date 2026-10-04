@@ -4,7 +4,7 @@ export function createEducationPanel({document,onAction,onWithdraw,onRefresh}){
  const root=document.createElement('section');root.setAttribute('aria-label','學習前後測');root.hidden=true;
  let generation=0;
  const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
- function render(view,{busy=false,message='',enabled=true}={}){
+ function render(view,{busy=false,message='',enabled=true,pending=false}={}){
   const ticket=++generation;root.replaceChildren();root.hidden=!view;if(!view)return;
   root.setAttribute('aria-busy',String(busy));
   const status=make('p',message);status.setAttribute('role','status');
@@ -16,7 +16,9 @@ export function createEducationPanel({document,onAction,onWithdraw,onRefresh}){
   if(view.phase==='disabled'){root.append(make('p','學習前後測尚未開放，不影響法庭遊戲。'));return;}
   if(view.phase==='withdrawn'){root.append(make('p','本場測驗資料已撤回或到期清除，不可重新加入。法庭結果不受影響。'));return;}
   root.append(make('p',view.limitation));
-  if(!enabled)root.append(make('p','目前停止收集新作答；你仍可查看或撤回既有資料。'));
+  if(pending)root.append(make('p','上一筆結果尚未確認；請先更新狀態或重送同一筆，暫不接受新作答。'));
+  else if(!enabled)root.append(make('p','目前停止收集新作答；你仍可查看或撤回既有資料。'));
+  enabled=enabled&&!pending;
   const actionButton=(label,action)=>{const b=button(label,()=>onAction(action,view.revision));b.disabled=busy||!enabled;return b;};
   if(view.phase==='off'){
    root.append(make('p','自願參加，可不參加並繼續遊戲。記錄前後測分數與四項問卷評分，保存在此帳號的場次中，並非匿名研究資料；不保留逐題答案，但會保存請求摘要以避免重複提交。'));
