@@ -6,6 +6,7 @@ import {askNpcThroughTransport} from './npc-action.js';
 import {createRecoveryNotice} from './recovery-notice.js';
 import {createInvestigationControls,isInvestigationControlAction} from './investigation-controls.js';
 import {createInvestigationBoard} from './investigation-board.js';
+import {createDemoGuide} from './demo-guide.js';
 
 // One authenticated transport owns this panel's state and uncertain mutations.
 // The panel never calculates stages, scores or legal eligibility.
@@ -27,8 +28,9 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
  const evidenceViewer=createEvidenceViewer({document});
  const investigation=createInvestigationControls({document,onAction:actionId=>void execute(()=>transport.act(actionId),true)});
  const board=createInvestigationBoard(document);
+ const demo=createDemoGuide(document);
  // Keep actionable controls before the growing notebook on small screens.
- dialog.append(close,heading,notice,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
+ dialog.append(close,heading,notice,demo.element,dialogue,investigation.element,evidenceViewer.element,body,board.element,recovery);document.body.append(dialog);
  let context=null,generation=0,working=false,returnFocus=null;
  const recoveryNotice=createRecoveryNotice({document,onOpen:open});
  document.getElementById('notice')?.after(recoveryNotice.element);
@@ -44,7 +46,9 @@ export function installActionPanel({document,window,getView,getAccount,csrf,befo
   // The board comes from the authenticated public view, not private truth. Do not
   // display old-session or old-version discoveries beside a newer action state.
   const currentView=getView();
-  board.render(snapshot&&valid()&&currentView.version===snapshot.stateVersion?currentView.investigation:null);
+  const currentBoard=snapshot&&valid()&&currentView.version===snapshot.stateVersion?currentView.investigation:null;
+  board.render(currentBoard);
+  demo.setState(snapshot,currentBoard,working||!transport.canAct);
   heading.textContent=snapshot?`${snapshot.state.stageLabel} · 版本 ${snapshot.stateVersion}`:'程序操作';
   refresh.disabled=working;recover.disabled=working||!pending;retry.disabled=working||!pending||pending.attempts>=3;
   recover.hidden=retry.hidden=!pending;actions.replaceChildren();

@@ -217,3 +217,17 @@ NOT completed / next work:
 6. Desktop/mobile end-to-end verification and a real participant round:
    **尚未進行正式使用者實驗**.
 7. Only after the full Game / Education acceptance, resume Backend Goal Audit.
+
+Demo guide increment (2026-10-04): `court/demo-guide.js` adds an opt-in
+presentation guide to the procedure panel for the authored investigation case.
+It reads only visible NPC names, enabled server actions and same-version public
+objectives. It guides original statements, discovery, presentation, unlocked
+follow-up, procedure and final self-selected judgment; completed cases point to
+analysis/replay. Recovery blocks progress guidance, stale/missing boards hide it,
+and switching session resets the preference. It submits no actions, stores no
+research events, invents no AI utterances and does not bypass server validation.
+This is the guidance part of Demo Mode, NOT the complete shortened 3D demo or a
+research result. Role introductions/cameras, live AI and physical-device demo
+acceptance remain open. All 474 local root/court-tool regression tests (excluding
+the separate dictionary corpus suite) passed; frontend check passed. New guide
+browser/visual acceptance is still pending.
