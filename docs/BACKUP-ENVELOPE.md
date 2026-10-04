@@ -132,4 +132,40 @@ or absence of changes after export. Authenticated encryption and independently
 approved manifests/recovery points remain mandatory. No exporter or production
 restore endpoint is enabled by this module.
 
+## Offline account archive verification command
+
+Requires Node 24 (the CI runtime). On an approved operator machine:
+
+```text
+node scripts/check-account-backup.mjs <encrypted-archive> <trusted-manifest> <32-byte-key-file>
+```
+
+The three arguments are file paths, never literal secrets. The key file contains
+exactly 32 raw binary bytes, not a password, hex string or JSON. Use an existing
+approved key export under restricted filesystem access, outside the repository
+and all served asset directories; do not generate a replacement key for an old
+archive. Key custody/escrow and permissions remain operator responsibilities.
+Never commit or upload a real key or decrypted archive. This command does not
+read environment credentials, contact any service or change database/files.
+
+Supply the complete envelope metadata as a separate trusted JSON manifest;
+do not manufacture it from the untrusted archive. The verifier checks its exact
+binding with authenticated encryption and requires the accounts domain. It cannot
+itself prove the operator obtained this manifest from a trusted channel.
+
+Success prints only `ok`, verification scope, schema version, reauthentication
+policy, table row counts and `restored:false`. Counts can still be operationally
+sensitive; keep results private. No account IDs, usernames, payloads, key bytes,
+digests or source paths are printed. Failure exits 1 with a fixed message. Files
+are read with byte bounds; directories and oversized inputs are rejected. Byte
+buffers are cleared best-effort, but JavaScript strings and key memory have no
+guaranteed secure-erasure semantics.
+
+`scripts/test-account-backup-cli.mjs` uses disposable synthetic files and keys,
+verifies the actual command's exit codes/output, unchanged input bytes, wrong-key
+and wrong-manifest rejection, key sizes, invalid decrypted payload, directories
+and oversized archives. No real archive or key has been inspected in this work.
+Passing means cryptographic/domain validity only: not a complete/fresh snapshot,
+permission to restore, account lifecycle consistency or a production recovery.
+
 Design reference: https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams
