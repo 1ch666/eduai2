@@ -2,8 +2,11 @@
 
 Status: in progress, not accepted. Latest user instruction takes priority over
 nonessential backend expansion. Preserve the complete original Backend Goal and
-`docs/BACKEND-GOAL-AUDIT.md`; resume all remaining items after this phase's acceptance.
-Do not mark the Backend Goal complete or discard it. This is a sequencing change.
+`docs/BACKEND-GOAL-AUDIT.md`. Latest closeout instruction (2026-10-04): do not
+automatically resume backend expansion after gameplay acceptance. Keep remaining
+backend work recorded and wait for renewed user authorization. Do not mark the
+Backend Goal complete or discard it. See `docs/RELEASE-CLOSEOUT.md` for the current
+release baseline and remaining acceptance boundaries.
 
 Latest priority clarification (2026-10-04): the user deferred educational-effect
 evidence, pre/post-test, survey and research collection work. Preserve existing

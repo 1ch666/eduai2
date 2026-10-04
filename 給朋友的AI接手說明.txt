@@ -1,4 +1,18 @@
-【2026-09-26 首頁公民助教空答案修復】
+【2026-10-04 最新收尾指示：優先於下方歷史紀錄】
+使用者要求後端不要再新增，準備收尾；集中完成必要修正後再測試。
+先讀 docs/RELEASE-CLOSEOUT.md、docs/REPLAY-UI-PROGRESS.md 與
+docs/GAME-EDUCATION-PHASE.md。下方 9 月紀錄不是目前發布狀態。
+不自動恢復 Backend Goal Audit：舊目標完整保留，但須等使用者重新授權。
+不新增後端功能／API／資料表／研究收集，不改正式資料、Secret、權限或付費方案。
+需要後端修正的阻礙先回報。教育成效、前後測與問卷暫緩，不能假造驗收。
+最新已記錄程式發布 07989b033e500ad77ee7ee121f4b4b60fcc13d4c，
+Worker 686c5083-fd35-4d17-a4dd-fa86f6c2c555；main 後續文件提交不是新遊戲成品。
+已有 Unity 3D 法庭、調查／矛盾／追問、庭後分析與網頁回顧；不是完整 3D 重播。
+手機真機、所有角色／案件／世界互動、正式模型品質仍不可宣稱全數驗收。
+Docker 是靜態預覽，不含正式登入／AI。發布證據、待驗收與回滾參考以上述文件為準。
+原協作者未提交修改不可 reset、覆蓋或混入提交；保留 Ollama redirect:'manual'。
+
+【歷史：2026-09-26 首頁公民助教空答案修復】
 src/ai.ts /api/ai/ask 是另一條路徑，之前 NPC 修復不會更新它。「Ollama 沒有傳回答案」表示上游成功HTTP且JSON可解析，但 message.content 為空，不足以認定免費額度用完。gpt-oss 改 think:low（官方 https://docs.ollama.com/capabilities/thinking ），公民回答 num_predict 由700調為2048、舊court模式由300調為1024；不自動重試、不購買或更換供應商。此調整增加單次最大token預算，原限流保留，不保證免費額度永遠足夠。
 回覆實際串流讀取限制64KiB，不只相信Content-Length；區分 OUTPUT_TRUNCATED、EMPTY_CONTENT、TIMEOUT、NETWORK、RESPONSE_FORMAT、RESPONSE_TOO_LARGE、INVALID_ENCODING、PROVIDER_AUTH、MODEL_NOT_FOUND、QUOTA、UPSTREAM。thinking絕不充當answer或記入日誌；日誌只有請求ID、代碼及既有HTTP狀態。未改登入、資料庫、正式Secrets或部署設定。
 scripts/test-tutor.mjs 的2項測試（正常回覆與9種失敗）及tsc通過，模型／限流為mock，不是正式供應商成功證明。需使用者部署最新Worker後實測；Unity與靜態遊戲未變，本批不需重建遊戲Docker。上一批NPC Docker dd931fa 已成功：https://github.com/1ch666/eduai2/actions/runs/36230703886 。
