@@ -66,7 +66,13 @@ export class CourtReplay {
   const needle=query.trim().toLocaleLowerCase('zh-TW');
   // Return only records up to the playhead, so later evidence/statements do not
   // leak into an earlier moment. Plain strings; callers must use text rendering.
-  return this.#events.slice(0,this.#index+1).filter(e=>(!roleId||e.roleId===roleId)&&(!stageId||e.stageId===stageId)&&(!kind||e.kind===kind)&&(!evidenceId||e.evidenceIds.includes(evidenceId))&&(!needle||(e.speaker+' '+e.text).toLocaleLowerCase('zh-TW').includes(needle)))
-   .map(e=>({eventId:e.eventId,eventSequence:e.eventSequence,stateVersion:e.stateVersion,speaker:e.speaker,roleId:e.roleId,timestamp:e.timestamp,stageId:e.stageId,stageLabel:e.snapshot.state.stageLabel,kind:e.kind,text:e.text,evidenceIds:[...e.evidenceIds],citationIds:[...e.citationIds]}));
+  return this.#events.slice(0,this.#index+1).map((e,index)=>{
+   // Resolve command IDs only from the preceding public historical snapshot.
+   // Never reinterpret dialogue, consult future state, or rewrite stored events.
+   const action=['stage_changed','ruling','session_completed'].includes(e.kind)
+    ?this.#events[index-1]?.snapshot.state.allowedActions.find(a=>a.actionId===e.text&&a.enabled):null;
+   return {...e,displayText:action?.label||e.text};
+  }).filter(e=>(!roleId||e.roleId===roleId)&&(!stageId||e.stageId===stageId)&&(!kind||e.kind===kind)&&(!evidenceId||e.evidenceIds.includes(evidenceId))&&(!needle||(e.speaker+' '+e.text+' '+e.displayText).toLocaleLowerCase('zh-TW').includes(needle)))
+   .map(e=>({eventId:e.eventId,eventSequence:e.eventSequence,stateVersion:e.stateVersion,speaker:e.speaker,roleId:e.roleId,timestamp:e.timestamp,stageId:e.stageId,stageLabel:e.snapshot.state.stageLabel,kind:e.kind,text:e.text,displayText:e.displayText,evidenceIds:[...e.evidenceIds],citationIds:[...e.citationIds]}));
  }
 }

@@ -47,3 +47,21 @@ test('background elapsed time advances at most one visible event and cannot trig
  const r=setup();r.append([event(0),event(1),event(2)].map(JSON.stringify));r.play();
  assert.equal(r.tick(Infinity),false);assert.equal(r.tick(-1),false);r.tick(60000);assert.equal(r.index,1);assert.equal(r.playing,true);
 });
+
+test('procedure labels use only the preceding public snapshot, preserving raw history and dialogue',()=>{
+ const r=setup(),events=[event(0),event(1,'stage_changed'),event(2,'npc_utterance'),event(3,'ruling'),event(4,'session_completed')];
+ for(const e of events)e.text='acknowledge';
+ events[1].snapshot.state.allowedActions[0].label='未來標籤';
+ events[2].snapshot.state.allowedActions=[];
+ events[3].snapshot.state.allowedActions[0].label='最後確認';
+ assert.equal(r.append(events.map(JSON.stringify)),'accepted');
+ assert.equal(r.transcript({query:'最後確認'}).length,0);
+ r.seek(4);
+ assert.deepEqual(r.transcript().map(e=>e.displayText),['acknowledge','確認','acknowledge','acknowledge','最後確認']);
+ assert.ok(r.transcript().every(e=>e.text==='acknowledge'));
+ assert.equal(r.current.text,'acknowledge');
+ assert.equal(r.transcript({query:'最後確認'}).length,1);
+ r.seek(0);assert.equal(r.transcript({query:'最後確認'}).length,0);
+ const old=setup(),checkpoint=event(7,'checkpoint');checkpoint.text='acknowledge';
+ old.append([JSON.stringify(checkpoint)]);assert.equal(old.transcript()[0].displayText,'acknowledge');
+});

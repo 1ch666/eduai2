@@ -273,4 +273,20 @@ snapshots, and current evidence titles replace raw IDs when available. Rewinding
 removes future options and clears invalid selections; close/logout removes the
 options. Tests verify forward/back navigation, no future-role/evidence disclosure,
 text-only rendering and GET-only replay. No server mutations or protocol change.
-Browser/physical-mobile verification of these new selectors remains pending.
+Local browser verification of these selectors passed: selecting the witness at
+the final event shows its three related records; rewinding to the first event
+removes future role/evidence choices and resets the selection. Physical-mobile
+verification remains pending.
+
+Replay text checkpoint (2026-10-04): real browser inspection found raw `lawyer`,
+`evidence_presented` and procedural command IDs in the replay. The panel now
+labels the role/event in Chinese. For procedure/ruling/completion events only,
+display text resolves the exact command against enabled actions in the preceding
+public historical snapshot. Raw events and dialogue remain unchanged; missing
+history retains original text instead of guessing. Search supports the displayed
+label and original text. Seven focused replay tests and frontend checks passed.
+Reloading the completed local version-13 case verified Chinese final judgment,
+rulings and procedure labels in the real browser. This uses synthetic local data
+with AI disabled, not participant research or live-provider acceptance. No Worker,
+database, API contract or Unity binary changes in this increment; production
+publication and full Game/Education acceptance remain pending.
