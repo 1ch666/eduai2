@@ -29,6 +29,26 @@
 `docs/GAME-EDUCATION-PHASE.md`、`court-game/STATUS.md`。
 以上是已保存的驗證紀錄，不能當作任意未來版本或現時供應商健康的保證。
 
+## 收尾複驗結果（2026-10-04）
+
+對 `01220268f2038f350a62ac1b2a8e4360a7aad80c`（僅文件更新）的核對：
+
+- Fast CI 37196422142 的 checks 與 local-api 均 success；Pages
+  37196421790 success。不是仍在等待，也沒有因等待超時重啟測試。
+- 本機集中 47 項控制器／恢復／展示／問答／證物／調查／分析測試通過；
+  check-frontend 與 WebGL check-build 通過。未重建 Unity，大小不變。
+- Worker 與 Pages 上 action-panel.js、investigation-controls.js、court.css
+  共六次 HTTP 200，正規化換行後與來源相同。此項不驗證登入或模型健康。
+- 本機 Chromium、既有合成帳號／法官案件、AI 關閉：程序面板開啟後按
+  Escape 可關閉，焦點回到「伺服器程序操作」；沒有提交案件動作。
+- 同一案件 Unity 背景初始化到 100%，按開始後 cover 隱藏；法庭全景可
+  顯示角色、法袍與準星，點全螢幕顯示「退出全螢幕」，再退出恢復頁面。
+  場次仍為版本 4。檢查時捕捉到的 error/warn 清單為空，不能推論所有
+  瀏覽器、角色、碰撞或動畫皆無錯誤。
+- 本機畫面證據：outputs/closeout-unity-fullscreen-1004.png（未提交圖片）。
+  這是桌面實際 WebGL 呈現，不是 iPhone／Android 真機測試，也不是正式 AI
+  回覆驗收。沒有修改正式資料、後端程式、Unity 成品或研究收集設定。
+
 ## 現有能力與不可誇大的範圍
 
 已實作並有驗證紀錄：一個原創教學案件的調查、證物出示、確定性矛盾、
