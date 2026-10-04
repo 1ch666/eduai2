@@ -240,3 +240,14 @@ the current view. Same-version refresh preserves the current utterance. Existing
 event history remains intact for replay. Regression tests cover normal sequence,
 refresh, late receipt recovery and logout; this does not claim live AI/Unity
 acceptance or add new protocol/backend state.
+
+WebGL browser checkpoint (2026-10-04): local authenticated completed investigation
+loaded the existing Unity binary to 100%, entered the scene and rendered role
+characters/robes, crosshair and version-13 completed HUD. Inspection found nested
+scrolling: main's fixed 320px minimum plus header exceeded the iframe viewport.
+Both published HTML and Unity template now use a viewport-height flex column,
+shrinkable main and scrollable cover. Reload/resume/start in the real in-app
+browser removed the inner scrollbar while Unity remained visible. No binary,
+resolution or input logic changed. This is NOT evidence-box/E interaction,
+physical-mobile, complete gameplay, live AI or production acceptance. Docker
+rebuild remains required when publishing the changed shell.

@@ -6,6 +6,16 @@ const html = await readFile(new URL('../Assets/WebGLTemplates/Court/index.html',
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('published shell and build template keep the game inside its viewport',async()=>{
+ const published=await readFile(new URL('../../play/index.html',import.meta.url),'utf8');
+ for(const source of [html,published]){
+  assert.match(source,/body \{[^}]*height: 100dvh;[^}]*display: flex;[^}]*overflow: hidden;/);
+  assert.match(source,/main \{ position: relative; flex: 1; min-height: 0; \}/);
+  assert.match(source,/#cover \{[^}]*overflow-y: auto;/);
+  assert(!source.includes('min-height: 320px'),'short iframe must not force a taller canvas');
+ }
+});
+
 function createPage(pointerLock, rejectLoad = false, hosted = false) {
   const sent = [];
   let calls = 0;
