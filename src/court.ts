@@ -22,9 +22,39 @@ import {parseRandomCaseRequest,randomCourtConfig,RandomConfigError} from './cour
 import {initializeDeletion,eraseCourtContent,deleteCourt,deletionOutcome} from './court-deletion';
 import {parseCreation,type CourtCreation} from './court-creation';
 import {TABLET_INVESTIGATION,FOLLOW_UP_ACTION,FOLLOW_UP_QUESTION} from './court-investigation';
+import {CourtEducationScheduler,EducationAccessError} from './court-education-scheduler';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
+  /** Internal RPC only; no HTTP route yet. Owner comes from the authenticated host.
+   * Assessment revisions are separate from court versions and never alter verdicts.
+   */
+  async education(owner:string,operation:'view'|'apply'|'withdraw',body=''){
+    const s=this.read();if(!s||s.owner!==owner)return {status:404 as const};
+    if(!['view','apply','withdraw'].includes(operation)||typeof body!=='string'||body.length>4096||(operation!=='apply'&&body!==''))return {status:400 as const};
+    const exists=this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='education_meta'").toArray().length>0;
+    const enabled=this.env.COURT_EDUCATION_ENABLED==='true';
+    if(!exists&&!enabled)return {code:'DISABLED' as const};
+    if(s.config.caseId!==TABLET_INVESTIGATION.id||s.generatedCase||s.config.role==='observer')return {status:409 as const};
+    const authorized=()=>{const current=this.read();return !!current&&current.id===s.id&&current.owner===owner;};
+    const scheduler=new CourtEducationScheduler(this.ctx.storage,s.id,Date.now,authorized);
+    try{
+      if(!exists)await scheduler.initialize();
+      if(operation==='withdraw')return await scheduler.withdraw();
+      if(operation==='view')return {view:await scheduler.view()};
+      return await scheduler.apply(body,()=>{
+        const current=this.read();if(!current||current.owner!==owner)throw new EducationAccessError();
+        return current.completed?'completed':current.version===0?'not_started':'active';
+      },enabled);
+    }catch(e){if(e instanceof EducationAccessError)return {status:404 as const};throw e;}
+  }
+  async alarm(){
+    // No education tables in ordinary rooms: never initialize collection here.
+    if(!this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='education_meta'").toArray().length)return;
+    const meta=this.ctx.storage.sql.exec<{scope:string}>('SELECT scope FROM education_meta WHERE id=1').toArray()[0];
+    if(!meta)throw Error('Missing education alarm scope');
+    await new CourtEducationScheduler(this.ctx.storage,meta.scope).alarm();
+  }
   private read(): CourtState | undefined {
     if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)return undefined;
     return this.ctx.storage.sql.exec<{body:string}>('SELECT body FROM state WHERE id=1').toArray().map(r=>JSON.parse(r.body) as CourtState)[0];

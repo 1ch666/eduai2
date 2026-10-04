@@ -498,3 +498,26 @@ duplicates. Three scheduler tests and type checking passed. This is NOT proof of
 actual Cloudflare alarm delivery: CourtRoom integration, authenticated routes,
 consent UI and workerd alarm validation remain required. No new binding, migration,
 production alarm or research collector was enabled.
+
+CourtRoom education host integration (2026-10-04): the internal `education` RPC
+now checks the stored owner and supports view/apply/withdraw for the authored
+tablet investigation (not generated or observer cases). The optional
+COURT_EDUCATION_ENABLED flag is absent/disabled by default; it was not added to
+deployment configuration. Existing assessment data remains viewable and
+withdrawable if the flag is later disabled. Court progress is read from stored
+server state, never accepted from the caller; assessment revisions do not alter
+court versions, verdicts or journal entries. Authorization is checked again
+inside queued transactions and after asynchronous work. CourtRoom now forwards
+its otherwise-unused alarm to assessment expiry cleanup only when tables exist.
+Ordinary rooms do not create research tables, and alarm delivery never opts in.
+
+Verification: 82 CourtRoom Node/SQLite tests and four scheduler tests passed,
+plus TypeScript checking. Coverage includes default-off behavior, cross-owner
+rejection, withdrawal while disabled, overdue cleanup and deletion before queued
+initialization. Scheduler tests verify authorization loss rolls back writes.
+These use simulated transactional alarms, NOT actual Cloudflare alarm delivery.
+Authenticated HTTP routes, consent/pre/post/survey UI, actual workerd/alarm
+validation and formal user testing remain pending. No production deployment,
+research enrollment or participant results are claimed. No production data,
+credentials, bindings or migrations were changed. The original Backend Goal
+Audit remains deferred until Game/Education acceptance, not removed.

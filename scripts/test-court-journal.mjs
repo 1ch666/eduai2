@@ -1228,3 +1228,52 @@ test('transport recovers committed NPC text after lost response, without another
   assert.equal(transport.pending,null);transport.clear();assert.equal(transport.lastDialogue,null);
  }finally{db.close();}
 });
+function educationHost(env={COURT_EDUCATION_ENABLED:'true'}){
+ const f=setup({...config,caseId:'tablet-time-discrepancy-v1'},env);
+ let alarm=null,queue=Promise.resolve();
+ f.ctx.storage.transaction=fn=>{
+  const pending=queue.then(async()=>{const old=alarm;f.db.exec('BEGIN');try{const r=await fn();f.db.exec('COMMIT');return r;}catch(e){f.db.exec('ROLLBACK');alarm=old;throw e;}});
+  queue=pending.catch(()=>{});return pending;
+ };
+ f.ctx.storage.setAlarm=async n=>{alarm=n;};f.ctx.storage.deleteAlarm=async()=>{alarm=null;};
+ return {...f,alarm:()=>alarm,env};
+}
+const educationCommand=(kind,expectedRevision=0,extra={})=>JSON.stringify({requestId:crypto.randomUUID(),expectedRevision,action:{kind,...extra}});
+test('CourtRoom research defaults off and rejects non-owners without creating tables',async()=>{
+ const f=educationHost({});try{
+  assert.equal((await f.room.education('other','view')).status,404);
+  assert.equal((await f.room.education('owner','view')).code,'DISABLED');
+  assert.equal((await f.room.education('owner','invalid')).status,400);
+  await f.room.alarm();
+  assert.equal(f.db.prepare("SELECT count(*) n FROM sqlite_master WHERE name='education_meta'").get().n,0);
+  assert.equal(f.room.get('owner').view.version,0);
+ }finally{f.db.close();}
+});
+test('CourtRoom assessment is opt-in, owner-scoped, separate from verdict, and withdrawable when disabled',async()=>{
+ const f=educationHost();try{
+  const body=educationCommand('consent');
+  await f.room.education('owner','apply',body);
+  assert.equal((await f.room.education('owner','view')).view.phase,'pre');assert.ok(f.alarm()>Date.now());
+  assert.equal(f.room.get('owner').view.version,0);
+  assert.equal((await f.room.education('other','withdraw')).status,404);
+  f.env.COURT_EDUCATION_ENABLED='false';
+  assert.equal((await f.room.education('owner','apply',body)).code,'DISABLED');
+  assert.equal((await f.room.education('owner','view')).view.phase,'pre');
+  assert.equal((await f.room.education('owner','withdraw')).code,'WITHDRAWN');assert.equal(f.alarm(),null);
+  assert.equal(f.room.get('owner').view.completed,false);
+ }finally{f.db.close();}
+});
+test('CourtRoom alarm erases overdue assessments and deleted rooms reject queued initialization',async()=>{
+ const f=educationHost();try{
+  await f.room.education('owner','apply',educationCommand('consent'));
+  f.db.prepare('UPDATE education_expiry SET expires_at=?').run(Date.now()-1);
+  await f.room.alarm();assert.equal(f.alarm(),null);
+  assert.equal((await f.room.education('owner','view')).view.phase,'withdrawn');
+  assert.equal(f.db.prepare('SELECT count(*) n FROM education_receipts').get().n,0);
+ }finally{f.db.close();}
+ const deleted=educationHost();try{
+  const pending=deleted.room.education('owner','apply',educationCommand('consent'));
+  deleted.room.remove('owner');assert.equal((await pending).status,404);
+  assert.equal(deleted.db.prepare("SELECT count(*) n FROM sqlite_master WHERE name='education_meta'").get().n,0);
+ }finally{deleted.db.close();}
+});
