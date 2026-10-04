@@ -688,5 +688,13 @@ the added reduced-motion preference test also passes (template suite: 9 tests).
 Frontend checks pass. Official Unity 6000.6.2f1 Scene/Play exits 0 with both
 success markers in outputs/deadline-game-batch-play-20261004.log, including new
 dialogue activity and reduced-motion rig assertions. The known Editor search
-database exception remains. Release WebGL is building; no candidate binary has
-yet replaced play/, and hosted/browser/mobile/deployment gates remain open.
+database exception remains. Release WebGL exited 0, revision bc51d418e668aff3;
+matching assets replaced play/ after Gzip/revision/loader and size-budget checks.
+Payload total is 21,335,111 bytes (+6,174 vs the prior published build).
+Local Chromium loaded both guest and same-origin hosted scenes; restored the
+existing synthetic version-3 case and switched overview successfully. Demo
+navigation focused the investigation SECTION without changing the version or
+submitting an action. Reduced-motion checkbox was usable. No console error/warn
+was captured. This is bounded integration evidence, not live AI, full role flow,
+mobile hardware, education-effect evidence or overall phase acceptance.
+Publication and Docker results are recorded in RELEASE-2026-10-04-GAME.md.

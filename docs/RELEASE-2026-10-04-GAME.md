@@ -1,5 +1,22 @@
 # Game / Education checkpoint — 2026-10-04
 
+## Latest deadline batch (publication pending)
+
+Source implementation a887fd7: public-only statement/evidence comparison,
+deterministic authored-witness reaction, bounded local NPC dialogue gestures,
+reduced-motion control and Demo navigation. No new schema, migration or protocol.
+Unity 6000.6.2f1 Scene/Play and Release exit 0; known Editor search exception
+remains. Revision bc51d418e668aff3; matching play assets checked and local
+Chromium guest/hosted load, restoration, overview and Demo focus confirmed.
+111 Node tests plus the additional template preference check, TypeScript and
+frontend check passed. Full mobile/live AI acceptance remains open.
+
+Download bytes: data 15,324,830; wasm 5,873,370; framework 83,199; loader 48,540;
+touch 5,172. Total 21,335,111 (+6,174 from prior 21,328,937, excluding HTML/headers).
+No speed improvement is claimed. Docker must be rebuilt against this payload.
+Worker rollback before this batch: a6cc4b4d-cc9f-4370-8763-8bfc331bf900.
+Education-effect work remains deferred. Unrelated collaborator edits excluded.
+
 User requested finishing the current camera issue, publishing this checkpoint,
 then stopping development until they explicitly return. The Game/Education
 and original Backend Goal requirements remain open; this is not phase completion.

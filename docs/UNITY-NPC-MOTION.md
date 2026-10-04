@@ -10,8 +10,16 @@ NPC cast、調查規則、事件／重送恢復、展示導覽、面板、模板
 `outputs/deadline-game-batch-play-20261004.log` 有兩個成功標記。
 包含本機 dialogue activity 不改 public state、坐姿位置不變、清除／
 撤銷及減少動態不疊加 torso 的斷言；Editor SearchDatabase 既知例外仍在。
-Release 建置進行中：`outputs/deadline-game-batch-build-20261004.log`。
-尚未發布本批 WASM，瀏覽器 hosted 全流程／手機仍不能宣稱已驗收。
+Release 建置 exit 0：`outputs/deadline-game-batch-build-20261004.log`。
+最新版 revision `bc51d418e668aff3` 已同步 play/，包括新版模板及配對 WASM。
+data 15,324,830、wasm 5,873,370、framework 83,199、loader 48,540、touch
+5,172 bytes，合計 21,335,111 bytes，比前版 21,328,937 增加 6,174 bytes。
+Gzip、loader/WASM 配對、revision 與下載門檻通過，不宣稱首載變快。
+本機 Chromium guest 與同源 hosted 均載入進場成功；既有合成版本 3
+場次恢復、法庭全景、減少動作 checkbox、展示快捷鍵焦點已實際確認，
+沒有捕捉到 console error/warn。這不是 live AI 或手機真機驗收。
+以下「尚未編譯／測試／發布」為較早過程紀錄；正式發布結果另見
+docs/RELEASE-2026-10-04-GAME.md。完整 hosted 全流程／手機仍待驗收。
 
 ## 2026-10-04 上半身表現續作（尚未發布）
 

@@ -1,4 +1,7 @@
-【2026-10-04 NPC 上半身表現：原始碼／Play／靜態渲染通過，尚未發布】
+【2026-10-04 最新整批成品：NPC／展示導覽／減少動作】
+來源 a887fd7 的正式 Release 已 exit 0，revision bc51d418e668aff3 已同步 play/。111 項集中回歸、TypeScript、Unity Scene／Play 通過；本機瀏覽器 guest／同源 hosted 載入、恢復版本 3、全景與展示快捷鍵焦點通過。下載 21,335,111 bytes，比前版增加 6,174 bytes。手機真機、live AI 與所有角色全流程尚未驗收；教育成效實驗暫緩。正式發布和 Docker 結果見 docs/RELEASE-2026-10-04-GAME.md。以下為歷史進度，不能將舊待辦誤認為最新成品狀態。
+
+【2026-10-04 NPC 上半身表現：原始碼／Play／靜態渲染通過，當時尚未發布】
 新增受公開狀態控制的傾聽、思考、緊張、自信、驚訝與坐姿說話 torso 旋轉層，不移动角色根位置、不推論案件結果。官方 Unity 6000.6.2f1 編譯／Scene／Play exit 0，新增實際骨架、旋轉不累積、坐姿根位置不變及狀態恢復測試；既有 SearchDatabase 例外仍在。日誌 outputs/npc-expression-play-20261004.log。三款穿袍人物四種情緒已完成離線靜態渲染檢視，19 項模板／觸控／NPC 橋接 Node 測試通過；不能替代連續動畫或真機驗收。Release WebGL 建置接續於 outputs/npc-expression-build-20261004.log。後端事件表現接線、動態外觀、WebGL 成品驗證、瀏覽器／真機及發布尚待完成；線上仍是原成品，詳見 docs/UNITY-NPC-MOTION.md。教育成效實驗依使用者要求延後，不刪除原有目標。
 
 【2026-09-28 使用者回報懸空：撤銷整體上移，配合模型調整家具】
