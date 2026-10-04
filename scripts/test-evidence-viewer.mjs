@@ -49,3 +49,11 @@ test('switching session clears query, closure clears evidence and never loads as
  assert.ok(elements.every(e=>e.tag!=='img'&&e.tag!=='iframe'&&e.tag!=='script'));
  viewer.clear();assert.ok(!textOf(viewer.element).includes('交易對話'));
 });
+test('detached transcript controls cannot restore future or cleared evidence',()=>{
+ const {viewer,elements,links}=setup(),s=snapshot();viewer.setSnapshot(s);
+ const old=elements.filter(e=>e.tag==='article')[0].children.find(e=>e.tag==='button');
+ const earlier=structuredClone(s);earlier.state.evidence=[];earlier.eventId=crypto.randomUUID();viewer.setSnapshot(earlier);
+ old.fire('click');assert.deepEqual(links,[]);
+ viewer.setSnapshot(s);const current=elements.filter(e=>e.tag==='article')[0].children.find(e=>e.tag==='button');
+ current.fire('click');assert.deepEqual(links,['receipt']);viewer.clear();current.fire('click');assert.deepEqual(links,['receipt']);
+});

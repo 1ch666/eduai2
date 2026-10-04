@@ -16,7 +16,7 @@ export function createEvidenceViewer({document,onTranscript}){
  }
  const searchLabel=make('label','標示關鍵字'),search=make('input');search.type='search';search.maxLength=80;searchLabel.append(search);search.addEventListener('input',render);
  root.append(notice,controls,searchLabel,columns);
- let snapshot=null,identity='';
+ let snapshot=null,identity='',renderGeneration=0;
  function highlighted(value){
   const p=make('p');p.className='evidence-text';
   const needle=search.value.trim();if(!needle){p.textContent=value;return p;}
@@ -28,6 +28,7 @@ export function createEvidenceViewer({document,onTranscript}){
   p.append(document.createTextNode(value.slice(offset)));return p;
  }
  function render(){
+  const generation=++renderGeneration;
   for(let i=0;i<cards.length;i++){
    const card=cards[i];card.replaceChildren();
    const e=snapshot?.state.evidence.find(item=>item.evidenceId===selectors[i].value);
@@ -38,7 +39,11 @@ export function createEvidenceViewer({document,onTranscript}){
    card.append(metadata);
    if(e.factReferences.length)card.append(make('p',`關聯事實：${e.factReferences.join('、')}`));
    if(e.assetId)card.append(make('p','此證物另有視覺素材；目前顯示文字說明，未載入圖片。'));
-   if(onTranscript){const button=make('button','查看關聯紀錄');button.type='button';button.addEventListener('click',()=>onTranscript(e.evidenceId));card.append(button);}
+   if(onTranscript){const button=make('button','查看關聯紀錄');button.type='button';button.addEventListener('click',()=>{
+    // Detached controls must not reintroduce evidence from a future playhead,
+    // another session, a superseded selection or a cleared account context.
+    if(generation===renderGeneration&&snapshot?.state.evidence.some(item=>item.evidenceId===e.evidenceId))onTranscript(e.evidenceId);
+   });card.append(button);}
   }
  }
  function clear(){snapshot=null;identity='';search.value='';for(const select of selectors)select.replaceChildren();notice.textContent='尚無可見證物。';root.open=false;render();}

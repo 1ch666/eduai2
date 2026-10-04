@@ -65,3 +65,24 @@ test('panel loads text-only replay and closing clears private text and pending w
   assert.equal(questions.children.find(e=>e.tag==='ol').children.length,0,'changed owner clears completed questions before next animation frame');
  }finally{globalThis.fetch=old;}
 });
+for(const status of [401,403,404])test(`HTTP ${status} clears replay and completed questions even with stale shell account`,async()=>{
+ const elements=[],document=new Element('document');document.body=new Element('body');document.createElement=tag=>{const e=new Element(tag);elements.push(e);return e;};
+ const window=new Element('window');Object.assign(window,{location:{origin:'https://court.test'},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{}});
+ const snapshot=structuredClone(fixture),{state,...envelope}=snapshot;
+ const event={...envelope,kind:'session_started',speaker:'系統',roleId:'judge',stageId:state.stageId,text:'私人紀錄',evidenceIds:[],citationIds:[],snapshot};
+ let calls=0;const old=globalThis.fetch;
+ globalThis.fetch=async(_url,options)=>{assert.equal(options.method,'GET');return ++calls===1?Response.json({events:[event],nextAfter:0,currentVersion:0}):Response.json({error:'unavailable'},{status});};
+ try{
+  const panel=installReplayPanel({document,window,getView:()=>({id:fixture.sessionId,config:{caseId:fixture.caseId},completed:true,version:1,npcs:[{id:'Witness',name:'證人'}],npcHistory:[{requestId:'test-question',npcId:'Witness',version:0,question:'舊帳號提問',text:'舊帳號回答',mode:'ai'}]}),getAccount:()=>({id:'stale-owner'}),beforeOpen(){}});
+  panel.open();await new Promise(r=>setTimeout(r,20));
+  const questions=elements.find(e=>e.className==='question-review'),list=questions.children.find(e=>e.tag==='ol');assert.equal(list.children.length,1);
+  elements.find(e=>e.textContent==='檢查新紀錄').fire('click');await new Promise(r=>setTimeout(r,20));
+  assert.equal(questions.hidden,true);assert.equal(list.children.length,0);
+  assert.equal(elements.find(e=>e.tag==='section').children.length,0);
+  const more=elements.find(e=>e.textContent==='讀取下一頁');assert.equal(more.disabled,true);more.fire('click');
+  elements.find(e=>e.textContent==='已讀最後一筆').fire('click');
+  assert.equal(list.children.length,0);assert.equal(calls,2,'denied context cannot retry with stale identity');
+  assert.ok(elements.some(e=>e.textContent?.includes('已清除本頁紀錄')));
+  panel.clear();
+ }finally{globalThis.fetch=old;}
+});

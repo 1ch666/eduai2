@@ -45,7 +45,7 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   first.disabled=!event||replay.index<=0;last.disabled=!event||replay.index>=replay.length-1;
   evidenceViewer.setSnapshot(event?.snapshot);
   slider.max=String(Math.max(0,replay.length-1));slider.value=String(Math.max(0,replay.index));slider.disabled=!event;
-  back.disabled=replay.index<=0;forward.disabled=replay.index>=replay.length-1;play.disabled=!event||replay.index>=replay.length-1;play.textContent=replay.playing?'暫停':'播放';more.disabled=loading;
+  back.disabled=replay.index<=0;forward.disabled=replay.index>=replay.length-1;play.disabled=!event||replay.index>=replay.length-1;play.textContent=replay.playing?'暫停':'播放';more.disabled=loading||!valid();
   more.textContent=loader.caughtUp?'檢查新紀錄':'讀取下一頁';current.replaceChildren();transcript.replaceChildren();
   // Selectors use the unfiltered, already-played prefix only, never future
   // records or hidden case data. Reset options when rewinding or logging out.
@@ -81,6 +81,15 @@ export function installReplayPanel({document,window,getView,getAccount,beforeOpe
   if(loading||!valid())return;const started=generation;loading=true;notice.textContent='讀取中…';render();
   try{
    const result=await loader.next();if(started!==generation)return;if(!valid()){reset();return;}
+   if(['login-required','forbidden','not-found'].includes(result)){
+    // The outer shell can still contain an expired account/view. Clear all
+    // private surfaces, including the separately sourced completed questions,
+    // rather than letting render() repopulate them from that stale shell.
+    generation++;context=null;loading=false;loader.clear();window.cancelAnimationFrame(raf);raf=0;
+    for(const field of Object.values(fields))field.value='';render();
+    notice.textContent=result==='login-required'?'登入已失效，已清除本頁紀錄。請重新登入後開啟。':'目前無法存取此場次，已清除本頁紀錄。請確認帳號與場次是否仍可使用。';
+    return;
+   }
    notice.textContent=result==='caught-up'?'已讀取目前全部紀錄。':result==='more'?'已載入一頁，可繼續讀取。':result==='login-required'?'登入已失效，請重新登入。':`紀錄暫時無法讀取（${result}），可手動重試。`;
    if(loader.replay.incompletePrefix)notice.textContent+=' 此場次較早的紀錄缺漏，從首筆保存點開始。';
   }catch{if(started===generation)notice.textContent='讀取失敗，可手動重試。';}
