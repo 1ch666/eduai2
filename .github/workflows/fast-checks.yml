@@ -61,6 +61,15 @@ jobs:
           node scripts/check-court-v1-api.mjs http://127.0.0.1:8797
           node scripts/check-npc-recovery-api.mjs http://127.0.0.1:8797
           node scripts/check-court-trace-log.mjs "$RUNNER_TEMP/eduai-api.log"
+      - name: Investigation gameplay RPC and review (local only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node node_modules/wrangler/bin/wrangler.js dev --local --ip 127.0.0.1 --port 8796 --persist-to "$RUNNER_TEMP/investigation-state" --var COURT_AI_ENABLED:false --var OLLAMA_API_KEY: > "$RUNNER_TEMP/investigation.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
+          node scripts/wait-local-api.mjs http://127.0.0.1:8796
+          node scripts/check-investigation-api.mjs http://127.0.0.1:8796
       - name: Isolated admission coordinator RPC (local only)
         shell: bash
         run: |

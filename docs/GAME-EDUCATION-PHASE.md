@@ -175,6 +175,19 @@ cross-session stale buttons and unknown-action compatibility. The 441 root
 frontend check passed after this UI change. This run does not include Unity
 Editor/PlayMode, visual layout, live provider or physical mobile acceptance.
 
+Real local runtime checkpoint (2026-10-04):
+`node scripts/check-investigation-api.mjs http://127.0.0.1:8794` passed against
+Wrangler 4.136.3 local workerd with isolated SQLite persistence and NPC AI disabled.
+It creates synthetic accounts, performs the judge's full investigation through
+HTTP -> Worker -> CourtRoom RPC, checks owner/CSRF/stage rejection, presentation,
+contradiction unlock, labelled authored follow-up, identical retry/recovery receipt,
+procedural rulings, final answer, debrief metrics and immutable completed review.
+It removes only its own synthetic case; local synthetic accounts remain in the
+isolated test storage. Loopback-only target validation rejects production URLs.
+Fast regression CI now includes this scenario with a separate disposable storage
+directory so auth quotas from other scenarios do not interfere. This is not a
+browser/WebGL run, live model success or educational effectiveness evidence.
+
 Manual verification next: choose `平板失蹤：十七分鐘的落差`, create a fixed cloud
 session, acknowledge → statement → investigation panel → original statements →
 discover → present to Witness → follow-up → required procedural rulings → close
