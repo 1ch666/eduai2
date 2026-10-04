@@ -441,3 +441,23 @@ transitions cannot mutate earlier score objects. Seven assessment tests and
 TypeScript checking passed, including corrupt JSON shapes, extra fields,
 accessor rejection and detached-state regression. Durable storage and UI
 integration remain pending; no participant data or production schema changed.
+
+Education storage adapter (2026-10-04): `court-education-store.ts` now provides
+per-session SQLite persistence and atomic state/receipt commits. Validated
+commands use UUID request IDs and expected revisions; receipts retain a SHA-256
+command digest and applied revision, not raw answers. Duplicate recovery returns
+the current public view plus the original applied revision, not a stale view.
+Authoritative case progress is read inside the transaction after digesting.
+Withdrawal removes state and receipts, retaining only a scope/schema withdrawal
+guard so delayed work cannot recreate data. Corrupt payloads do not block erasure.
+
+SQLite tests cover all assessment phases, recreation, concurrent duplicates,
+changed-body conflicts, stale case progress, transaction rollback and withdrawal
+while a request is in flight. These use Node SQLite, not deployed workerd or
+human participants. Collection defaults disabled. The adapter is NOT wired into
+CourtRoom, routes or UI, and no production schema was changed. Integration must
+still supply authenticated ownership/CSRF, consent UI, retention alarms, case
+deletion/backup handling and workerd tests. Initialization adds three new tables
+only; rollback may leave them unused, but an eventual collection rollback must
+keep authorized erasure and retention available. Request hashes are not a claim
+of anonymity or encryption. No formal user experiment has occurred.
