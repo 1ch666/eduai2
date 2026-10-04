@@ -194,6 +194,11 @@ for(const mode of ['duplicate','competing-version','reused-key']){
  assert.ok((await call('/api/court/sessions',undefined,c)).data.sessions.some(s=>s.id===id&&s.title===created.data.view.title));
  const snapshot=await call('/api/court/v1/sessions/'+id+'?requestId='+crypto.randomUUID(),undefined,c);
  assert.equal(snapshot.status,200);assert.ok(parseSnapshot(JSON.stringify(snapshot.data)));
+ const legacyAction={requestId:crypto.randomUUID(),version:0,type:created.data.view.actions[0]};
+ const actionPath='/api/court/sessions/'+id+'/actions';
+ const legacyResult=await call(actionPath,legacyAction,c);assert.equal(legacyResult.status,200);
+ assert.deepEqual((await call(actionPath,legacyAction,c)).data,legacyResult.data);
+ assert.equal((await call(actionPath,{...legacyAction,requestId:crypto.randomUUID()},c)).status,409);
  assert.equal((await call('/api/court/sessions/'+id+'/delete',{confirm:true},c)).status,200);
 }
 console.log('Local workerd v1 HTTP passed: auth, owner, CSRF, raw duplicate keys, stale version, NPC result/history deduplication, replay, deletion and three concurrent submission scenarios, plus the fully random case route.');

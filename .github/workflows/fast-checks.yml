@@ -60,6 +60,7 @@ jobs:
           node scripts/check-api.mjs http://127.0.0.1:8797
           node scripts/check-court-v1-api.mjs http://127.0.0.1:8797
           node scripts/check-npc-recovery-api.mjs http://127.0.0.1:8797
+          node scripts/check-court-trace-log.mjs "$RUNNER_TEMP/eduai-api.log"
       - name: Isolated admission coordinator RPC (local only)
         shell: bash
         run: |
