@@ -581,3 +581,24 @@ passed; these are synthetic DOM/HTTP tests, not real-browser acceptance.
 Actual rendered/browser/workerd/reload-recovery validation, consent review and
 formal participant testing remain unfinished. Collection remains default off;
 this commit was not deployed to Cloudflare and does not claim study completion.
+
+Actual workerd education API check (2026-10-04): added loopback-only
+`scripts/check-education-api.mjs`. On an isolated local Wrangler 4.136.3 server
+at port 8798, consent, pre-test, exact duplicate receipt, owner isolation, CSRF,
+rejection of false court completion, withdrawal/repeated withdrawal and deletion
+all passed through real Worker HTTP -> Durable Object RPC -> SQLite. This caught
+a runtime difference missed by the original Node fixture: a bodyless DELETE can
+have a non-null empty stream. The handler now checks zero actual bytes using the
+bounded reader, still rejecting nonempty bodies. Seven v2 regression tests and
+type checking passed after the fix.
+
+Run with an isolated persist directory and local-only bindings, flags
+`--var COURT_AI_ENABLED:false --var COURT_EDUCATION_ENABLED:true`, then
+`node scripts/check-education-api.mjs http://127.0.0.1:8798`.
+The test creates synthetic accounts and deletes only its own synthetic court;
+it does not clear unrelated records. A documentation-range synthetic network
+address separates local rate buckets; the helper refuses non-loopback targets.
+Earlier attempts on port 8794 hit overlapping existing listeners and are NOT
+counted as current-runtime validation. No old user process/data was removed.
+The successful test is not a browser/Unity test, post-test/full-court end-to-end
+test, alarm-delivery test, production deployment or human education experiment.

@@ -18,7 +18,12 @@ export async function handleCourtEducation(request:Request,env:AppEnv,respond:Re
   if(request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()!=='application/json')return respond(null,415);
   const raw=await readTextWithLimit(request.body,4096);
   if(raw.tooLarge)return respond(null,413);if(raw.invalidEncoding)return respond(null,400);body=raw.text;
- }else if(request.body!==null)return respond(null,400);
+ }else{
+  // workerd may expose an empty stream for a bodyless DELETE. Reject bytes,
+  // not the existence of a stream, without buffering an unbounded body.
+  const raw=await readTextWithLimit(request.body,0);
+  if(raw.tooLarge||raw.invalidEncoding)return respond(null,400);
+ }
  const operation=request.method==='GET'?'view':request.method==='DELETE'?'withdraw':'apply';
  const result=await env.COURT_ROOM.getByName(id).education(session.user.id,operation,body);
  if('status' in result)return respond(null,result.status);

@@ -122,4 +122,5 @@ test('education route enforces authentication, CSRF, limits and owner-derived RP
   result=r;const response=await call('POST',headers,'{}');assert.equal(response.status,status);assert.equal((await response.json()).data,null);
  }
  result={code:'WITHDRAWN'};assert.equal((await call('DELETE')).status,200);
+ assert.equal((await call('DELETE',headers,'')).status,200,'empty body stream is not nonempty content');
 });
