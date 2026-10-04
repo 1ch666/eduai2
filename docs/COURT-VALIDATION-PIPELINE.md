@@ -1,4 +1,4 @@
-# Ordered deterministic action validation — candidate
+# Ordered deterministic action validation
 
 Server-only typed contract lives in `src/court-rules.ts`:
 `CourtValidationStage`, `CourtValidationContext`, `CourtValidationHooks` and
@@ -30,11 +30,25 @@ Compatibility: legal existing flows keep their actions and result shapes. Invali
 stored configuration or forged reviewed/ruling sets now reject instead of being
 treated as completed investigation. No stored record is rewritten, no schema
 migration, no data deletion. Rollback is previous code only and restores the old
-weaker guards. This candidate has not been deployed.
+weaker guards.
 
 Tests: `node --test scripts/test-court.mjs scripts/test-court-validation.mjs`
 passes seven groups: all six cases/all supported roles, ordered short-circuit,
 veto/exception handling, state preservation, and forged/duplicate completion
 lists. Full local `node scripts/ci-fast.mjs` passed (including TypeScript,
 all fast suites, frontend contracts and unchanged Unity artifact checks).
-Remote CI and actual runtime release evidence must be added before release.
+
+## Release evidence — 2026-10-04
+
+Source `305897715eeae4be35df735a4c16f0382981bee2`; GitHub CI `37169405143`
+passed both fast checks and disposable workerd HTTP/RPC integration. Deployment
+dry-run and `deploy --keep-vars --strict` passed. Worker version:
+`acb2d090-7978-45b6-a2d4-22ec526c2bab`; upload 489.82 KiB / gzip 111.83 KiB,
+startup 4 ms. No static assets, bindings, schema or secrets changed. Existing
+uncommitted Ollama comments/whitespace were present; executable provider code
+matches source. Rollback target: `39be10c6-e93c-475c-8004-313fcd6ac882`.
+
+Post-deploy anonymous capabilities/cases returned 200; v2 session read returned
+401 with apiVersion 2, HTTP_401, null data and matching X-Request-ID. These probes
+confirm reachability/auth rejection, not authenticated production action flows.
+No production user/session records or model calls were created for this check.

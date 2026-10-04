@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-ae1cf00 / Worker 954c7d93-ae6f-4c57-b405-2e760ae4d190 (creation + genesis audit).
-CI 37168445198 and deploy/dry-run passed; release evidence in COURT-V2-CREATION.md.
+3058977 / Worker acb2d090-7978-45b6-a2d4-22ec526c2bab (ordered action validation).
+CI 37169405143 and deploy/dry-run passed; evidence in COURT-VALIDATION-PIPELINE.md.
 Anonymous production probes passed; authenticated private-history acceptance remains
 open. Original unrelated README changes remain uncommitted.
 
@@ -45,11 +45,13 @@ open. Original unrelated README changes remain uncommitted.
 
 ## Latest verified increment — 2026-10-04
 
-Candidate: ordered schema/fact/role/evidence/procedure/policy action validation
+Released 3058977: ordered schema/fact/role/evidence/procedure/policy action validation
 now runs before reducer mutation. Trusted synchronous fact/role/policy hooks can
 only veto; literal true cannot bypass built-in rules. Duplicate or unknown
 reviewed evidence/ruling IDs no longer satisfy equal-length completion checks.
-Full local fast CI passed; not yet deployed. Semantic hook adapters and other
+Full local fast CI and remote CI 37169405143 passed; Worker
+acb2d090-7978-45b6-a2d4-22ec526c2bab deployed. Anonymous 200/200/401 checks passed,
+not authenticated production acceptance. Semantic hook adapters and other
 mutation paths remain open. See COURT-VALIDATION-PIPELINE.md.
 
 Released e244260: request IDs are fenced across legacy/versioned actions and NPC
