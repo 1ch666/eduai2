@@ -45,9 +45,12 @@ open. Original unrelated README changes remain uncommitted.
 
 ## Latest verified increment — 2026-09-28
 
-2026-10-04 candidate: v2 DELETE with strict v1 command identity, version fencing,
+2026-10-04 release 6ca74cf / Worker 41233f8b-5385-4d01-92c7-c207667ab246:
+v2 DELETE with strict v1 command identity, version fencing,
 atomic content erasure and durable terminal receipt. Local fast gate 425 tests
-and real workerd HTTP checks passed; not yet deployed. Additive one-row receipt
+and real workerd HTTP checks passed; CI 37166684020 and deployment passed.
+Production anonymous GET/DELETE 401 and public read probes passed; authenticated
+production deletion/recovery remains unverified. Additive one-row receipt
 table, legacy API preserved, no actual user data deleted. See COURT-API-V2.md.
 Creation versioning, complete mutation provenance and broader goal remain open.
 

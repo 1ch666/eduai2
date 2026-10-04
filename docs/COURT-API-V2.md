@@ -54,7 +54,25 @@ redeployment. Never automatically retry an uncertain mutation through another
 version. Creation and other platform API contracts still require
 separate versioning work; unimplemented v2 routes return a v2 404.
 
-## Versioned deletion candidate — 2026-10-04 (not deployed)
+## Versioned deletion — released 2026-10-04
+
+Source `6ca74cf1300dc3b8b8df5514261a6ed679cd1a1e`; CI `37166684020`
+passed fast checks and local-api. Deployment dry-run and actual deploy with
+--keep-vars --strict passed. Worker version
+`41233f8b-5385-4d01-92c7-c207667ab246`, bundle 479.08 KiB / gzip 110.17 KiB,
+startup 2 ms. Ten site-name/static assets updated; no Unity build changed.
+Working tree also contained user-owned Ollama comments only (manual redirect
+behavior already committed); README/test comments/untracked AGENTS were not
+included in the release commit. No Secrets or bindings changed.
+
+Production probes: homepage 200 with requested Chinese name, capabilities/cases
+200, anonymous v2 GET and DELETE 401 with v2 error envelope. The DELETE probe
+used a synthetic all-zero UUID and no credentials; no real case was deleted.
+Authenticated production deletion, new-table persistence and index recovery are
+NOT yet production-verified. These were exercised only in local workerd.
+Rollback reference: previous active Worker
+`50e0524e-777f-46cc-aa85-09f99d74b757`; do not drop either deletion guard table.
+The previous version was observed in Cloudflare, not assumed from Git history.
 
 DELETE `/api/v2/court/sessions/:sessionId` now accepts the existing explicit v1
 command shape, with actionId=`session.delete` and empty targetId/text. Login,
@@ -89,7 +107,8 @@ per deleted room; no ALTER, DROP, binding or secret changes, no backfill. Rollba
 keeps this table and existing `court_deleted` guard intact. Old code ignores the
 new receipt and still honors deletion; v2 DELETE becomes unavailable until
 redeployment. Never restore an older archive over a deletion guard. No production
-migration/restore or user-data deletion was executed in this batch.
+restore or user-data deletion was executed in this batch. The additive table is
+initialized lazily when a production CourtRoom instance starts after deployment.
 
 Evidence: TypeScript and local fast gate 425 tests passed; actual local workerd
 HTTP suite passed authenticated/foreign-owner/CSRF/stale-version checks, parallel
