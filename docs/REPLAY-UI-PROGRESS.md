@@ -18,8 +18,8 @@ types、TypeScript、部署乾跑全部通過，未以忽略型別方式略過�
 Pages 37194134526 與 Docker 37194175116 success。Docker 交接 artifact
 `eduai-court-docker` 實際存在，46,692,078 bytes，保留一天；由 CI 完成
 建置、容器執行與資源比對，未在本機另行下載驗證。它仍為靜態預覽，
-不包含正式登入／AI 後端。Fast CI 37194134931 的 checks 已通過，
-local-api 於本筆記記錄時仍執行中，不能先宣稱全數通過。
+不包含正式登入／AI 後端。Fast CI 37194134931 最終 success，
+checks 與 local-api 均通過；不將本機合成測試稱為正式使用者實驗。
 Worker 與 Pages 的 action-panel.js、replay-panel.js 都是 HTTP 200，
 正規化換行後與來源相同。未改 Unity 成品、migration、Secret、權限或
 付費方案；教育研究仍延後，整個 Game / Education Phase 尚未完整驗收。
