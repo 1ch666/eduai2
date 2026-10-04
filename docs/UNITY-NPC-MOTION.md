@@ -22,7 +22,27 @@ CourtPlayTests 新增實際 torso 存在、四情緒、重复套用不累積、
 `COURT_WARDROBE_PREVIEW_RENDERED` 並正常結束；圖片位於
 `court-game/Logs/wardrobe-sit-{emotion}.png`。預覽不保存／覆寫正式場景，
 原有 Render / RenderSeated 的檔名保持相容。
-新 WebGL 建置進行中，尚未發布，亦未完成本批動態畫面的視覺驗收。
+新 Release WebGL 已 exit 0，revision `5f1234cfe7c9464f`，日誌
+`outputs/npc-expression-build-20261004.log`。Gzip 完整性、四檔 revision、
+loader/WASM 配對及下載門檻檢查通過。2026-10-04 實際大小比較如下，
+前版為當時工作樹 `play/`，不是早期文件的歷史數字：
+
+| 資源 | play 前版 bytes | 新候選 bytes |
+| --- | ---: | ---: |
+| data | 15,322,609 | 15,324,509 |
+| wasm | 5,869,417 | 5,870,920 |
+| framework | 83,199 | 83,199 |
+| loader | 48,540 | 48,540 |
+| touch | 5,172 | 5,172 |
+| 合計 | 21,328,937 | 21,332,340 |
+
+增加 3,403 bytes；不含 HTML、HTTP header 與快取效果，不宣稱首載變快。
+本機 IAB Chromium `http://127.0.0.1:8088/?local=1` 已自動載入 100%、
+保留封面，按開始後顯示人物、法庭與準星，Pointer Lock 拒絕時呈現拖曳
+相容模式。該次 console error/warn 為空，截圖
+`outputs/npc-expression-webgl-20261004.jpg`。這只驗證獨立遊客入口載入，
+不等於雲端 NPC 事件動畫、所有操作或手機驗收。尚未替換 play/、發布
+或重建此候選版本的 Docker，亦未完成本批動態畫面的視覺驗收。
 後端 publicCourtCast 仍主要輸出 sitting / neutral；事件表現接線、
 轉頭目標、降低動態效果、實際外觀及手機驗收尚未完成。
 
