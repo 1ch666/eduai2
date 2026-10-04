@@ -93,8 +93,23 @@ securely erased by this operation. No restoration of the deleted case is offered
 Retry the **identical DELETE** after a lost response/500; never generate fresh IDs.
 The receipt survives restart and old-route deletion retries. Different command
 after deletion returns 409, foreign owner 404. A scene deleted by the old route
-has no v2 receipt: return 409 rather than inventing one. Existing GET requests/:id
-does not recover deletion; it only recovers v1 action/NPC commands.
+has no v2 receipt: return 409 rather than inventing one.
+
+Candidate extension (not yet deployed): GET
+`/api/v2/court/sessions/:sessionId/requests/:requestId` also recovers the original
+deletion receipt for its authenticated owner. Unknown commands, foreign owners
+and legacy deletions return 404; malformed IDs return 400. Persisted receipt
+corruption fails closed with a generic 500. The deleted-room query is SELECT-only
+and exposes no erased action, dialogue or private state. Existing v1 behavior is
+unchanged. This confirms **room erasure only**, not second-DO index cleanup;
+retry the original DELETE after an ambiguous failure to finish cleanup.
+No schema/binding migration is needed. Rollback removes this new GET capability
+but preserves identical-DELETE recovery and all deletion guards.
+Local evidence: 64 focused journal/handler tests, TypeScript, full fast gate and
+actual isolated workerd HTTP tests passed on 2026-10-04. The HTTP test checks
+unauthenticated/foreign-owner denial and recovers the exact deletion DTO; the
+SQLite test forbids writes while querying after object reconstruction. Remote
+CI and authenticated production acceptance are not inferred from these checks.
 
 The room commits first, then Learner removes its index/generated/random copies.
 These two DOs are not a distributed transaction. If index cleanup fails, return

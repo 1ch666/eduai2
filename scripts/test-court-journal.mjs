@@ -476,6 +476,35 @@ test('v2 deletion erases content, preserves a stable retry receipt and never rev
   restarted.remove('owner');assert.deepEqual(restarted.removeV2('owner',command),result,'legacy retry preserves v2 guard');
  }finally{db.close();}
 });
+test('v2 outcome recovers deletion read-only after restart, not private content or other owners',()=>{
+ const {room,db,ctx,id}=setup();try{
+  const action=mutation(id),event=room.actionV1('owner',action);
+  assert.deepEqual(room.outcomeV2('owner',id,action.requestId),event);
+  const command={...mutation(id,1),actionId:'session.delete'},result=room.removeV2('owner',command);
+  const restarted=new CourtRoom(ctx,{}),exec=ctx.storage.sql.exec;
+  ctx.storage.sql.exec=(query,...args)=>{assert.match(query,/^SELECT /,'recovery must not write');return exec(query,...args);};
+  assert.deepEqual(restarted.outcomeV2('owner',id,command.requestId),result);
+  assert.equal(restarted.outcomeV2('other',id,command.requestId).status,404);
+  assert.equal(restarted.outcomeV2('owner',crypto.randomUUID(),command.requestId).status,404);
+  assert.equal(restarted.outcomeV2('owner',id,action.requestId).status,404);
+  assert.equal(restarted.outcomeV2('owner',id,'invalid').status,400);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM state').get().n,0);
+ }finally{db.close();}
+});
+test('v2 deletion recovery rejects corrupt persisted receipts and never invents legacy results',()=>{
+ for(const change of ["schema_version=2","event_id='invalid'","deleted_at='invalid'","payload='{}'"]){
+  const {room,db,id}=setup();try{
+   const command={...mutation(id),actionId:'session.delete'};room.removeV2('owner',command);
+   db.exec(`UPDATE court_v2_deletion SET ${change}`);
+   assert.equal(room.outcomeV2('other',id,command.requestId).status,404);
+   assert.throws(()=>room.outcomeV2('owner',id,command.requestId),/Invalid deletion receipt/);
+  }finally{db.close();}
+ }
+ const {room,db,id}=setup();try{
+  room.remove('owner');assert.equal(room.outcomeV2('owner',id,crypto.randomUUID()).status,404);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM court_v2_deletion').get().n,0);
+ }finally{db.close();}
+});
 test('v2 deletion rollback preserves content and rejects reused action identities',()=>{
  const {room,db,ctx,id}=setup();try{
   const action=mutation(id);room.actionV1('owner',action);

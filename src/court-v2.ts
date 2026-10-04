@@ -43,6 +43,15 @@ export async function handleCourtV2(request:Request,env:AppEnv,send:Responder,
       await learner.removeCourt(m.sessionId);
       return respond(result);
     }
+    const outcome=url.pathname.match(/^\/api\/v2\/court\/sessions\/([0-9a-f-]{36})\/requests\/([0-9a-f-]{36})$/i);
+    if(outcome){
+      if(request.method!=='GET')return respond(null,405);
+      const session=await resolveSession(request,env);if(!session)return respond(null,401);
+      const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if(!uuid.test(outcome[1])||!uuid.test(outcome[2]))return respond(null,400);
+      const result=await env.COURT_ROOM.getByName(outcome[1]).outcomeV2(session.user.id,outcome[1],outcome[2]);
+      return respond(result,'status' in result?result.status:200);
+    }
     if(url.pathname.endsWith('/events')){
       if(request.method!=='GET')return respond(null,405);
       const session=await resolveSession(request,env);if(!session)return respond(null,401);

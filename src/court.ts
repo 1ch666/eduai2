@@ -18,7 +18,7 @@ import {publicAuditEvent} from './court-audit';
 import {initializePrivateJournal} from './court-private-journal';
 import {reserveStudyAttempt,type StudyKind} from './providers/study-attempts';
 import {parseRandomCaseRequest,randomCourtConfig,RandomConfigError} from './court-random';
-import {initializeDeletion,eraseCourtContent,deleteCourt} from './court-deletion';
+import {initializeDeletion,eraseCourtContent,deleteCourt,deletionOutcome} from './court-deletion';
 
 type NpcNotApplied={apiVersion:1;requestId:string;sessionId:string;caseId:string;outcome:'not-applied';reason:'expired'|'state-changed'};
 export class CourtRoom extends DurableObject<AppEnv> {
@@ -117,6 +117,13 @@ export class CourtRoom extends DurableObject<AppEnv> {
       });
     }
     return {...event.snapshot,requestId};
+  }
+  outcomeV2(owner:string,sessionId:string,requestId:string){
+    if(!validProtocolUuid(sessionId)||!validProtocolUuid(requestId))return {status:400 as const};
+    if(this.ctx.storage.sql.exec('SELECT id FROM court_deleted WHERE id=1').toArray().length)
+      return deletionOutcome(this.ctx.storage.sql,owner,sessionId,requestId);
+    const state=this.read();if(!state||state.id!==sessionId||state.owner!==owner)return {status:404 as const};
+    return this.outcomeV1(owner,requestId);
   }
   outcomeV1(owner:string,requestId:string){
     const s=this.read();if(!s||s.owner!==owner)return {error:'場次不存在',status:404};

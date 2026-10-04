@@ -54,6 +54,13 @@ const config={caseId:'sale',role:'judge',claimantAge:20,claimantHearingAge:20,re
  const removed=await Promise.all([remove(b),remove(b)]);
  assert.ok(removed.every(r=>r.status===200));assert.deepEqual(removed[0].data.data,removed[1].data.data);
  assert.equal(removed[0].data.stateVersion,2);
+ const deletionOutcome=v2+'/requests/'+deletion.requestId;
+ assert.equal((await call(deletionOutcome)).status,401);
+ assert.equal((await call(deletionOutcome,undefined,a)).status,404);
+ const recoveredDeletion=await call(deletionOutcome,undefined,b);
+ assert.equal(recoveredDeletion.status,200);assert.equal(courtV2Response(recoveredDeletion.data),true);
+ assert.deepEqual(recoveredDeletion.data.data,removed[0].data.data);
+ assert.equal((await call(v2+'/requests/'+command.requestId,undefined,b)).status,404);
  assert.equal((await remove(b,{...deletion,idempotencyKey:crypto.randomUUID()})).status,409);
  assert.equal((await call(get,undefined,b)).status,404);
  assert.equal((await call('/api/court/sessions',undefined,b)).data.sessions.some(s=>s.id===id),false);

@@ -47,6 +47,20 @@ test('v2 unknown routes cannot fall through to creation/deletion and preflight d
  assert.equal(denied.status,403);assert.equal(courtV2Response(await denied.json()),true);
 });
 
+test('v2 outcome requires login, validates identifiers and never invokes mutation/index cleanup',async()=>{
+ const requestId=crypto.randomUUID();let reads=0;
+ const env={ACCOUNT_STORE:{getByName:()=>({session:async()=>({user:{id:'owner'}})})},
+  COURT_ROOM:{getByName:sessionId=>({outcomeV2:async(owner,sid,rid)=>{
+   reads++;assert.equal(owner,'owner');assert.equal(sessionId,id);assert.equal(sid,id);assert.equal(rid,requestId);return {status:404};
+  }})}};
+ const url=path+'/requests/'+requestId,headers={Cookie:'__Host-civic_session='+'a'.repeat(64)};
+ assert.equal((await handleCourtV2(new Request(url),env,send,trace,origin)).status,401);
+ assert.equal((await handleCourtV2(new Request(url,{method:'POST',headers}),env,send,trace,origin)).status,405);
+ assert.equal((await handleCourtV2(new Request(path+'/requests/'+'0'.repeat(36),{headers}),env,send,trace,origin)).status,400);
+ assert.equal(reads,0);
+ const r=await handleCourtV2(new Request(url,{headers}),env,send,trace,origin);
+ assert.equal(r.status,404);assert.equal(reads,1);assert.equal(courtV2Response(await r.json()),true);
+});
 test('v2 deletion checks session, CSRF, rate and strict command before RPC, and retries index cleanup',async()=>{
  const command={apiVersion:1,requestId:crypto.randomUUID(),idempotencyKey:crypto.randomUUID(),sessionId:id,caseId:'sale',expectedStateVersion:0,actionId:'session.delete',targetId:'',text:''};
  const deleted={apiVersion:2,requestId:command.requestId,idempotencyKey:command.idempotencyKey,sessionId:id,eventId:crypto.randomUUID(),previousVersion:0,stateVersion:1,timestamp:new Date().toISOString(),outcome:'deleted'};

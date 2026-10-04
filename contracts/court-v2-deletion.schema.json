@@ -1,7 +1,7 @@
 {
  "$schema":"http://json-schema.org/draft-07/schema#",
  "$id":"urn:eduai:court:v2:deletion",
- "$comment":"DELETE /api/v2/court/sessions/{sessionId} accepts the existing v1 mutation shape with actionId=session.delete, empty targetId/text. Only exact retries recover this terminal receipt; a new command after deletion returns 409. No case content is retained.",
+ "$comment":"DELETE /api/v2/court/sessions/{sessionId} accepts the existing v1 mutation shape with actionId=session.delete, empty targetId/text. Exact DELETE retries or owner-only GET /api/v2/court/sessions/{sessionId}/requests/{requestId} recover this terminal receipt. GET confirms room erasure only, not learner-index cleanup; retry the original DELETE to complete that cleanup. A new command after deletion returns 409. No case content is retained.",
  "type":"object","additionalProperties":false,
  "required":["apiVersion","requestId","idempotencyKey","sessionId","eventId","previousVersion","stateVersion","timestamp","outcome"],
  "properties":{

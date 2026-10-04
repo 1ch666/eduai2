@@ -1,11 +1,11 @@
-# Backend goal acceptance ledger — 2026-09-28
+# Backend goal acceptance ledger — 2026-10-04
 
 Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-684bf9d / Worker 70e01207-a028-460c-a048-f755cf4f9e98 (private court journal).
-CI 36355287105 and deploy/dry-run passed; release evidence in COURT-PRIVATE-JOURNAL.md.
+6ca74cf / Worker 41233f8b-5385-4d01-92c7-c207667ab246 (versioned deletion).
+CI 37166684020 and deploy/dry-run passed; release evidence in COURT-API-V2.md.
 Anonymous production probes passed; authenticated private-history acceptance remains
 open. Original unrelated README changes remain uncommitted.
 
@@ -43,7 +43,16 @@ open. Original unrelated README changes remain uncommitted.
 | 29 priority | P0 parser/completion-path foundations implemented | Next: close graph/API/internal event gaps, then global backpressure/availability and restore; not endless test-only polishing |
 | 30 final outcome | Not achieved | Demonstrate every requirement above against runtime/source/artifacts; never infer completion from green CI |
 
-## Latest verified increment — 2026-09-28
+## Latest verified increment — 2026-10-04
+
+Candidate, not deployed: v2 requests/:requestId now reads the owner-only terminal
+deletion receipt after a lost response. Deleted-room recovery is SELECT-only;
+unknown commands, foreign owners and legacy deletion return 404, malformed IDs
+400, corrupt receipts generic 500. Existing action/NPC recovery is retained.
+GET confirms room deletion, not cross-DO index cleanup; exact DELETE retry still
+finishes cleanup. No schema/config change. 64 focused journal/handler tests,
+TypeScript, full local fast gate and actual local workerd HTTP suite passed.
+Remote CI/production verification still pending; whole goal remains incomplete.
 
 2026-10-04 release 6ca74cf / Worker 41233f8b-5385-4d01-92c7-c207667ab246:
 v2 DELETE with strict v1 command identity, version fencing,
