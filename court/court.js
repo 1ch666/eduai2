@@ -3,6 +3,7 @@ import {createEducationHost} from './education-host.js';
 import {createInvestigationBoard} from './investigation-board.js';
 import {createGuidancePresentation} from './guidance-presentation.js';
 import { installGamePanels } from './game-panels.js';
+import {createSceneView} from './scene-view.js';
 import { npcNotice } from './npc-status.js';
 import { installReplayPanel } from './replay-panel.js';
 import { installAccessibility } from './accessibility.js';
@@ -24,6 +25,7 @@ void fetch(base+'/api/capabilities').then(r=>{if(!r.ok)throw Error();return r.js
 }).catch(()=>{$('ai-status').textContent='無法確認 AI 設定，請檢查後端連線。';});
 let account=null,csrf='',hasRecoveryCode=true,cases=[],legalSources=[],view=null,busy=false,playTimer=null,recognition=null,cancelVoice=false;
 let sceneMode='seat';
+const sceneView=createSceneView({getFrame:()=>$('scene'),getView:()=>view,origin:location.origin});
 let npcBusy=false;
 const educationHost=createEducationHost({document,origin:location.origin,csrf:()=>csrf,getContext:()=>({owner:account?.id,sessionId:view?.id,supported:!onPages&&view?.config?.caseId==='tablet-time-discrepancy-v1'&&view?.config?.role!=='observer'})});
 $('notice').after(educationHost.element);
@@ -132,8 +134,8 @@ if(['respondentCounsel','assistant'].includes(role)&&respondentAid==='none')add(
 const box=$('setup-law');box.replaceChildren(node('h3',`本設定適用的程序：${procedureNames[t.procedure]}`));
 for(const n of notes){if(!n.text)continue;const p=node('p',n.text);if(n.warn)p.className='warn';box.append(p);if(n.swapTo)box.append(button('改用對應的範本：'+cases.find(c=>c.id===n.swapTo).title,()=>{$('case').value=n.swapTo;setup();}));}
 box.append(...legalSources.filter(s=>s.applies===t.procedure).map(s=>{const p=node('p');const a=node('a',s.title);a.href=s.url;a.target='_blank';a.rel='noopener';p.append(a,` · 查核 ${s.checked} · ${s.effective}`);return p;}));}
-function scene(mode=sceneMode,focus=false){sceneMode=mode;const iframe=$('scene');if(!iframe.hidden)iframe.contentWindow?.postMessage({type:'court-view',mode,role:view.config.role,procedure:view.procedure,focus},location.origin);}
-window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==$('scene').contentWindow)return;if(e.data?.type==='court-ready')scene();if(e.data?.type==='court-interact')$('actions').scrollIntoView({block:'center',behavior:'smooth'});});
+function scene(mode=sceneMode,focus=false){sceneMode=mode;sceneView.send(mode,focus);}
+window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==$('scene').contentWindow)return;if(e.data?.type==='court-ready'){sceneView.clear();scene();}if(e.data?.type==='court-interact')$('actions').scrollIntoView({block:'center',behavior:'smooth'});});
 function open(next){view=next;actionPanel.resume();$('setup').hidden=true;$('hearing').hidden=false;render();if(gameEntry){sceneMode='walk';$('show-scene').click();}scene();status(actionPanel.pending?'此場次有未確認操作，請開啟「伺服器程序操作」查詢結果。':'場次已保存。');}
 function render(){const v=view;$('hearing-title').textContent=v.title;$('stage').textContent=`${procedureNames[v.procedure]} · ${v.stageLabel} · ${labels[v.config.role]} · 版本 ${v.version}`;$('notice').textContent=v.notices.join(' ');$('facts').replaceChildren(...v.facts.map(x=>node('li',x)));
 $('evidence').replaceChildren(...v.evidence.map(e=>{const box=node('div');box.className='evidence';box.append(node('strong',e.title),node('p',e.text));if(v.actions.includes('review'))box.append(button(v.reviewed.includes(e.id)?'已查看':'記錄：已查看這份證據',()=>act('review',{evidenceId:e.id})));return box;}));

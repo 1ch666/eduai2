@@ -62,3 +62,8 @@ Development is paused at the user's request after this release. On explicit
 resume, first check Pages public asset freshness, then continue the existing
 Game/Education acceptance gaps before returning to Backend Goal Audit. Do not
 claim formal human experiments, full mobile acceptance or phase completion.
+
+Resumed at the user's explicit request later on 2026-10-04. Pages direct HTTP
+checks now return 200 and exact source equality for `court/court.js` and
+`play/index.html` against released commit d1cbe5e. The earlier connection/freshness
+uncertainty for those two files is resolved; no Pages settings were changed.

@@ -5,6 +5,27 @@ nonessential backend expansion. Preserve the complete original Backend Goal and
 `docs/BACKEND-GOAL-AUDIT.md`; resume all remaining items after this phase's acceptance.
 Do not mark the Backend Goal complete or discard it. This is a sequencing change.
 
+Latest priority clarification (2026-10-04): the user deferred educational-effect
+evidence, pre/post-test, survey and research collection work. Preserve existing
+modules and unfinished requirements, but now prioritize 3D evidence/NPC gameplay,
+contradictions, animation, review and demonstration. Do not fabricate study results
+or enable production collection while that work is deferred.
+
+### Resumed gameplay verification — 2026-10-04
+
+- Fixed host camera commands resetting the walking player's position on every
+  authoritative revision. Normal updates now preserve position; explicit view
+  selection, a changed session/role/procedure and a ready/reloaded Unity frame
+  still initialize the camera. Snapshot synchronization remains independent.
+- Real local WebGL keyboard testing: walked to the judge desk, opened the panel
+  with E and submitted the first procedure actions. Then walked to the evidence
+  box, opened it with E, investigated the scene (server version 2 to 3), saw the
+  newly discovered evidence and closed the panel without returning to spawn.
+- Added camera-command regression tests. No Unity binary changes were required.
+  This is desktop browser verification, not mobile-device acceptance. Live AI,
+  complete NPC animation, full demo acceptance and remaining game requirements
+  are not claimed complete. No educational-effect evidence was collected.
+
 ## Initial baseline and boundary (later verification entries below supersede this baseline)
 
 - Existing Unity WebGL court, NPC bridge, role knowledge projection, evidence
