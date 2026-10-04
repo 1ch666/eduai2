@@ -59,14 +59,32 @@ export async function generateModelCase(env:AppEnv,base:CaseTemplate,previous:Ca
  const theme=themes[crypto.getRandomValues(new Uint32Array(1))[0]%themes.length];
  // Server composition only; neither credentials nor provider selection are client input.
  const engine=provider;
+ const responseShape={title:'四字以上案件標題',summary:'案情摘要文字',facts:['第一項已知資訊','第二項已知資訊','第三項待查資訊'],evidence:[{title:'四字以上證物名稱',text:'說明證物能確認與不能確認的資訊'},{title:'另一項證物名稱',text:'說明第二項證物的內容與限制'}]};
  // Leave room for the model's reasoning tokens, but request a short narrative.
  // Admission still reserves this bounded budget; never retry a truncated draft.
- const r=await engine.generate({output:'json',temperature:.9,maxOutputTokens:3200,messages:[{role:'system',content:'產生繁體中文原創虛構教育案件。只輸出精簡JSON，整份約350至500中文字：title(4-20字)、summary(30-80字)、facts(恰好3項，每項20-50字)、evidence(恰好2項，每項只有title(4-20字)、text(40-90字))。不要法條、判決、真實人物、網址、年齡或法律協助資格。保持指定案件類型，使用「甲方、乙方」而非真名。每項證據必須說明能確認及不能確認的內容；不把主張當已證實事實。至少保留一項待查爭點。事件和證據組合須不同於避開清單，不可只換名字。內容是虛構練習，不下法律結論。'},{role:'user',content:JSON.stringify({category:base.id,procedure:base.procedure,theme,nonce:crypto.randomUUID(),avoid:previous.slice(-12).map(t=>({summary:t.summary,evidence:t.evidence.map(e=>e.title)}))})}]},{timeoutMs:40000,maxResponseBytes:18000}).catch(()=>({ok:false as const,code:'NETWORK' as const}));
+ const r=await engine.generate({output:'json',temperature:.9,maxOutputTokens:3200,messages:[{role:'system',content:'產生繁體中文原創虛構教育案件。只輸出精簡JSON，整份約350至500中文字：title(4-20字)、summary(30-80字)、facts(恰好3項字串，每項20-50字)、evidence(恰好2項物件，每項只有title(4-20字)、text(40-90字))。嚴格使用 responseShape 的四個根欄位與資料型別，替換範例文字，不新增任何欄位；證物名稱至少四個中文字。不要法條、判決、真實人物、網址、年齡或法律協助資格。保持指定案件類型，使用「甲方、乙方」而非真名。每項證據必須說明能確認及不能確認的內容；不把主張當已證實事實。至少保留一項待查爭點。事件和證據組合須不同於避開清單，不可只換名字。內容是虛構練習，不下法律結論。'},{role:'user',content:JSON.stringify({responseShape,category:base.id,procedure:base.procedure,theme,nonce:crypto.randomUUID(),avoid:previous.slice(-12).map(t=>({summary:t.summary,evidence:t.evidence.map(e=>e.title)}))})}]},{timeoutMs:40000,maxResponseBytes:18000}).catch(()=>({ok:false as const,code:'NETWORK' as const}));
  if(!r.ok&&r.code==='OUTPUT_TRUNCATED')throw Error('AI 案件輸出達長度上限，未接受不完整案件。');
  if(!r.ok&&r.code==='TIMEOUT')throw Error('AI 案件生成逾時。');
  if(!r.ok)throw Error(r.code==='QUOTA'?'AI 額度或頻率限制，未建立案件。':['RESPONSE_TOO_LARGE','INVALID_ENCODING','RESPONSE_FORMAT','OUTPUT_TRUNCATED','EMPTY_CONTENT'].includes(r.code)?'AI 案件格式不合格，未建立案件。':'AI 服務暫時無法生成案件。');
  let result:CaseTemplate|null=null;
- try{if(new TextEncoder().encode(r.value.text).byteLength<=18000)result=validateGenerated(JSON.parse(r.value.text),base);}catch{}
+ try{
+  if(new TextEncoder().encode(r.value.text).byteLength<=18000){
+   const value:unknown=JSON.parse(r.value.text);
+   result=validateGenerated(value,base);
+   if(!result)console.warn(JSON.stringify({event:'court.generation.rejected',...draftDiagnostics(value),baseId:base.id}));
+  }
+ }catch{console.warn(JSON.stringify({event:'court.generation.rejected',reason:'INVALID_JSON',baseId:base.id}));}
  if(!result)throw Error('AI 案件格式不合格，未建立案件。');
  return result;
+}
+
+// Diagnostics contain only schema booleans/counts, never model text or prompts.
+export function draftDiagnostics(value:unknown){
+ const v=value&&typeof value==='object'?value as Record<string,unknown>:{};
+ const sizes=(x:unknown)=>typeof x==='string'?x.length:-1;
+ return {reason:parseCourtNarrativeDraft(value)?'REACHABILITY':'SCHEMA',
+  exactKeys:Object.keys(v).sort().join(',')==='evidence,facts,summary,title',
+  titleLength:sizes(v.title),summaryLength:sizes(v.summary),
+  factLengths:Array.isArray(v.facts)?v.facts.slice(0,7).map(sizes):[],
+  evidenceLengths:Array.isArray(v.evidence)?v.evidence.slice(0,5).map(e=>({title:sizes(e?.title),text:sizes(e?.text),exactKeys:e&&typeof e==='object'&&Object.keys(e).sort().join(',')==='text,title'})):[]};
 }

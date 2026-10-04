@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {CASES} from '../src/court-rules.ts';
 const b=await build({entryPoints:['src/court-generation.ts'],bundle:true,platform:'node',format:'esm',write:false});
-const {validateGenerated,similarCase,generateModelCase,randomLibraryCase}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
+const {validateGenerated,similarCase,generateModelCase,randomLibraryCase,draftDiagnostics}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
 const adapter=await build({entryPoints:['src/providers/ollama.ts'],bundle:true,platform:'node',format:'esm',write:false});
 const {createOllamaProvider}=await import('data:text/javascript;base64,'+Buffer.from(adapter.outputFiles[0].text).toString('base64'));
 const draft={title:'虛構修理爭議',summary:'甲方送修的器材返還後無法啟動，雙方對保管經過有不同說法。',facts:['甲方交付器材進行檢測。','乙方表示交還時曾試機。','交還後甲方表示無法啟動，原因待查。'],evidence:[{title:'收件檢測單',text:'單上有簽收記錄，但沒有完整檢測結果。'},{title:'返還對話紀錄',text:'双方確認已交還器材，沒有提到當時是否能啟動。'}]};
@@ -25,6 +25,12 @@ test('valid model narrative keeps server procedure and reasoning assessment',()=
 });
 test('dedup compares narrative, not title or random ID',()=>{
  const a=validateGenerated(draft,CASES[0]);const b={...a,id:'different',title:'完全不同標題'};assert.equal(similarCase(a,b),true);assert.equal(similarCase(a,CASES[4]),false);
+});
+test('all base templates accept the narrative; diagnostics exclude narrative and arbitrary keys',()=>{
+ for(const base of CASES)assert.ok(validateGenerated(draft,base),base.id);
+ const diagnostic=draftDiagnostics({...draft,privateSecret:'do-not-log',evidence:[{title:'照片',text:'PRIVATE TEXT'}]});
+ assert.equal(diagnostic.reason,'SCHEMA');assert.equal(diagnostic.evidenceLengths[0].title,2);
+ assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE|do-not-log|privateSecret|照片|虛構修理/);
 });
 test('calls model once, parses bounded JSON and fails closed without AI',async()=>{
  const original=globalThis.fetch;let calls=0;
