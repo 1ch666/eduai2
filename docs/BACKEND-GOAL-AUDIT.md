@@ -4,8 +4,8 @@ Audit baseline: main 86d2cec. Original goal sections 0–30 remain in scope;
 frontend/Unity redesign and Claude's semantic research are not substituted for
 backend work. Status is **incomplete**. This ledger is navigation and acceptance
 criteria, not evidence that absent capabilities exist. Latest code deployment:
-3058977 / Worker acb2d090-7978-45b6-a2d4-22ec526c2bab (ordered action validation).
-CI 37169405143 and deploy/dry-run passed; evidence in COURT-VALIDATION-PIPELINE.md.
+f7125ce / Worker 0215495e-d5a6-47d8-b2dc-e67682683617 (account recovery race fence).
+CI 37170303750 and deploy/dry-run passed; evidence in ACCOUNT-CRYPTO-RACES.md.
 Anonymous production probes passed; authenticated private-history acceptance remains
 open. Original unrelated README changes remain uncommitted.
 
@@ -19,7 +19,7 @@ open. Original unrelated README changes remain uncommitted.
 | 5 events | Public journal plus readonly v2 audit verifies actor/previous version/idempotency from exact saved receipts; old unknown provenance stays null; malformed/cross-session rows rejected | Full internal state replay/restore and research export remain incomplete; legacy mutations/creation lack complete verified metadata |
 | 6 validator | Narrative parser and real transition completion gate deployed | Structured fact/evidence/witness/timeline/source graph contract, dangling refs/order validation; all legal config paths |
 | 7 fuzz | Seeded action/provider tests, malformed draft/protocol and import suites | Coverage across all requested boundaries, including malformed structured graph and full input/owner invariants |
-| 8 races | Concurrent action and recovery HTTP tests; NPC lost-response recovery | Forced crypto/storage interleavings, real two-tab scenario, complete delayed-response matrix |
+| 8 races | Concurrent action/recovery HTTP tests; NPC lost-response recovery; five forced account crypto interleavings with Node SQLite | Forced workerd/browser interleavings, real two-tab scenario, complete delayed-response matrix |
 | 9 security | Session/HTTP/account checks, bounded provider output | All endpoint quotas/negative authorization, CSP, abuse/audit framework; password-version migration audit |
 | 10 threat model | SECURITY-THREAT-MODEL.md created with likelihood/impact/mitigation/residual/test | Keep source/tests current; document actual mitigations as gaps close; model is not security proof |
 | 11 observability | HTTP + bounded provider records share server-created context; 318 fast tests | Authenticated pseudonymous context, retention, fallback/validator spans and actual cost accounting; sampled logs are not billing records |
@@ -29,7 +29,7 @@ open. Original unrelated README changes remain uncommitted.
 | 15 costs | Shared durable account/user/scope daily attempt budgets and shutdown flag; unknown tokens remain null; tutor/photo adoption deployed | Live quota/availability and accounting surfaces, retention upgrade, authenticated production verification; never auto-buy |
 | 16 availability | Public status reads actual account admission; config, switch, queue/budget/circuit errors distinguished; health explicitly not-probed; deployed 9353127 | Formal FULL/RAG_ONLY/SCRIPTED_AI_FALLBACK/NO_AI feature-level result contract, user-specific eligibility and provider-health freshness; admission READY is not live model success |
 | 17 migration | Existing additive wrangler tags, journal checkpoint tests | Versioned migration plan/dry-run/rollback/compatibility test for each redesign; MIGRATION.md is historical repo move, not complete DB plan |
-| 18 backup | AES-GCM bounded envelope and synthetic 12-table court restore drill implemented; b3a0c14 CI 36354758528 passed | Authorized complete exporters, key custody, workerd/production recovery and account/progress/experiment restore remain unfinished; see BACKUP-ENVELOPE.md |
+| 18 backup | AES-GCM bounded envelope, synthetic court SQLite drill and account/four-scope progress restore drill; account drill rejects occupied targets and excludes old sessions | Authorized complete exporters, domain archive validators, key custody, workerd/production recovery, cross-domain consistency and experiment restore remain unfinished; see BACKUP-ENVELOPE.md |
 | 19 CI | fast-checks two jobs, actual API harness; separate game Docker | Lint/format and migration gates, backend restore/container checks; heavy evaluation separate; update pinned action runtimes deliberately |
 | 20 features | Existing practice/planner/groups/rankings/progress/auth/court preserved | Real DO tests for remaining features; no content expansion required here |
 | 21 analytics | v1 six-kind numeric event contract, scoped reducer, SQLite withdrawal guards and transactional alarm scheduler; real local workerd SQL/alarm rollback passed; no production collection enabled | Versioned producers, consent/scoping, dedicated DO host, real timer delivery/eviction/retry tests and production integration; see LEARNING-EVENTS.md |
@@ -44,6 +44,14 @@ open. Original unrelated README changes remain uncommitted.
 | 30 final outcome | Not achieved | Demonstrate every requirement above against runtime/source/artifacts; never infer completion from green CI |
 
 ## Latest verified increment — 2026-10-04
+
+Account restore drill: `scripts/test-account-restore.mjs` passed; full local fast
+gate passed 449 tests plus frontend/type/Unity artifact checks. Two synthetic users
+retain IDs, password/recovery digests and all four self-reported progress scopes;
+old sessions are excluded, fresh authentication/recovery work, interrupted imports
+roll back and occupied targets are refused. Test-local importer only, not an
+operator-facing exporter or live recovery service. No production code deployment
+is needed for this test/documentation increment.
 
 Released 3058977: ordered schema/fact/role/evidence/procedure/policy action validation
 now runs before reducer mutation. Trusted synchronous fact/role/policy hooks can

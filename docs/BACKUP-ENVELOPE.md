@@ -74,4 +74,35 @@ The importer is intentionally test-local and accepts only harness-generated rows
 It is not an approved import API or a validator for arbitrary decrypted archives.
 No production backup was read, created or restored by this drill.
 
+## Isolated account/progress drill (2026-10-04)
+
+`node --test scripts/test-account-restore.mjs` uses the actual AccountStore
+constructor and methods with real in-memory Node SQLite and a mocked DO lifecycle.
+It inventories all five current tables so a future schema addition fails the test
+until its restore policy is reviewed. Two synthetic users and all four progress
+scopes are encrypted/decrypted into a separate empty database.
+
+Policy exercised: preserve `users`, `recovery_codes`, `progress`, `auth_limits`;
+exclude `sessions` **before encryption**. Restored users must authenticate again.
+Neither raw passwords, tokens, recovery secrets nor CSRF tokens are exported.
+Password/recovery digests remain sensitive and require the encrypted access controls
+above. User IDs remain stable for references from other domains.
+
+Verified: injected mid-import failure rolls back every row; restored persistent
+rows match the source; old sessions are invalid; fresh password login works;
+one-use recovery works and revokes the fresh session; old password/code reuse is
+rejected; both users' self-reported progress remains intact; populated destinations
+are refused; the source is unchanged. Cross-user progress lookup checks use trusted
+internal IDs, not HTTP authorization, and do not replace IDOR endpoint tests.
+
+This is a **test-local fixture importer**, not an arbitrary archive validator or
+production recovery tool. No production binding, schema, account, secret or file
+is read or changed. It does not cover account rollback across password changes,
+deleted-user resurrection, cross-domain recovery consistency, key custody,
+pagination beyond 4 MiB, live exports or Cloudflare/workerd restore. Those remain
+release gates before an operator-facing backup/restore service can be enabled.
+In particular, do not restore an older recovery-code digest over a live account:
+doing so could revive a consumed code. A separately approved recovery point and
+credential invalidation policy are necessary before any production recovery.
+
 Design reference: https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams
