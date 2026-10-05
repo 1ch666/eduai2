@@ -1,6 +1,7 @@
 // Offline retrieval evaluation: BM25 vs local dense embeddings vs RRF hybrid.
 // Uses only a local Ollama (http://127.0.0.1:11434); never a paid or remote API.
-// Usage: node scripts/eval-legal-retrieval.mjs [--models bge-m3,qwen3-embedding:0.6b] [--no-dense]
+// Competition build: BM25-only historical evaluator. Live Google retrieval is
+// checked separately with check-legal-rag-live.mjs; no unreviewed local models.
 // Every number written is measured in this run; failures are recorded, not filled in.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -11,12 +12,13 @@ import { buildBm25, searchBm25, reciprocalRankFusion, chunkSearchText } from '..
 
 process.chdir(fileURLToPath(new URL('../', import.meta.url)));
 const argv=process.argv.slice(2),arg=(name,fallback)=>{const i=argv.indexOf(name);return i<0?fallback:argv[i+1];};
-const MODELS=argv.includes('--no-dense')?[]:arg('--models','bge-m3,qwen3-embedding:0.6b').split(',');
+if(argv.includes('--models'))throw Error('Dense model evaluation is disabled in the competition build; use the reviewed Google live retrieval check');
+const MODELS=[];
 const OLLAMA='http://127.0.0.1:11434';
 // Dense runs cover the six laws the teaching cases use; BM25 is also reported
 // on the full current-law corpus so the subset effect is visible.
 const CORE_LAWS=['中華民國憲法','民法','中華民國刑法','刑事訴訟法','民事訴訟法','少年事件處理法'];
-const QUERY_PREFIX={'qwen3-embedding:0.6b':'Instruct: Given a legal question, retrieve the relevant statute article\nQuery:'};
+const QUERY_PREFIX={};
 const K=10;
 
 const bench=JSON.parse(readFileSync('benchmark/legal-retrieval-v0.json','utf8'));

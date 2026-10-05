@@ -1,7 +1,7 @@
 import type {AppEnv} from './env';
 
-export const LEGAL_EMBEDDING_MODEL='@cf/baai/bge-m3' as const;
-export const LEGAL_DIMENSIONS=1024;
+import {LEGAL_EMBEDDING_MODEL,legalQueryText,legalVector} from './legal-embedding';
+export {LEGAL_EMBEDDING_MODEL,LEGAL_DIMENSIONS} from './legal-embedding';
 export type LegalSource={id:string;law:string;article:string;text:string;url:string;snapshot:string;amended:string;part:number};
 export type LegalRetrieval={status:'disabled'|'unavailable'|'no_match'|'matched';sources:LegalSource[]};
 /** Public statutes only. Never add case facts, answers, chats or account data. */
@@ -22,9 +22,8 @@ export async function retrieveLegal(env:AppEnv,question:string):Promise<LegalRet
   let timer:ReturnType<typeof setTimeout>|undefined;
   try{
     return await Promise.race([ (async():Promise<LegalRetrieval>=>{
-      const output=await env.LEGAL_AI.run(LEGAL_EMBEDDING_MODEL,{text:[question.slice(0,400)]});
-      const vector='data' in output?output.data?.[0]:undefined;
-      if(!Array.isArray(vector)||vector.length!==LEGAL_DIMENSIONS||vector.some(n=>!Number.isFinite(n)))throw Error('embedding');
+      const output=await env.LEGAL_AI.run(LEGAL_EMBEDDING_MODEL,{text:[legalQueryText(question)]});
+      const vector=legalVector('data' in output?output.data?.[0]:undefined);
       const result=await env.LEGAL_INDEX.query(vector,{topK:4,returnMetadata:'all',namespace:env.LEGAL_CORPUS_VERSION});
       const sources:LegalSource[]=[];
       for(const match of result.matches.slice(0,4)){

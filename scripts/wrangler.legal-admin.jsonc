@@ -5,5 +5,5 @@
   "account_id": "cc0557f0f878420c1c1220c5c6b63bf2",
   "compatibility_date": "2026-10-04",
   "ai": { "binding": "LEGAL_AI", "remote": true },
-  "vectorize": [{ "binding": "LEGAL_INDEX", "index_name": "eduai2-law-bge-m3", "remote": true }]
+  "vectorize": [{ "binding": "LEGAL_INDEX", "index_name": "eduai2-law-google-mrl256", "remote": true }]
 }

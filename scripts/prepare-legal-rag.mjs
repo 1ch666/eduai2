@@ -1,6 +1,7 @@
 // Offline build only: never calls AI or changes the remote index.
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
+import {LEGAL_EMBEDDING_MODEL,LEGAL_DIMENSIONS,LEGAL_EMBEDDING_VERSION} from '../src/legal-embedding.ts';
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const root=new URL('../',import.meta.url);
 const manifest=JSON.parse(await readFile(new URL('law-data/manifest.json',root),'utf8'));
@@ -29,9 +30,9 @@ for(const shard of manifest.shards.filter(s=>s.source==='law')){
   }
 }
 if(found.size!==wanted.size)throw Error('Missing selected laws; do not publish incomplete manifest');
-if(documents.length>4800)throw Error('Corpus exceeds conservative 1024-dimensional free-tier storage budget; do not silently truncate');
-const version='law-'+hash(JSON.stringify(documents)).slice(0,16);
-const output=new URL('outputs/legal-rag/',root);await mkdir(output,{recursive:true});
-await writeFile(new URL('documents.json',output),JSON.stringify({version,model:'@cf/baai/bge-m3',dimensions:1024,documents}));
-await writeFile(new URL('manifest.json',output),JSON.stringify({version,snapshot:manifest.generatedAt,laws:[...found],documents:documents.length,storedDimensions:documents.length*1024,source:manifest.providerUrl,effectiveDatesVerified:false},null,2)+'\n');
-console.log(JSON.stringify({version,documents:documents.length,storedDimensions:documents.length*1024,output:output.pathname}));
+if(documents.length>4800)throw Error('Corpus exceeds reviewed migration storage budget; do not silently truncate');
+const version='law-'+hash(LEGAL_EMBEDDING_VERSION+JSON.stringify(documents)).slice(0,16);
+const output=new URL('outputs/legal-rag-google/',root);await mkdir(output,{recursive:true});
+await writeFile(new URL('documents.json',output),JSON.stringify({version,model:LEGAL_EMBEDDING_MODEL,dimensions:LEGAL_DIMENSIONS,documents}));
+await writeFile(new URL('manifest.json',output),JSON.stringify({version,embeddingVersion:LEGAL_EMBEDDING_VERSION,snapshot:manifest.generatedAt,laws:[...found],documents:documents.length,storedDimensions:documents.length*LEGAL_DIMENSIONS,source:manifest.providerUrl,effectiveDatesVerified:false},null,2)+'\n');
+console.log(JSON.stringify({version,documents:documents.length,storedDimensions:documents.length*LEGAL_DIMENSIONS,output:output.pathname}));
